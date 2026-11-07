@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e3a5f" />
+  <title>ISGP — Développement d'APIs et services web</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- Barre de navigation compacte (type documentation technique) -->
+  <div class="doc-topbar">
+    <div class="doc-topbar-left">
+      <button id="toggle-sidebar-btn" class="btn-sidebar-toggle" onclick="toggleCourseSidebar()" title="Masquer ou afficher le sommaire latéral">
+        Masquer le sommaire
+      </button>
+      <span class="doc-brand">ISGP</span>
+      <span class="doc-divider">/</span>
+      <span class="doc-title">Développement d'APIs et services web (Python &amp; Flask)</span>
+    </div>
+
+    <nav class="doc-nav-right">
+      <button class="tab-btn active" data-tab="course" onclick="switchTab('course')">
+        Support de Cours
+      </button>
+      <button class="tab-btn" data-tab="sandbox" onclick="switchTab('sandbox')">
+        Client HTTP &amp; Inspecteur
+      </button>
+      <button class="tab-btn" data-tab="runner" onclick="switchTab('runner')">
+        Atelier Python
+      </button>
+      <button class="tab-btn" data-tab="glossary" onclick="switchTab('glossary')">
+        Référentiel
+      </button>
+      <button class="tab-btn" data-tab="quiz" onclick="switchTab('quiz')">
+        Évaluations
+      </button>
+      <button id="install-pwa-btn" class="btn-xs hidden" onclick="installPWA()">
+        Installer PWA
+      </button>
+    </nav>
+  </div>
+
+  <!-- Conteneur principal pleine largeur -->
+  <main class="app-main">
+
+    <!-- ONGLET 1 : SUPPORT DE COURS -->
+    <section id="tab-course" class="tab-section active">
+      <div id="course-layout" class="course-layout">
+        <!-- Sommaire latéral rétractable -->
+        <aside id="course-sidebar" class="course-sidebar">
+          <div class="sidebar-header">
+            <h2>Sommaire (Jours 0 à 5)</h2>
+            <p class="muted-small">Cliquez sur un jour pour afficher ou masquer ses chapitres.</p>
+          </div>
+          <div id="days-nav-container" class="days-nav"></div>
+        </aside>
+
+        <!-- Contenu principal du cours -->
+        <div class="course-content">
+          <div id="day-header-banner" class="day-banner"></div>
+          <div id="lesson-detail-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET 2 : CLIENT HTTP & INSPECTEUR SERVEUR -->
+    <section id="tab-sandbox" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Client de Test HTTP &amp; Analyse d'Exécution Flask</h2>
+          <p>
+            Exécutez des requêtes HTTP réelles vers le serveur Flask et inspectez simultanément la requête émise,
+            le code Python exécuté côté serveur et la réponse JSON (avec en-têtes Rate Limit et Bearer Token).
+          </p>
+        </div>
+        <div class="preset-buttons">
+          <span class="muted-small">Requêtes types :</span>
+          <button class="btn-chip" onclick="loadSandboxPreset('POST', '/api/sandbox/auth/token', JSON.stringify({identifiant: 'stagiaire', mot_de_passe: 'isgp2026'}, null, 2))"><span class="verb-tag verb-post">POST</span> /auth/token (Émettre Token)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/auth/profil', '')"><span class="verb-tag verb-get">GET</span> /auth/profil (Bearer Token)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/ratelimit-demo', '')"><span class="verb-tag verb-get">GET</span> /ratelimit-demo (Quota / 429)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/admin-stats', '', {'X-API-Key': 'isgp-secret-2026'})"><span class="verb-tag verb-get">GET</span> /admin-stats (X-API-Key)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/formations', '')"><span class="verb-tag verb-get">GET</span> /formations</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('POST', '/api/sandbox/formations', JSON.stringify({titre: 'API REST avec Flask', formateur: 'Intervenant ISGP', duree_jours: 5, salle: 'Salle B'}, null, 2))"><span class="verb-tag verb-post">POST</span> /formations</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('PUT', '/api/sandbox/formations/1', JSON.stringify({titre: 'Architecture API REST (Avancé)', salle: 'Salle Conférence'}, null, 2))"><span class="verb-tag verb-put">PUT</span> /formations/1</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/formations/999', '')"><span class="verb-tag verb-get">GET</span> /formations/999 (404)</button>
+        </div>
+      </div>
+
+      <div class="sandbox-grid">
+        <!-- Panneau 1 : Construction de la requête -->
+        <div class="card sandbox-card">
+          <div class="card-header">
+            <span class="step-badge">1. REQUÊTE CLIENT (HTTP REQUEST)</span>
+          </div>
+
+          <div class="http-bar">
+            <select id="http-method" class="method-select" onchange="onMethodChange()">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+            <input type="text" id="http-url" class="url-input" value="/api/sandbox/formations" />
+            <button class="btn-primary" onclick="sendSandboxRequest()">
+              Envoyer
+            </button>
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label>Jeton d'accès <code>Authorization: Bearer &lt;token&gt;</code> (Jour 4) :</label>
+              <button class="btn-xs" onclick="quickGenerateAndInjectToken()">Générer &amp; injecter un Token</button>
+            </div>
+            <input type="text" id="http-header-bearer" class="input-full" oninput="updateCurlPreview()" placeholder="Jeton signé obtenu via POST /api/sandbox/auth/token" />
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label>Clé d'API machine <code>X-API-Key</code> (Jour 4) :</label>
+              <button class="btn-xs" onclick="document.getElementById('http-header-apikey').value='isgp-secret-2026'; updateCurlPreview();">Injecter isgp-secret-2026</button>
+            </div>
+            <input type="text" id="http-header-apikey" class="input-full" oninput="updateCurlPreview()" placeholder="Valeur attendue : isgp-secret-2026" />
+          </div>
+
+          <div id="http-body-group" class="form-group">
+            <div class="label-row">
+              <label>Corps de la requête (Payload JSON — requis pour <code>POST</code> / <code>PUT</code>) :</label>
+              <button class="btn-xs" onclick="formatSandboxJson()">Formater JSON</button>
+            </div>
+            <textarea id="http-body" rows="6" class="code-textarea" placeholder='{"titre": "Intitulé de la formation", "duree_jours": 5}'></textarea>
+          </div>
+
+          <div class="curl-preview-box">
+            <div class="label-row">
+              <span class="muted-small">Commande <code>curl</code> équivalente :</span>
+              <button class="btn-xs" onclick="copyText(document.getElementById('http-curl-preview').innerText)">Copier</button>
+            </div>
+            <pre id="http-curl-preview" class="code-block-mini"></pre>
+          </div>
+        </div>
+
+        <!-- Panneau 2 : Traitement Serveur Flask -->
+        <div class="card sandbox-card">
+          <div class="card-header">
+            <span class="step-badge step-server">2. TRAITEMENT SERVEUR (PYTHON / FLASK)</span>
+          </div>
+          <div id="flask-trace-steps" class="trace-steps-list">
+            <div class="trace-step">Exécutez une requête pour afficher le journal de traitement du serveur Flask.</div>
+          </div>
+          <div class="form-group">
+            <label>Gestionnaire de route (Handler) exécuté sur le serveur :</label>
+            <pre id="flask-handler-code" class="code-block">@app.route("/api/sandbox/formations", methods=["GET"])
+def lister_formations():
+    # En attente d'exécution d'une requête...</pre>
+          </div>
+        </div>
+
+        <!-- Panneau 3 : Réponse HTTP -->
+        <div class="card sandbox-card">
+          <div class="card-header">
+            <span class="step-badge step-response">3. RÉPONSE SERVEUR (HTTP RESPONSE)</span>
+            <span id="http-status-badge" class="status-pill status-neutral">En attente</span>
+          </div>
+          <div class="response-meta">
+            <span id="http-time-meta">Temps de réponse : -- ms</span>
+            <span>Content-Type: <code>application/json</code></span>
+          </div>
+          <div class="form-group">
+            <label>En-têtes HTTP de la réponse (Quotas Rate Limit, Auth, Content-Type) :</label>
+            <pre id="http-response-headers" class="code-block-mini">content-type: application/json</pre>
+          </div>
+          <div class="form-group">
+            <label>Charge utile JSON retournée :</label>
+            <pre id="http-response-json" class="code-block response-block">// Le corps JSON de la réponse s'affichera ici.</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- État de la base SQLite -->
+      <div class="card">
+        <div class="card-header">
+          <h3>État en Direct de la Table SQLite <code>formations</code> (<code>sandbox_isgp.db</code>)</h3>
+          <div class="btn-group">
+            <button class="btn-xs" onclick="refreshLiveTables()">Actualiser</button>
+            <button class="btn-xs" onclick="resetSandboxDB()">Réinitialiser la base et les compteurs Rate Limit</button>
+          </div>
+        </div>
+        <div id="live-formations-table" class="table-wrapper"></div>
+      </div>
+    </section>
+
+    <!-- ONGLET 3 : ATELIER PYTHON -->
+    <section id="tab-runner" class="tab-section">
+      <div class="runner-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Environnement d'Exécution Python</h3>
+              <p class="muted-small">Testez directement du code Python (structures de données, JSON, SQLite, tokens signés, appels HTTP) ou ouvrez les dossiers <code>day_0/</code> à <code>day_5/</code> dans votre éditeur.</p>
+            </div>
+            <div class="btn-group">
+              <button class="btn-secondary btn-sm" onclick="copyText(document.getElementById('studio-python-editor').value)">Copier le code</button>
+              <button class="btn-primary btn-sm" onclick="runStudioPython()">Exécuter le script</button>
+            </div>
+          </div>
+
+          <div class="preset-buttons" style="margin-bottom: 12px;">
+            <span class="muted-small">Modèles :</span>
+            <button class="btn-chip" onclick="loadStudioTemplate('dict')">Dictionnaires &amp; Listes</button>
+            <button class="btn-chip" onclick="loadStudioTemplate('json')">Sérialisation JSON</button>
+            <button class="btn-chip" onclick="loadStudioTemplate('sqlite')">Requêtes SQLite</button>
+            <button class="btn-chip" onclick="loadStudioTemplate('call_api')">Client Python avec Bearer Token</button>
+          </div>
+
+          <textarea id="studio-python-editor" rows="16" class="code-textarea"># Exécution directe d'un script Python côté serveur
+import json
+
+stagiaire = {
+    "prenom": "Amine",
+    "formation": "Développement d'APIs et services web",
+    "jour": 1,
+    "competences": ["HTTP", "JSON", "Flask", "Tokens", "Rate Limit"]
+}
+
+print("1. Lecture d'une clé :", stagiaire["prenom"])
+print("\n2. Sérialisation au format JSON :")
+print(json.dumps(stagiaire, indent=2, ensure_ascii=False))
+</textarea>
+
+          <div class="runner-output-box">
+            <div class="label-row" style="margin-top: 10px;">
+              <strong>Sortie standard (stdout / stderr) :</strong>
+              <span id="studio-run-status" class="muted-small">Prêt</span>
+            </div>
+            <pre id="studio-python-output" class="terminal-output">En attente d'exécution.</pre>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Arborescence des Fichiers Python du Cours</h3>
+              <p class="muted-small">Tous les exercices sont rangés par dossier journalier dans le répertoire du projet pour une ouverture directe dans VS Code ou Antigravity IDE.</p>
+            </div>
+          </div>
+
+          <div id="project-files-tree" class="files-tree-box"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET 4 : RÉFÉRENTIEL DES CONCEPTS -->
+    <section id="tab-glossary" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Référentiel des Concepts Fondamentaux</h2>
+          <p>Définitions méthodiques sans jargon implicite, accompagnées d'analogies fonctionnelles et d'exemples d'implémentation en Python et Flask.</p>
+        </div>
+        <div class="glossary-filters">
+          <input
+            type="search"
+            id="glossary-search"
+            class="search-input"
+            placeholder="Filtrer par terme (ex. Rate Limit, Token, Secret, JSON, Port, 429...)"
+            oninput="renderGlossary()"
+          />
+          <select id="glossary-category" class="select-input" onchange="renderGlossary()">
+            <option value="ALL">Toutes les catégories</option>
+            <option value="Sécurité & Architecture API">Sécurité, Tokens, Secrets &amp; Rate Limit</option>
+            <option value="Bases Python">Bases Python</option>
+            <option value="Architecture Web">Architecture Web &amp; HTTP</option>
+            <option value="Flask">Framework Flask</option>
+            <option value="Données">Données (JSON &amp; SQLite)</option>
+            <option value="Réseau">Réseau (IP &amp; Port)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="glossary-grid" class="glossary-grid"></div>
+    </section>
+
+    <!-- ONGLET 5 : ÉVALUATIONS PAR MODULE -->
+    <section id="tab-quiz" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Évaluations Formatives &amp; Validation des Acquis</h2>
+          <p>Questionnaires d'auto-évaluation par module avec corrigés détaillés permettant d'assurer un socle de connaissances homogène.</p>
+        </div>
+        <div id="quiz-day-selector" class="preset-buttons"></div>
+      </div>
+
+      <div id="quiz-container" class="quiz-container"></div>
+    </section>
+  </main>
+
+  <!-- Notification système -->
+  <div id="toast-notification" class="toast hidden"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
