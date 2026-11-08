@@ -1,222 +1,366 @@
 """
-Évaluations formatives (Jour 0 à Jour 5).
+Évaluations formatives approfondies (Jour 0 à Jour 5).
 Chaque question contient une justification méthodique sans prérequis implicite.
 """
 
 QUIZZES = {
     0: {
-        "title": "Diagnostic & Mise à Niveau (Fondations Python)",
-        "description": "Validation des structures de base Python (variables, listes, dictionnaires, fonctions) indispensables avant d'aborder le protocole HTTP.",
+        "title": "Évaluation Jour 0 : Fondations Python, Exceptions & Décorateurs",
+        "description": "Validation des structures de données Python, de l'accès défensif `.get()`, de la gestion d'exceptions `try/except` et du mécanisme des décorateurs `@`.",
         "questions": [
             {
                 "id": "q0-1",
-                "question": "En Python, quelle syntaxe déclare un Dictionnaire associant la clé \"ville\" à la valeur \"Alger\" ?",
+                "question": "Pourquoi préfère-t-on écrire `corps.get(\"duree_jours\", 5)` plutôt que `corps[\"duree_jours\"]` lors de la lecture d'un dictionnaire issu d'un client API ?",
                 "options": [
-                    '{"ville": "Alger"}',
-                    '["ville", "Alger"]',
-                    '(ville = Alger)',
-                    '<ville>Alger</ville>'
+                    "Parce que .get() renvoie la valeur par défaut (5) si la clé est absente, tandis que corps['duree_jours'] lève une exception KeyError qui provoque un crash HTTP 500",
+                    "Parce que les crochets [ ] sont interdits en Python 3",
+                    "Parce que .get() chiffre automatiquement la donnée",
+                    "Il n'y a aucune différence de comportement"
                 ],
                 "correct_index": 0,
-                "explanation": "Un dictionnaire Python est délimité par des accolades `{ }` et associe chaque `\"clé\"` à sa `\"valeur\"` via le séparateur `:`. Cette structure correspond directement au format JSON."
+                "explanation": "Un client externe peut toujours omettre un champ JSON. L'accès direct par crochets `d['cle']` lève une exception fatale `KeyError`, alors que `d.get('cle', defaut)` permet une programmation défensive sûre."
             },
             {
                 "id": "q0-2",
-                "question": "Quel est le rôle de l'instruction `return` à l'intérieur d'une fonction Python (`def ma_fonction():`) ?",
+                "question": "Que renvoie une fonction Python qui se termine sans instruction `return` explicite ?",
                 "options": [
-                    "Restituer le résultat produit par la fonction à l'instruction qui l'a appelée",
-                    "Arrêter définitivement le système d'exploitation",
-                    "Supprimer toutes les variables en mémoire",
-                    "Installer une bibliothèque externe"
+                    "La valeur spéciale None (qui correspond à null en JSON)",
+                    "Le nombre entier 0",
+                    "Une chaîne de caractères vide \"\"",
+                    "Le dictionnaire {}"
                 ],
                 "correct_index": 0,
-                "explanation": "L'instruction `return` transmet la valeur de sortie de la fonction. Dans Flask, la valeur retournée par une fonction de route constitue la réponse HTTP envoyée au client."
+                "explanation": "En Python, toute fonction qui atteint sa dernière ligne sans rencontrer `return` retourne implicitement `None`."
             },
             {
                 "id": "q0-3",
-                "question": "Soit la liste `modules = [\"HTTP\", \"Flask\", \"SQLite\"]`. Quelle est la valeur de `modules[0]` ?",
+                "question": "Quel est le rôle exact d'un décorateur `@mon_decorateur` placé au-dessus d'une fonction `def ma_route():` ?",
                 "options": [
-                    '"HTTP"',
-                    '"Flask"',
-                    'Une erreur car la numérotation commence à 1',
-                    '"SQLite"'
+                    "Envelopper la fonction ma_route dans une fonction d'ordre supérieur pour exécuter du code avant ou après elle (routage URL, vérification de Token, chronométrage)",
+                    "Transformer la fonction en commentaire ignoré par Python",
+                    "Supprimer la fonction de la mémoire vive",
+                    "Créer une table SQL portant le nom de la fonction"
                 ],
                 "correct_index": 0,
-                "explanation": "En Python, l'indexation des séquences commence toujours à `0`. Le premier élément est donc accessible via l'indice `0`."
+                "explanation": "La syntaxe `@mon_decorateur` est un sucre syntaxique pour `ma_route = mon_decorateur(ma_route)`. C'est le mécanisme central de Flask (`@app.route`, `@exiger_role`)."
+            },
+            {
+                "id": "q0-4",
+                "question": "Dans une API Web, pourquoi intercepte-t-on `ValueError` avec `try / except` lors de la conversion `int(request.args.get('page'))` ?",
+                "options": [
+                    "Pour renvoyer proprement une erreur HTTP 400 Bad Request au client si celui-ci envoie ?page=abc au lieu de laisser le serveur planter en HTTP 500",
+                    "Pour accélérer la vitesse du processeur",
+                    "Parce que la fonction int() ne fonctionne qu'à l'intérieur d'un bloc try",
+                    "Pour convertir automatiquement 'abc' en 100"
+                ],
+                "correct_index": 0,
+                "explanation": "Une erreur causée par une entrée invalide du client doit toujours être capturée (`try/except`) et traduite en erreur `4xx` (`400` ou `422`), jamais en crash `500 Internal Server Error`."
             }
         ]
     },
     1: {
-        "title": "Évaluation Jour 1 : Architecture Web, HTTP & JSON",
-        "description": "Validation du modèle Client/Serveur, des méthodes HTTP et de la classification des codes de statut.",
+        "title": "Évaluation Jour 1 : Réseau, Anatomie URI, Trame HTTP & JSON",
+        "description": "Validation de la pile réseau (DNS/TCP/TLS), du découpage RFC 3986 d'une URI, de la trame brute HTTP/1.1 et de la sérialisation JSON.",
         "questions": [
             {
                 "id": "q1-1",
-                "question": "Quelle est la distinction fondamentale entre un serveur Web classique et une API Web REST ?",
+                "question": "Dans l'URI `https://api.isgp.dz:8443/v1/formations?salle=Alger#details`, comment s'appelle la portion `salle=Alger` située après le point d'interrogation `?` ?",
                 "options": [
-                    "Le serveur Web classique renvoie du HTML destiné à l'affichage visuel, tandis que l'API renvoie des données structurées (JSON) exploitables par tout système logiciel",
-                    "Une API n'utilise pas le protocole HTTP",
-                    "Une API est réservée exclusivement aux téléphones mobiles",
-                    "Il n'existe aucune différence technique"
+                    "La Query String (chaîne de requête contenant les paramètres de filtrage/pagination)",
+                    "Le Path (chemin hiérarchique)",
+                    "Le Host (nom d'hôte)",
+                    "Le Header d'authentification"
                 ],
                 "correct_index": 0,
-                "explanation": "Une API découple les données (JSON) de la couche de présentation, permettant d'alimenter simultanément des interfaces Web, mobiles et des services tiers."
+                "explanation": "Selon la norme RFC 3986, la partie située après `?` est la **Query String** (lue dans Flask via `request.args`), tandis que `/v1/formations` est le **Path**."
             },
             {
                 "id": "q1-2",
-                "question": "Quelle méthode HTTP est normalisée pour CRÉER un nouvel enregistrement sur le serveur ?",
+                "question": "Dans une trame brute HTTP/1.1, qu'est-ce qui sépare obligatoirement le bloc des En-têtes (`Headers`) du Corps du message (`Body` JSON) ?",
                 "options": [
-                    "POST",
-                    "GET",
-                    "DELETE",
-                    "READ"
+                    "Une ligne vide (séquence CR+LF suivie de CR+LF : \\r\\n\\r\\n)",
+                    "Le mot-clé END_HEADERS",
+                    "Une série de trois tirets ---",
+                    "Un point-virgule ;"
                 ],
                 "correct_index": 0,
-                "explanation": "`GET` consulte, **`POST`** crée une ressource à partir du corps JSON transmis, `PUT` met à jour et `DELETE` supprime."
+                "explanation": "Le protocole HTTP impose une ligne strictement vide (`\\r\\n\\r\\n`) pour marquer la fin des métadonnées (Headers) et le début des octets de la charge utile (Body)."
             },
             {
                 "id": "q1-3",
-                "question": "Que signifie le code de statut HTTP `404 Not Found` ?",
+                "question": "Quelle est la différence entre les en-têtes HTTP `Content-Type` et `Accept` envoyés par un client ?",
                 "options": [
-                    "La route URL demandée ou l'identifiant ciblé n'existe pas sur le serveur",
-                    "La requête a été traitée avec succès",
-                    "Le serveur a bloqué le client pour dépassement de quota (Rate Limit)",
-                    "Une erreur de syntaxe Python a interrompu le serveur"
+                    "Content-Type indique le format du corps envoyé par le client (ex: application/json), tandis qu'Accept indique le format de réponse souhaité en retour",
+                    "Ils sont strictement identiques",
+                    "Accept sert à envoyer le mot de passe et Content-Type sert au Rate Limiting",
+                    "Content-Type n'existe que dans les réponses HTML"
                 ],
                 "correct_index": 0,
-                "explanation": "Le code `404` indique que la ressource demandée par le client est introuvable."
+                "explanation": "`Content-Type` décrit la charge utile présente dans le message courant ; `Accept` permet la négociation de contenu (*Content Negotiation*) pour la réponse."
+            },
+            {
+                "id": "q1-4",
+                "question": "En Python, quelle est la différence exacte entre `json.dumps(data)` et `json.loads(texte)` ?",
+                "options": [
+                    "json.dumps() sérialise un objet Python en chaîne JSON, tandis que json.loads() désérialise une chaîne JSON en objet Python (dict/list)",
+                    "json.dumps() supprime les données et json.loads() les sauvegarde sur disque",
+                    "json.dumps() lit un fichier SQLite",
+                    "L'un est réservé à GET et l'autre à DELETE"
+                ],
+                "correct_index": 0,
+                "explanation": "`dumps` (*dump string*) convertit `dict -> str JSON` ; `loads` (*load string*) convertit `str JSON -> dict`."
+            },
+            {
+                "id": "q1-5",
+                "question": "Dans une commande `curl`, quel est le rôle exact des options `-i`, `-X POST`, `-H` et `-d` ?",
+                "options": [
+                    "-i affiche la ligne de statut et les en-têtes HTTP de réponse, -X POST choisit la méthode HTTP, -H ajoute un en-tête (Header) et -d envoie le corps (Body JSON)",
+                    "-i installe Python, -X supprime le fichier, -H affiche l'aide et -d éteint le serveur",
+                    "-i chiffre le disque dur et -d télécharge une base SQLite",
+                    "Ces options ne fonctionnent qu'avec le protocole FTP"
+                ],
+                "correct_index": 0,
+                "explanation": "`curl -i -X POST -H 'Content-Type: application/json' -d '{...}' URL` est la commande universelle permettant d'envoyer un Payload JSON et d'inspecter la réponse complète du serveur."
             }
         ]
     },
     2: {
-        "title": "Évaluation Jour 2 : Routage et Paramètres avec Flask",
-        "description": "Validation du mécanisme `@app.route`, de `jsonify()` et de l'extraction des paramètres d'URL.",
+        "title": "Évaluation Jour 2 : Maturité REST, Pagination & Middlewares Flask",
+        "description": "Validation du nommage RESTful, de la pagination Offset/Limit, du filtrage/tri et des hooks `@before_request` / `@after_request`.",
         "questions": [
             {
                 "id": "q2-1",
-                "question": "Quel est le rôle du décorateur `@app.route(\"/api/bonjour\")` placé au-dessus d'une fonction Python ?",
+                "question": "Selon les standards d'architecture REST (Niveau 2 de Richardson), comment doit-on concevoir l'endpoint permettant de supprimer la formation n°42 ?",
                 "options": [
-                    "Enregistrer une règle d'aiguillage dans Flask pour exécuter cette fonction lorsqu'un client appelle l'URL `/api/bonjour`",
-                    "Ajouter un commentaire ignoré par l'interpréteur Python",
-                    "Télécharger le paquet Flask depuis Internet",
-                    "Créer une table dans la base de données"
+                    "Méthode DELETE sur l'URI nominale au pluriel : DELETE /api/formations/42",
+                    "Méthode GET sur l'URI : GET /api/supprimerFormation?id=42",
+                    "Méthode POST sur l'URI : POST /api/delete_formation_42",
+                    "Méthode PUT sur l'URI : PUT /api/formations/42/erase"
                 ],
                 "correct_index": 0,
-                "explanation": "Le décorateur `@app.route(...)` lie une URL et une méthode HTTP à la fonction Python qui doit traiter la requête."
+                "explanation": "En REST, l'URI désigne la ressource par un **nom au pluriel** (`/api/formations/42`) et la méthode HTTP (`DELETE`) exprime l'action à accomplir. Une requête `GET` ne doit jamais modifier ou supprimer d'état."
             },
             {
                 "id": "q2-2",
-                "question": "Lors d'un appel sur `/api/formations?ville=Alger`, quelle instruction Flask extrait la valeur `\"Alger\"` ?",
+                "question": "Dans un système de pagination `Offset / Limit`, si le client demande `?page=3&limit=10`, quelle est la valeur de l'indice de départ (`offset`) ?",
                 "options": [
-                    'request.args.get("ville")',
-                    'request.get_json()',
-                    'request.headers.get("ville")',
-                    'jsonify("ville")'
+                    "20 (calculé par la formule : (page - 1) * limit = (3 - 1) * 10)",
+                    "30",
+                    "3",
+                    "10"
                 ],
                 "correct_index": 0,
-                "explanation": "Les paramètres de requête situés après le point d'interrogation `?` dans l'URL sont exposés dans le dictionnaire `request.args`."
+                "explanation": "La page 1 couvre les indices `0..9` (`offset=0`), la page 2 couvre `10..19` (`offset=10`), et la page 3 commence à l'indice `20` (`offset = (3 - 1) * 10 = 20`)."
+            },
+            {
+                "id": "q2-3",
+                "question": "Pourquoi est-il indispensable d'utiliser un tuple de validation (`CHAMPS_TRI_AUTORISES = ('id', 'duree_jours')`) avant d'appliquer un paramètre de tri `?tri=...` ?",
+                "options": [
+                    "Pour empêcher le client de provoquer un crash KeyError ou une Injection SQL sur la clause ORDER BY en envoyant un nom de champ inexistant ou malveillant",
+                    "Pour limiter la taille de l'URL à 20 caractères",
+                    "Parce que Python ne sait trier que deux colonnes maximum",
+                    "Pour chiffrer les paramètres d'URL"
+                ],
+                "correct_index": 0,
+                "explanation": "Toute entrée utilisateur servant à désigner un nom de colonne ou d'attribut doit être validée contre une **liste blanche (*Whitelist*)** stricte."
+            },
+            {
+                "id": "q2-4",
+                "question": "À quoi sert l'en-tête `X-Request-ID` généré dans un middleware `@app.before_request` ?",
+                "options": [
+                    "À attribuer un identifiant unique (UUID) à chaque requête pour corréler facilement la réponse reçue par le client avec les journaux (logs) internes du serveur",
+                    "À remplacer le mot de passe de l'utilisateur",
+                    "À compresser le corps JSON",
+                    "À indiquer la version de Python installée"
+                ],
+                "correct_index": 0,
+                "explanation": "Le `X-Request-ID` (ou *Correlation ID*) permet à l'équipe d'exploitation de retrouver instantanément la trace exacte d'une requête dans des millions de lignes de logs."
             }
         ]
     },
     3: {
-        "title": "Évaluation Jour 3 : Opérations CRUD & Persistance SQLite",
-        "description": "Validation de la lecture du corps JSON, des codes 201/400 et des requêtes SQLite paramétrées.",
+        "title": "Évaluation Jour 3 : Validation RFC 7807, Idempotence, PUT vs PATCH & SQLite",
+        "description": "Validation des codes 400 vs 422, de l'idempotence (`Idempotency-Key`), des gestionnaires d'erreurs globaux et des requêtes SQL paramétrées.",
         "questions": [
             {
                 "id": "q3-1",
-                "question": "Lorsqu'un client transmet un objet JSON via une requête `POST`, quelle méthode Flask le convertit en dictionnaire Python ?",
+                "question": "Quelle est la différence précise entre les codes HTTP `400 Bad Request` et `422 Unprocessable Entity` ?",
                 "options": [
-                    "request.get_json()",
-                    "request.args.get()",
-                    "jsonify()",
-                    "sqlite3.connect()"
+                    "400 indique une erreur de syntaxe brute (JSON mal formé, accolade manquante), tandis que 422 indique un JSON syntaxiquement valide mais violant les règles métier (ex: duree_jours = -5)",
+                    "400 est une erreur serveur et 422 est un succès",
+                    "422 signifie que le serveur est éteint",
+                    "Il n'y a aucune différence"
                 ],
                 "correct_index": 0,
-                "explanation": "`request.get_json()` lit le corps (`Body`) de la requête HTTP et désérialise le JSON en dictionnaire Python."
+                "explanation": "`400` rejette une trame ou un JSON illisible par le parseur ; `422` indique que le serveur a bien décodé le JSON mais que les valeurs des champs ne respectent pas le contrat métier."
             },
             {
                 "id": "q3-2",
-                "question": "Pourquoi utilise-t-on des points d'interrogation `?` dans `conn.execute(\"SELECT * FROM formations WHERE id = ?\", (id,))` ?",
+                "question": "Quelle est la différence entre les méthodes HTTP `PUT` et `PATCH` sur `/api/formations/1`, et pourquoi `POST` utilise-t-il `Idempotency-Key` ?",
                 "options": [
-                    "Pour exécuter une requête paramétrée qui protège la base de données contre les attaques par Injection SQL",
-                    "Parce que SQLite ne connaît pas le signe =",
-                    "Pour accélérer l'affichage HTML",
-                    "Pour chiffrer le disque dur"
+                    "PUT remplace intégralement la ressource (idempotent), PATCH modifie partiellement les champs fournis, et Idempotency-Key empêche un POST répété de créer des doublons en cas de coupure réseau",
+                    "PUT supprime la ressource et PATCH la crée",
+                    "POST est naturellement idempotent sans en-tête",
+                    "PATCH sert uniquement à lire des données comme GET"
                 ],
                 "correct_index": 0,
-                "explanation": "Les requêtes paramétrées séparent strictement l'instruction SQL de la donnée fournie par l'utilisateur, neutralisant ainsi toute tentative d'injection SQL."
+                "explanation": "`PUT` remplace l'état complet (idempotent). `PATCH` applique un delta partiel. Comme `POST` n'est pas idempotent, l'en-tête `Idempotency-Key` garantit qu'un réessai réseau ne duplique pas l'opération."
+            },
+            {
+                "id": "q3-3",
+                "question": "Pourquoi configure-t-on des gestionnaires globaux `@app.errorhandler(404)` et `@app.errorhandler(Exception)` dans une API Flask ?",
+                "options": [
+                    "Pour garantir que l'API renvoie TOUJOURS du JSON structuré (et jamais une page HTML par défaut de Flask) même sur une URL inconnue ou une erreur imprévue",
+                    "Pour désactiver toutes les vérifications de sécurité",
+                    "Pour transformer toutes les erreurs 404 en 200 OK",
+                    "Pour supprimer la base de données en cas d'erreur"
+                ],
+                "correct_index": 0,
+                "explanation": "Par défaut, Flask renvoie des pages `<!doctype html>` sur les erreurs 404/405/500, ce qui fait planter les parseurs JSON des clients. Les `@app.errorhandler` assurent un contrat 100% JSON."
+            },
+            {
+                "id": "q3-4",
+                "question": "Pourquoi utilise-t-on obligatoirement des marqueurs `?` dans `conn.execute(\"SELECT * FROM formations WHERE id = ?\", (id,))` ?",
+                "options": [
+                    "Pour séparer le code SQL des données utilisateur (requête paramétrée) et neutraliser totalement les attaques par Injection SQL",
+                    "Parce que Python interdit les f-strings avec les chaînes contenant le mot SELECT",
+                    "Pour afficher des points d'interrogation dans le terminal",
+                    "Uniquement pour accélérer l'écriture du code"
+                ],
+                "correct_index": 0,
+                "explanation": "Concaténer une variable dans du SQL avec `f\"...\"` permet à un attaquant d'injecter des commandes SQL (`' OR '1'='1`). Les requêtes paramétrées `?` rendent l'injection SQL impossible."
             }
         ]
     },
     4: {
-        "title": "Évaluation Jour 4 : Cœur d'API — Secrets, Bearer Tokens & Rate Limiting",
-        "description": "Validation des mécanismes critiques de sécurité et de contrôle de flux en production.",
+        "title": "Évaluation Jour 4 : Secrets, Tokens, Refresh/RBAC (401 vs 403), Rate Limit & Webhooks",
+        "description": "Validation complète de l'architecture de sécurité : cryptographie, Bearer Tokens, RBAC, Rate Limiting et Webhooks HMAC.",
         "questions": [
             {
                 "id": "q4-1",
-                "question": "Quelle est la bonne pratique absolue pour gérer une clé secrète (`SECRET_KEY` ou clé API) dans une application Python ?",
+                "question": "Pourquoi ne faut-il JAMAIS stocker d'information confidentielle (ex: mot de passe ou numéro de carte) à l'intérieur du Payload d'un Bearer Token (JWT / itsdangerous) ?",
                 "options": [
-                    "La stocker hors du code source dans une variable d'environnement et la lire avec os.environ.get('API_SECRET_KEY')",
-                    "L'écrire directement en clair en haut du fichier app.py et la publier sur GitHub",
-                    "La passer dans l'URL sous la forme ?secret=123456",
-                    "L'afficher dans les messages d'erreur JSON pour faciliter le débogage"
+                    "Parce que le Payload d'un jeton signé est simplement encodé en Base64 (lisible par quiconque sans clé) : la signature HMAC empêche la modification mais ne chiffre pas le contenu",
+                    "Parce qu'un Token ne peut contenir que des nombres entiers",
+                    "Parce que Base64 détruit les caractères alphabétiques",
+                    "Parce que le serveur ne peut pas relire le Payload"
                 ],
                 "correct_index": 0,
-                "explanation": "Un secret ne doit jamais figurer en dur dans le code source versionné ni dans une URL. Il doit être injecté via l'environnement du serveur (`os.environ`)."
+                "explanation": "Un jeton signé garantit l'**intégrité** et l'**authenticité** (grâce à la signature HMAC calculée avec `SECRET_KEY`), mais son contenu Base64 est lisible en clair par toute personne possédant le jeton."
             },
             {
                 "id": "q4-2",
-                "question": "Comment un client transmet-il un jeton d'accès temporaire (`Bearer Token`) à une API REST ?",
+                "question": "Dans un contrôle d'accès par rôle (RBAC), quelle est la distinction exacte entre `401 Unauthorized` et `403 Forbidden` ?",
                 "options": [
-                    "Dans l'en-tête HTTP : Authorization: Bearer <le_jeton_signe>",
-                    "Dans le nom du fichier Python",
-                    "Dans l'en-tête Content-Type",
-                    "Uniquement par courrier électronique"
+                    "401 indique que le client n'est pas authentifié (jeton absent, expiré ou falsifié), tandis que 403 indique que le jeton est valide mais que le rôle de l'utilisateur ('stagiaire') est insuffisant pour la route ('admin')",
+                    "401 est pour les erreurs de base de données et 403 pour le Rate Limiting",
+                    "403 signifie que le jeton a expiré et qu'il faut utiliser le Refresh Token",
+                    "Ils sont interchangeables"
                 ],
                 "correct_index": 0,
-                "explanation": "Le standard RFC 6750 utilise l'en-tête HTTP `Authorization` suivi du préfixe `Bearer ` et du jeton signé."
+                "explanation": "`401` = défaut d'**Authentification** (« Qui êtes-vous ? »). `403` = défaut d'**Autorisation** (« Nous savons qui vous êtes, mais vous n'avez pas la permission »)."
             },
             {
                 "id": "q4-3",
-                "question": "Qu'est-ce qui empêche un client malveillant de modifier le contenu d'un jeton signé (ex. remplacer `\"role\": \"stagiaire\"` par `\"role\": \"admin\"`) ?",
+                "question": "Pourquoi utilise-t-on un couple `Access Token` (courte durée : 5 min) + `Refresh Token` (longue durée : 7 jours) plutôt qu'un seul jeton valable 7 jours ?",
                 "options": [
-                    "La signature cryptographique calculée avec la SECRET_KEY du serveur : toute modification invalide immédiatement la signature (BadSignature)",
-                    "Le fait que le réseau Internet refuse les mots 'admin'",
-                    "La taille maximale de l'URL",
-                    "Rien, le client peut librement modifier son jeton"
+                    "Pour limiter drastiquement la fenêtre de vulnérabilité si un Access Token est intercepté, tout en permettant au client de renouveler sa session sur /api/auth/refresh sans redemander le mot de passe",
+                    "Pour envoyer deux en-têtes Authorization simultanément à chaque requête GET",
+                    "Parce que Flask refuse les jetons de plus de 300 secondes",
+                    "Pour doubler la taille des messages HTTP"
                 ],
                 "correct_index": 0,
-                "explanation": "Seul le serveur possède la `SECRET_KEY` ayant servi à calculer la signature du jeton. Si un seul caractère de la charge utile change, la signature recalculée par le serveur ne correspond plus et la requête est rejetée (`401 Unauthorized`)."
+                "explanation": "L'`Access Token` voyage sur chaque requête mais expire très vite (5 min). Le `Refresh Token` ne sort que rarement (uniquement vers `/api/auth/refresh`) et peut être révoqué en base."
             },
             {
                 "id": "q4-4",
-                "question": "Quel code de statut HTTP une API renvoie-t-elle lorsqu'un client dépasse le quota de requêtes autorisé par le Rate Limiter ?",
+                "question": "Quel code HTTP et quels en-têtes une API renvoie-t-elle lorsqu'un client dépasse son quota de Rate Limiting ?",
                 "options": [
-                    "429 Too Many Requests (accompagné des en-têtes X-RateLimit-Remaining: 0 et Retry-After)",
-                    "200 OK",
-                    "404 Not Found",
-                    "301 Moved Permanently"
+                    "Statut 429 Too Many Requests avec les en-têtes X-RateLimit-Limit, X-RateLimit-Remaining: 0 et Retry-After",
+                    "Statut 403 Forbidden avec l'en-tête Content-Length",
+                    "Statut 500 Internal Server Error",
+                    "Statut 204 No Content"
                 ],
                 "correct_index": 0,
-                "explanation": "Le code **`429 Too Many Requests`** est le standard HTTP indiquant que le client a dépassé la limite de débit (Rate Limit) autorisée sur la fenêtre de temps."
+                "explanation": "Le code `429 Too Many Requests` accompagné de `Retry-After` (secondes à attendre) permet aux clients automatisés de mettre en pause leurs appels proprement."
+            },
+            {
+                "id": "q4-5",
+                "question": "Comment votre API vérifie-t-elle qu'un Webhook entrant (`POST /api/webhooks/paiement`) provient bien du partenaire bancaire et non d'un pirate ?",
+                "options": [
+                    "En recalculant l'empreinte HMAC-SHA256 sur les octets bruts du corps (request.get_data()) avec le WEBHOOK_SECRET partagé et en la comparant en temps constant (hmac.compare_digest) à l'en-tête X-Webhook-Signature",
+                    "En faisant confiance à tout message JSON contenant 'statut': 'paye'",
+                    "En vérifiant uniquement l'en-tête User-Agent",
+                    "En demandant à l'utilisateur de saisir son mot de passe"
+                ],
+                "correct_index": 0,
+                "explanation": "La signature `HMAC-SHA256` calculée sur le corps brut avec un secret partagé garantit à la fois l'identité de l'émetteur du Webhook et l'intégrité du message."
+            },
+            {
+                "id": "q4-6",
+                "question": "En gestion d'API (API Management), qu'est-ce qu'une vulnérabilité BOLA (*Broken Object Level Authorization*, n°1 du Top 10 OWASP API) ?",
+                "options": [
+                    "Une faille d'Autorisation (AuthZ) où un utilisateur authentifié (ex: stagiaire #101) parvient à lire ou modifier les données d'un autre utilisateur (#102) simplement en changeant l'ID dans l'URL (/api/dossiers/102)",
+                    "Une erreur de syntaxe dans un fichier JSON",
+                    "Un problème de connexion au serveur DNS",
+                    "Le fait d'utiliser le port 5000 en développement"
+                ],
+                "correct_index": 0,
+                "explanation": "Vérifier uniquement que le jeton est valide (`AuthN`) ne suffit pas ! Le serveur doit impérativement vérifier l'**Autorisation au niveau de l'objet (`AuthZ`)** : `dossier.proprietaire == g.user['sub']`."
             }
         ]
     },
     5: {
-        "title": "Évaluation Jour 5 : Synthèse Architecturale & Consommation d'API",
-        "description": "Validation du cycle complet d'intégration cliente.",
+        "title": "Évaluation Jour 5 : Client Résilient, Blueprints, Tests & Production WSGI",
+        "description": "Validation des Timeouts clients, de l'architecture modulaire par Blueprints, des sondes Healthcheck, de `test_client()` et du déploiement Gunicorn.",
         "questions": [
             {
                 "id": "q5-1",
-                "question": "Dans quel ordre un client automatisé consomme-t-il une API protégée par Bearer Token et Rate Limiting ?",
+                "question": "Pourquoi un client HTTP Python (`urlopen` ou `requests`) doit-il TOUJOURS définir un paramètre `timeout` explicite lors d'un appel vers une API externe ?",
                 "options": [
-                    "1) S'authentifier sur POST /api/auth/token -> 2) Conserver l'access_token -> 3) L'envoyer dans l'en-tête Authorization: Bearer <token> en respectant le quota X-RateLimit-Remaining",
-                    "Appeler directement les routes protégées sans en-tête et ignorer les erreurs 401 et 429",
-                    "Envoyer le mot de passe en clair dans chaque URL GET",
-                    "Redémarrer le serveur avant chaque requête"
+                    "Pour éviter que le processus ne reste figé indéfiniment si le serveur distant ne répond plus, ce qui provoquerait une panne en cascade (Cascading Failure)",
+                    "Pour compresser automatiquement la réponse JSON",
+                    "Parce que Python refuse d'exécuter une requête sans timeout",
+                    "Pour contourner le Rate Limiting du serveur distant"
                 ],
                 "correct_index": 0,
-                "explanation": "Le client obtient d'abord son jeton temporaire signé, l'inclut dans `Authorization: Bearer ...` pour ses appels ultérieurs, et respecte l'en-tête `Retry-After` si un statut `429` survient."
+                "explanation": "Sans `timeout`, une connexion réseau pendante bloque le thread ou le worker indéfiniment. En production, chaque appel réseau externe doit avoir un timeout strict (ex: 3 à 5 secondes)."
+            },
+            {
+                "id": "q5-2",
+                "question": "Quel est le rôle des routes `/api/health/live` (*Liveness*) et `/api/health/ready` (*Readiness*) dans une architecture de production ?",
+                "options": [
+                    "Permettre aux répartiteurs de charge (Load Balancers / Kubernetes) de vérifier automatiquement si le processus Python répond (live) et si ses dépendances comme la base de données sont prêtes (ready)",
+                    "Afficher la liste des mots de passe des administrateurs",
+                    "Générer des Bearer Tokens pour les stagiaires",
+                    "Remplacer la base de données SQLite"
+                ],
+                "correct_index": 0,
+                "explanation": "Les sondes de santé (*Healthchecks*) permettent à l'infrastructure de redémarrer automatiquement un conteneur bloqué (`live`) ou de ne lui envoyer du trafic que lorsque la base de données est joignable (`ready`)."
+            },
+            {
+                "id": "q5-3",
+                "question": "Pourquoi ne doit-on jamais utiliser `app.run()` en production, et par quelle architecture le remplace-t-on ?",
+                "options": [
+                    "Le serveur intégré de Flask est conçu uniquement pour le développement local ; en production, on utilise un serveur WSGI multi-workers comme Gunicorn placé derrière un Reverse Proxy (Nginx/Caddy)",
+                    "Parce que app.run() supprime les fichiers Python au bout de 24 heures",
+                    "Parce que app.run() ne supporte pas le format JSON",
+                    "En production, on ouvre les fichiers .py directement dans le navigateur sans serveur"
+                ],
+                "correct_index": 0,
+                "explanation": "En production, **Nginx** gère le TLS/HTTPS et la protection réseau, puis transmet les requêtes à **Gunicorn**, qui orchestre plusieurs processus **Workers** exécutant l'application Flask en parallèle."
+            },
+            {
+                "id": "q5-4",
+                "question": "Quel est l'avantage d'utiliser `app.test_client()` pour tester ses routes Flask ?",
+                "options": [
+                    "Il simule des requêtes HTTP (GET, POST, PUT, DELETE) directement en mémoire en quelques millisecondes sans avoir besoin de démarrer un serveur sur un port réseau",
+                    "Il génère automatiquement l'interface graphique CSS",
+                    "Il remplace Gunicorn en production",
+                    "Il chiffre la base de données SQLite"
+                ],
+                "correct_index": 0,
+                "explanation": "`app.test_client()` permet d'automatiser la vérification de tous les cas nominaux (`200`, `201`) et de tous les cas d'erreur (`401`, `403`, `422`, `429`) à chaque modification du code."
             }
         ]
     }

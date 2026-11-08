@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-lab-v6";
+const CACHE_NAME = "isgp-api-lab-v14";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",

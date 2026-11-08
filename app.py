@@ -300,7 +300,7 @@ def make_traced_response(payload, status_code, handler_code, trace_steps, extra_
     resp = jsonify(payload)
     resp.status_code = status_code
     resp.headers["X-Flask-Handler-Code"] = json.dumps(handler_code)
-    resp.headers["X-Flask-Trace-Steps"] = json.dumps(trace_steps, ensure_ascii=False)
+    resp.headers["X-Flask-Trace-Steps"] = json.dumps(trace_steps)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     if extra_headers:
         for k, v in extra_headers.items():
@@ -455,21 +455,35 @@ def sandbox_auth_token():
     identifiant = str(corps.get("identifiant", "")).strip()
     mot_de_passe = str(corps.get("mot_de_passe", "")).strip()
 
-    if identifiant != "stagiaire" or mot_de_passe != "isgp2026":
+    comptes_demo = {
+        "stagiaire": {
+            "role": "stagiaire",
+            "scopes": ["formations:read", "profil:read"],
+        },
+        "directeur": {
+            "role": "admin",
+            "scopes": ["formations:read", "formations:write", "audit:admin"],
+        },
+    }
+
+    if identifiant not in comptes_demo or mot_de_passe != "isgp2026":
         handler_code = (
-            'corps = request.get_json()\n'
-            'if corps.get("identifiant") != "stagiaire" or corps.get("mot_de_passe") != "isgp2026":\n'
-            '    return jsonify({"erreur": "Identifiants invalides"}), 401'
+            "corps = request.get_json()\n"
+            'if identifiant not in ("stagiaire", "directeur") or mot_de_passe != "isgp2026":\n'
+            '    return jsonify({"erreur": "401 Unauthorized (Échec AuthN)"}), 401'
         )
         steps = [
             "1. Réception de POST /api/sandbox/auth/token.",
-            "2. Vérification des identifiants fournis dans le corps JSON.",
-            "3. ÉCHEC : Identifiant ou mot de passe incorrect -> 401 Unauthorized.",
+            "2. Vérification des identifiants fournis (Authentification / AuthN).",
+            "3. ÉCHEC AuthN : Identifiant ou mot de passe incorrect -> 401 Unauthorized.",
         ]
         return make_traced_response(
             {
-                "erreur": "Identifiants invalides (401 Unauthorized).",
-                "attendu_pour_demo": {"identifiant": "stagiaire", "mot_de_passe": "isgp2026"},
+                "erreur": "Identifiants invalides (401 Unauthorized — Échec d'Authentification).",
+                "comptes_disponibles_pour_demo": [
+                    {"identifiant": "stagiaire", "mot_de_passe": "isgp2026", "role": "stagiaire (lecture seule)"},
+                    {"identifiant": "directeur", "mot_de_passe": "isgp2026", "role": "admin (tous les droits)"},
+                ],
             },
             401,
             handler_code,
@@ -477,9 +491,11 @@ def sandbox_auth_token():
             extra_headers={"WWW-Authenticate": 'Bearer realm="ISGP-API"'},
         )
 
+    infos_compte = comptes_demo[identifiant]
     charge_utile = {
         "utilisateur": identifiant,
-        "role": "participant_isgp",
+        "role": infos_compte["role"],
+        "scopes": infos_compte["scopes"],
         "emis_a": datetime.now().strftime("%H:%M:%S"),
     }
     token = token_signer.dumps(charge_utile)
@@ -591,6 +607,108 @@ def sandbox_auth_profil():
             ],
             extra_headers={"WWW-Authenticate": 'Bearer error="invalid_token", error_description="Bad signature"'},
         )
+
+
+@app.route("/api/sandbox/authz-demo", methods=["GET"])
+def sandbox_authz_demo():
+    auth_header = request.headers.get("Authorization", "").strip()
+    # ÉTAPE 1 : AUTHENTIFICATION (AuthN — Qui êtes-vous ?)
+    if not auth_header.startswith("Bearer "):
+        handler_code = (
+            "# ÉTAPE 1 : AUTHENTIFICATION (AuthN)\n"
+            'auth = request.headers.get("Authorization", "")\n'
+            'if not auth.startswith("Bearer "):\n'
+            '    return jsonify({"etape": "AuthN", "erreur": "401 Unauthorized : Identité inconnue"}), 401'
+        )
+        steps = [
+            "1. [AuthN — Authentification] Recherche du jeton dans 'Authorization: Bearer <token>'.",
+            "2. Aucun jeton fourni : le serveur ne sait pas QUI appelle la route.",
+            "3. Rejet immédiat en HTTP 401 Unauthorized (défaut d'Authentification).",
+        ]
+        return make_traced_response(
+            {
+                "statut_http": 401,
+                "etape_bloquee": "1. Authentification (AuthN — 'Qui êtes-vous ?')",
+                "erreur": "401 Unauthorized : Aucun Bearer Token fourni. Votre identité est inconnue.",
+                "comment_tester": "Générez un token pour 'stagiaire' (qui donnera 403 Forbidden) ou 'directeur' (qui donnera 200 OK).",
+            },
+            401,
+            handler_code,
+            steps,
+            extra_headers={"WWW-Authenticate": 'Bearer realm="ISGP-API"'},
+        )
+
+    token = auth_header.split(" ", 1)[1].strip()
+    try:
+        identite = token_signer.loads(token, max_age=TOKEN_EXPIRATION_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return make_traced_response(
+            {
+                "statut_http": 401,
+                "etape_bloquee": "1. Authentification (AuthN)",
+                "erreur": "401 Unauthorized : Jeton expiré ou signature falsifiée.",
+            },
+            401,
+            "identite = signer.loads(token, max_age=300)  # -> 401 si invalide",
+            ["1. [AuthN] Jeton invalide ou expiré -> 401 Unauthorized."],
+        )
+
+    # ÉTAPE 2 : AUTORISATION (AuthZ — Quels sont vos droits / rôles / scopes ?)
+    utilisateur = identite.get("utilisateur", "inconnu")
+    role = identite.get("role", "stagiaire")
+    scopes = identite.get("scopes", [])
+
+    if role != "admin" or "audit:admin" not in scopes:
+        handler_code = (
+            "# ÉTAPE 1 : AuthN réussie -> identite connue ('stagiaire')\n"
+            "# ÉTAPE 2 : AUTORISATION (AuthZ — Vérification du Rôle et du Scope)\n"
+            'if identite["role"] != "admin" or "audit:admin" not in identite["scopes"]:\n'
+            '    return jsonify({"etape": "AuthZ", "erreur": "403 Forbidden : Droits insuffisants"}), 403'
+        )
+        steps = [
+            f"1. [AuthN — Authentification RÉUSSIE] Jeton valide : vous êtes bien identifié comme '{utilisateur}'.",
+            f"2. [AuthZ — Autorisation] Lecture de vos droits dans le token : role='{role}', scopes={scopes}.",
+            "3. ÉCHEC AuthZ : Cette route exige role='admin' et le scope 'audit:admin'.",
+            "4. Rejet en HTTP 403 Forbidden (Identité connue, mais permission refusée !).",
+        ]
+        return make_traced_response(
+            {
+                "statut_http": 403,
+                "etape_1_authentification_authn": f"RÉUSSIE (Identité prouvée : '{utilisateur}')",
+                "etape_2_autorisation_authz": "REFUSÉE (403 Forbidden — Droits insuffisants)",
+                "droits_actuels_du_token": {"role": role, "scopes": scopes},
+                "droits_requis_par_la_route": {"role": "admin", "scope_requis": "audit:admin"},
+                "astuce_pour_obtenir_200": "Appelez POST /api/sandbox/auth/token avec {\"identifiant\": \"directeur\", \"mot_de_passe\": \"isgp2026\"}",
+            },
+            403,
+            handler_code,
+            steps,
+        )
+
+    handler_code = (
+        "# ÉTAPE 1 (AuthN) : Jeton valide ('directeur')\n"
+        "# ÉTAPE 2 (AuthZ) : role == 'admin' et 'audit:admin' in scopes\n"
+        'return jsonify({"acces": "Autorisé (AuthN + AuthZ OK)", "journal_audit": [...]}), 200'
+    )
+    steps = [
+        f"1. [AuthN — Authentification RÉUSSIE] Identité vérifiée : '{utilisateur}'.",
+        f"2. [AuthZ — Autorisation RÉUSSIE] Rôle '{role}' et scope 'audit:admin' présents.",
+        "3. Accès accordé à la ressource critique (200 OK).",
+    ]
+    return make_traced_response(
+        {
+            "statut_http": 200,
+            "etape_1_authentification_authn": f"RÉUSSIE ('{utilisateur}')",
+            "etape_2_autorisation_authz": "RÉUSSIE (Rôle 'admin' + Scope 'audit:admin' vérifiés)",
+            "registre_audit_confidentiel": [
+                {"evenement": "Rotation des clés HMAC", "statut": "Succès"},
+                {"evenement": "Audit sécurité OWASP API", "statut": "Conforme"},
+            ],
+        },
+        200,
+        handler_code,
+        steps,
+    )
 
 
 @app.route("/api/sandbox/admin-stats", methods=["GET"])
@@ -730,19 +848,57 @@ def sandbox_formations():
         rows = conn.execute("SELECT * FROM formations ORDER BY id ASC").fetchall()
         conn.close()
         liste = [dict(r) for r in rows]
+
+        # Filtrage optionnel (?salle=...)
+        salle_filtre = request.args.get("salle")
+        if salle_filtre:
+            liste = [f for f in liste if salle_filtre.lower() in str(f.get("salle", "")).lower()]
+
+        # Tri optionnel sécurisé (?tri=id|duree_jours|titre & ?ordre=asc|desc)
+        champ_tri = request.args.get("tri", "id")
+        if champ_tri not in ("id", "duree_jours", "titre"):
+            champ_tri = "id"
+        ordre_desc = request.args.get("ordre", "asc").lower() == "desc"
+        liste = sorted(liste, key=lambda f: f.get(champ_tri, 0), reverse=ordre_desc)
+
+        # Pagination optionnelle (?page=1&limit=10)
+        total_items = len(liste)
+        page = max(1, request.args.get("page", 1, type=int))
+        limit = min(50, max(1, request.args.get("limit", 10, type=int)))
+        offset = (page - 1) * limit
+        tranche = liste[offset : offset + limit]
+        total_pages = max(1, (total_items + limit - 1) // limit)
+
         handler_code = (
             '@app.route("/api/sandbox/formations", methods=["GET"])\n'
             "def lister_formations():\n"
-            '    rows = conn.execute("SELECT * FROM formations").fetchall()\n'
-            '    return jsonify({"total": len(rows), "formations": [dict(r) for r in rows]}), 200'
+            '    page = max(1, request.args.get("page", 1, type=int))\n'
+            '    limit = min(50, max(1, request.args.get("limit", 10, type=int)))\n'
+            "    offset = (page - 1) * limit\n"
+            '    return jsonify({"meta": {...}, "total": total_items, "formations": liste[offset:offset+limit]}), 200'
         )
         steps = [
             "1. Réception d'une requête HTTP GET sur /api/sandbox/formations.",
-            "2. Connexion à la base SQLite et exécution de 'SELECT * FROM formations'.",
-            f"3. Transformation des {len(liste)} lignes SQLite en dictionnaires Python.",
-            "4. Envoi de la réponse JSON avec le code 200 OK.",
+            f"2. Lecture SQLite ({total_items} formations correspondantes) + tri sur '{champ_tri}' ({'DESC' if ordre_desc else 'ASC'}).",
+            f"3. Découpage de la page {page}/{total_pages} (limit={limit}, offset={offset}) -> {len(tranche)} élément(s).",
+            "4. Envoi de la réponse JSON structurée (meta + formations) avec le code 200 OK.",
         ]
-        return make_traced_response({"total": len(liste), "formations": liste}, 200, handler_code, steps)
+        return make_traced_response(
+            {
+                "meta": {
+                    "total_items": total_items,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": total_pages,
+                    "has_next": page < total_pages,
+                },
+                "total": total_items,
+                "formations": tranche,
+            },
+            200,
+            handler_code,
+            steps,
+        )
 
     corps = request.get_json(silent=True)
     if not corps or not str(corps.get("titre", "")).strip():
@@ -806,7 +962,7 @@ def sandbox_formations():
     )
 
 
-@app.route("/api/sandbox/formations/<int:formation_id>", methods=["GET", "PUT", "DELETE"])
+@app.route("/api/sandbox/formations/<int:formation_id>", methods=["GET", "PUT", "PATCH", "DELETE"])
 def sandbox_formation_detail(formation_id):
     conn = get_db()
     row = conn.execute("SELECT * FROM formations WHERE id = ?", (formation_id,)).fetchone()
@@ -847,7 +1003,7 @@ def sandbox_formation_detail(formation_id):
         ]
         return make_traced_response(actuelle, 200, handler_code, steps)
 
-    if request.method == "PUT":
+    if request.method in ("PUT", "PATCH"):
         corps = request.get_json(silent=True) or {}
         nouveau_titre = str(corps.get("titre", actuelle["titre"])).strip()
         nouveau_formateur = str(corps.get("formateur", actuelle["formateur"])).strip()
@@ -984,6 +1140,7 @@ def sandbox_reset():
     conn = get_db()
     conn.execute("DELETE FROM formations")
     conn.execute("DELETE FROM wall_messages")
+    conn.execute("DELETE FROM sqlite_sequence")
     conn.commit()
     conn.close()
     init_db()
@@ -1033,6 +1190,268 @@ def run_python_snippet():
         )
     except Exception as exc:
         return jsonify({"output": "", "error": str(exc), "exit_code": 1})
+
+
+# ==============================================================================
+# 8. EXÉCUTEUR CURL EN DIRECT & EXPORT POSTMAN / REST CLIENT (.http)
+# ==============================================================================
+import shlex
+
+@app.route("/api/curl/run", methods=["POST"])
+def run_curl_command():
+    data = request.get_json(silent=True) or {}
+    raw_cmd = (data.get("command") or "").strip()
+    if not raw_cmd:
+        return jsonify({"output": "", "error": "Commande curl vide."}), 400
+
+    # Normalisation des retours à la ligne (continuation backslash \)
+    normalized = raw_cmd.replace("\\\r\n", " ").replace("\\\n", " ")
+    try:
+        tokens = shlex.split(normalized)
+    except ValueError as err:
+        return jsonify({"output": "", "error": f"Erreur de syntaxe des guillemets : {err}"}), 400
+
+    if not tokens or tokens[0] != "curl":
+        return jsonify({"output": "", "error": "La commande doit commencer par 'curl'."}), 400
+
+    # Sécurité : autoriser uniquement les options d'inspection HTTP et les URLs locales
+    safe_args = ["curl", "-sS"]
+    has_i_or_v = any(t in ("-i", "--include", "-v", "--verbose", "-I", "--head") for t in tokens[1:])
+    if not has_i_or_v:
+        safe_args.append("-i")
+
+    i = 1
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok in (
+            "-i", "--include", "-v", "--verbose", "-s", "--silent", "-S",
+            "-I", "--head", "-G", "--get", "-k", "--insecure", "-L", "--location"
+        ):
+            safe_args.append(tok)
+            i += 1
+        elif tok in (
+            "-X", "--request", "-H", "--header", "-d", "--data", "--data-raw",
+            "--data-urlencode", "--json", "-w", "--write-out", "-A", "--user-agent",
+            "-u", "--user", "-m", "--max-time", "--connect-timeout"
+        ):
+            if i + 1 >= len(tokens):
+                return jsonify({"output": "", "error": f"Argument manquant après '{tok}'."}), 400
+            safe_args.extend([tok, tokens[i + 1]])
+            i += 2
+        elif tok.startswith("http://127.0.0.1:5000") or tok.startswith("http://localhost:5000") or tok.startswith("/api/"):
+            url_target = tok if tok.startswith("http") else f"http://127.0.0.1:5000{tok}"
+            safe_args.append(url_target)
+            i += 1
+        else:
+            return jsonify({
+                "output": "",
+                "error": f"Argument ou URL externe non exécutable dans le bac à sable local : '{tok}'. Copiez cette commande dans votre terminal système ou ciblez http://127.0.0.1:5000/api/..."
+            }), 400
+
+    safe_args.extend(["-w", "\n\n--- [Statut HTTP: %{http_code} | Temps: %{time_total}s | Octets reçus: %{size_download}] ---"])
+
+    try:
+        proc = subprocess.run(
+            safe_args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5
+        )
+        out_lines = [
+            line for line in proc.stdout.splitlines()
+            if not line.startswith("X-Flask-Handler-Code:") and not line.startswith("X-Flask-Trace-Steps:")
+        ]
+        out = "\n".join(out_lines)
+        if proc.stderr:
+            err_lines = [
+                line for line in proc.stderr.splitlines()
+                if "X-Flask-Handler-Code:" not in line and "X-Flask-Trace-Steps:" not in line
+            ]
+            out = (out + "\n" + "\n".join(err_lines)).strip()
+        return jsonify({"output": out, "executed": " ".join(safe_args[:-2])}), 200
+    except Exception as exc:
+        return jsonify({"output": "", "error": str(exc)}), 500
+
+
+@app.route("/api/download/postman-collection")
+def download_postman_collection():
+    collection = {
+        "info": {
+            "name": "ISGP Bootcamp — Développement d'APIs et Services Web (Flask)",
+            "_postman_id": "isgp-api-bootcamp-2026",
+            "description": "Collection officielle d'exercices et de tests HTTP pour le Bootcamp ISGP (CRUD, Pagination, X-API-Key, Bearer Token, Rate Limiting 429).",
+            "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+        },
+        "variable": [
+            {"key": "base_url", "value": "http://127.0.0.1:5000", "type": "string"},
+            {"key": "bearer_token", "value": "", "type": "string"},
+            {"key": "api_key", "value": "isgp-secret-2026", "type": "string"}
+        ],
+        "item": [
+            {
+                "name": "1. GET — Lister les formations (avec Pagination & Tri)",
+                "request": {
+                    "method": "GET",
+                    "header": [{"key": "Accept", "value": "application/json"}],
+                    "url": {
+                        "raw": "{{base_url}}/api/sandbox/formations?page=1&limit=5&tri=duree_jours&ordre=desc",
+                        "host": ["{{base_url}}"],
+                        "path": ["api", "sandbox", "formations"],
+                        "query": [
+                            {"key": "page", "value": "1"},
+                            {"key": "limit", "value": "5"},
+                            {"key": "tri", "value": "duree_jours"},
+                            {"key": "ordre", "value": "desc"}
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "2. POST — Créer une nouvelle formation (201 Created)",
+                "request": {
+                    "method": "POST",
+                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                    "body": {
+                        "mode": "raw",
+                        "raw": json.dumps({
+                            "titre": "Sécurité des APIs & Tests Postman",
+                            "formateur": "Intervenant ISGP",
+                            "duree_jours": 5,
+                            "salle": "Salle B"
+                        }, indent=2, ensure_ascii=False)
+                    },
+                    "url": {"raw": "{{base_url}}/api/sandbox/formations", "host": ["{{base_url}}"], "path": ["api", "sandbox", "formations"]}
+                }
+            },
+            {
+                "name": "3. PUT — Mettre à jour la formation #1",
+                "request": {
+                    "method": "PUT",
+                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                    "body": {
+                        "mode": "raw",
+                        "raw": json.dumps({
+                            "titre": "Architecture API REST & Flask (Niveau Avancé)",
+                            "duree_jours": 5,
+                            "salle": "Salle Conférence"
+                        }, indent=2, ensure_ascii=False)
+                    },
+                    "url": {"raw": "{{base_url}}/api/sandbox/formations/1", "host": ["{{base_url}}"], "path": ["api", "sandbox", "formations", "1"]}
+                }
+            },
+            {
+                "name": "4. PATCH — Modification partielle de la formation #1",
+                "request": {
+                    "method": "PATCH",
+                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                    "body": {
+                        "mode": "raw",
+                        "raw": json.dumps({"salle": "Amphithéâtre ISGP"}, indent=2, ensure_ascii=False)
+                    },
+                    "url": {"raw": "{{base_url}}/api/sandbox/formations/1", "host": ["{{base_url}}"], "path": ["api", "sandbox", "formations", "1"]}
+                }
+            },
+            {
+                "name": "5. Auth Machine — GET /admin-stats avec X-API-Key",
+                "request": {
+                    "method": "GET",
+                    "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                    "url": {"raw": "{{base_url}}/api/sandbox/admin-stats", "host": ["{{base_url}}"], "path": ["api", "sandbox", "admin-stats"]}
+                }
+            },
+            {
+                "name": "6. Auth Token (Étape 1) — POST /auth/token (Émettre un Bearer Token)",
+                "request": {
+                    "method": "POST",
+                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                    "body": {
+                        "mode": "raw",
+                        "raw": json.dumps({"identifiant": "stagiaire", "mot_de_passe": "isgp2026"}, indent=2)
+                    },
+                    "url": {"raw": "{{base_url}}/api/sandbox/auth/token", "host": ["{{base_url}}"], "path": ["api", "sandbox", "auth/token"]}
+                }
+            },
+            {
+                "name": "7. Auth Token (Étape 2) — GET /auth/profil avec Authorization: Bearer",
+                "request": {
+                    "method": "GET",
+                    "header": [{"key": "Authorization", "value": "Bearer {{bearer_token}}"}],
+                    "url": {"raw": "{{base_url}}/api/sandbox/auth/profil", "host": ["{{base_url}}"], "path": ["api", "sandbox", "auth", "profil"]}
+                }
+            },
+            {
+                "name": "8. Rate Limiting — GET /ratelimit-demo (Tester 4 fois pour déclencher 429)",
+                "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {"raw": "{{base_url}}/api/sandbox/ratelimit-demo", "host": ["{{base_url}}"], "path": ["api", "sandbox", "ratelimit-demo"]}
+                }
+            }
+        ]
+    }
+    return Response(
+        json.dumps(collection, indent=2, ensure_ascii=False),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=isgp_api_bootcamp.postman_collection.json"}
+    )
+
+
+@app.route("/api/download/http-requests")
+def download_http_requests_file():
+    content = """# ============================================================================
+# ISGP — Fichier de requêtes HTTP pour VS Code / Antigravity (Extension REST Client)
+# Instructions : Ouvrez ce fichier (.http) dans VS Code et cliquez sur "Send Request"
+#                au-dessus de chaque bloc séparé par ###
+# ============================================================================
+
+@baseUrl = http://127.0.0.1:5000
+@apiKey = isgp-secret-2026
+
+### 1. Vérifier l'état du service (GET 200 OK)
+GET {{baseUrl}}/api/sandbox/bonjour
+Accept: application/json
+
+### 2. Lister les formations avec Pagination, Filtrage et Tri
+GET {{baseUrl}}/api/sandbox/formations?page=1&limit=3&tri=duree_jours&ordre=desc
+Accept: application/json
+
+### 3. Créer une nouvelle formation (POST 201 Created)
+POST {{baseUrl}}/api/sandbox/formations
+Content-Type: application/json
+
+{
+  "titre": "Tests d'APIs avec curl et REST Client",
+  "formateur": "Formateur ISGP",
+  "duree_jours": 4,
+  "salle": "Labo 2"
+}
+
+### 4. Modifier partiellement la formation #1 (PATCH 200 OK)
+PATCH {{baseUrl}}/api/sandbox/formations/1
+Content-Type: application/json
+
+{
+  "salle": "Salle Conférence A"
+}
+
+### 5. Authentification par Clé API (X-API-Key)
+GET {{baseUrl}}/api/sandbox/admin-stats
+X-API-Key: {{apiKey}}
+
+### 6. Obtenir un Bearer Token signé (POST /auth/token)
+POST {{baseUrl}}/api/sandbox/auth/token
+Content-Type: application/json
+
+{
+  "identifiant": "stagiaire",
+  "mot_de_passe": "isgp2026"
+}
+
+### 7. Tester le Rate Limiter (Exécuter 4 fois en moins de 20s -> HTTP 429)
+GET {{baseUrl}}/api/sandbox/ratelimit-demo
+"""
+    return Response(
+        content,
+        mimetype="text/plain; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=isgp_api_bootcamp.http"}
+    )
 
 
 if __name__ == "__main__":

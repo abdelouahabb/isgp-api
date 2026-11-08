@@ -9,36 +9,39 @@ def _read(filename):
 DAY_3_DATA = {
     "day_number": 3,
     "folder": "day_3",
-    "badge": "Jour 3 • API CRUD & SQLite",
-    "title": "Conception d'une API CRUD Complète (GET, POST, PUT, DELETE) avec SQLite",
-    "goal": "Désérialiser le corps JSON des requêtes entrantes via request.get_json(), valider les données, gérer les erreurs HTTP (400, 404) et persister les enregistrements dans une base SQLite.",
+    "badge": "Jour 3 • CRUD, Validation, Idempotence & SQLite",
+    "title": "Ingénierie CRUD : Validation RFC 7807, PUT vs PATCH, Idempotency-Key, Gestion Globale des Erreurs & SQLite ACID",
+    "goal": "Implémenter une validation stricte des entrées avec retour RFC 7807 (422), maîtriser PUT vs PATCH et la sécurisation de POST par Idempotency-Key, intercepter globalement toutes les erreurs en JSON (@app.errorhandler), et gérer la persistance SQLite protégée contre l'injection SQL.",
     "starter_filename": "day_3/02_api_crud_sqlite.py",
     "files": [
         "day_3/01_api_crud_memoire.py",
+        "day_3/03_put_patch_et_idempotence.py",
+        "day_3/04_gestion_erreurs_globale.py",
         "day_3/02_api_crud_sqlite.py",
     ],
     "lessons": [
         {
             "id": "d3-l1",
             "file": "day_3/01_api_crud_memoire.py",
-            "title": "3.1 — Lecture (`GET`), Création (`POST`) et Validation des Données Entrantes",
+            "title": "3.1 — Validation Stricte des Charges Utiles JSON & Format d'Erreur Normalisé RFC 7807 (`422 Unprocessable Entity`)",
             "duration": "60 min",
             "analogy": {
-                "title": "Contrôle de conformité d'un formulaire avant enregistrement",
-                "text": "Lors d'une requête `POST`, le client transmet un objet JSON dans le corps de la requête (`Body`). Le serveur doit impérativement vérifier la présence et la validité des champs obligatoires avant d'insérer l'enregistrement et de retourner `201 Created`."
+                "title": "Le contrôle technique qui liste précisément chaque anomalie constatée",
+                "text": "Si un client soumet un formulaire JSON comportant 3 erreurs (titre trop court, durée négative, salle manquante), une API médiocre répond simplement `{\"erreur\": \"Données invalides\"}` sans dire quel champ pose problème. Une API professionnelle applique le standard international **RFC 7807 (`Problem Details for HTTP APIs`)** en retournant le détail exact par champ avec le code `400` ou `422 Unprocessable Entity`."
             },
             "explanation": [
-                "**Lecture du JSON entrant** : `corps = request.get_json(silent=True)` extrait et convertit le corps JSON en dictionnaire Python.",
-                "**Validation défensive** : Si le JSON est absent ou qu'un attribut requis (`\"titre\"`) manque, l'API interrompt le traitement et renvoie un statut **`400 Bad Request`** explicite."
+                "**1. Pourquoi ne jamais faire confiance au client (`Never Trust User Input`)** : Même si votre interface Web possède des contrôles JavaScript, n'importe qui peut appeler votre API directement avec `curl` ou un script Python en envoyant `{\"duree_jours\": -999, \"titre\": \"\"}`. La validation côté serveur est **obligatoire**.",
+                "**2. Les 4 niveaux de validation d'un Payload JSON** :\n  1. **Présence et syntaxe JSON** : `corps = request.get_json(silent=True)` est-il bien un dictionnaire Python (`isinstance(corps, dict)`) ?\n  2. **Champs obligatoires** : Le champ requis est-il présent et non vide après `.strip()` ?\n  3. **Contrôle de type** : `duree_jours` est-il bien convertible en entier `int` ?\n  4. **Contraintes métier (Domain Validation)** : `duree_jours` est-il compris entre `1` et `30` ? Le titre fait-il entre `3` et `120` caractères ?",
+                "**3. Différence entre `400 Bad Request` et `422 Unprocessable Entity`** :\n  - `400` : Le JSON est syntaxiquement cassé (accolade manquante) ou la requête est incompréhensible.\n  - `422` : Le JSON est syntaxiquement valide, mais ses valeurs violent les règles métier (ex. durée de `-5` jours)."
             ],
             "code": _read("01_api_crud_memoire.py"),
             "line_explanations": [
-                {"lines": "13", "text": "`methods=[\"GET\"]` restreint cette fonction à la consultation de la collection."},
-                {"lines": "17-21", "text": "Récupération du corps JSON sur `POST` et rejet immédiat avec code `400` si `\"titre\"` est absent."},
-                {"lines": "23-31", "text": "Attribution d'un identifiant incrémental, ajout à la collection et retour du statut `201 Created`."}
+                {"lines": "13-29", "text": "Fonction dédiée `valider_payload_formation(corps)` qui accumule toutes les anomalies par nom de champ dans le dictionnaire `erreurs`."},
+                {"lines": "37-46", "text": "Si au moins une anomalie est détectée, retourne immédiatement un objet conforme à la RFC 7807 (`type`, `title`, `status`, `champs_en_erreur`) avec le statut `422`."},
+                {"lines": "48-56", "text": "Si la validation réussit, nettoie les chaînes (`.strip()`), insère l'entité et renvoie `201 Created`."}
             ],
             "sandbox_preset": {
-                "label": "Tester POST /api/sandbox/formations",
+                "label": "Tester la création : POST /api/sandbox/formations",
                 "method": "POST",
                 "url": "/api/sandbox/formations",
                 "body": '{\n  "titre": "Sécurité des Services Web & Tokens",\n  "formateur": "Intervenant ISGP",\n  "duree_jours": 4,\n  "salle": "Laboratoire 2"\n}'
@@ -46,51 +49,127 @@ DAY_3_DATA = {
             "vscode_instructions": {
                 "filename": "day_3/01_api_crud_memoire.py",
                 "steps": [
-                    "Ouvrir le fichier `day_3/01_api_crud_memoire.py` dans VS Code ou Antigravity IDE.",
-                    "Exécuter `.venv/bin/python day_3/01_api_crud_memoire.py`."
+                    "Ouvrir `day_3/01_api_crud_memoire.py` dans VS Code ou Antigravity IDE.",
+                    "Exécuter `.venv/bin/python day_3/01_api_crud_memoire.py` et tester un `POST` avec une durée négative pour observer la réponse RFC 7807."
                 ]
             }
         },
         {
             "id": "d3-l2",
-            "file": "day_3/02_api_crud_sqlite.py",
-            "title": "3.2 — Opérations par Identifiant (`PUT`, `DELETE`) & Persistance SQLite",
+            "file": "day_3/03_put_patch_et_idempotence.py",
+            "title": "3.2 — `PUT` (Remplacement Intégral) vs `PATCH` (Modification Partielle) & Sécurisation de `POST` par `Idempotency-Key`",
             "duration": "60 min",
             "analogy": {
-                "title": "Mémoire vive volatile (RAM) vs Stockage permanent sur disque (SQLite)",
-                "text": "Une liste Python en mémoire vive est réinitialisée à chaque redémarrage du serveur. Le moteur **SQLite** (`import sqlite3`, inclus nativement dans Python) stocke les tables de manière durable dans un fichier `.db` sur le disque tout en protégeant contre les injections SQL grâce aux requêtes paramétrées `?`."
+                "title": "Remplacer toute une fiche (PUT) vs Corriger une seule ligne au stylo (PATCH) vs Numéro de transaction unique (Idempotency-Key)",
+                "text": "En entretien technique comme en conception d'API, deux questions distinguent immédiatement un développeur averti :\n1. Quelle est la différence exacte entre `PUT` et `PATCH` ?\n2. Comment empêcher qu'un client dont la connexion 4G clignote ne crée 2 fois la même commande en rejouant son `POST` ?"
             },
             "explanation": [
-                "**Gestion du code `404 Not Found`** : Lorsqu'un client cible `/api/formations/999`, si la requête SQL `SELECT * FROM formations WHERE id = ?` ne renvoie aucune ligne, l'API retourne obligatoirement le statut `404`.",
-                "**Sécurité SQL (Requêtes paramétrées)** : Utilisez toujours des points d'interrogation `?` dans vos requêtes SQLite (`conn.execute('SELECT * FROM formations WHERE id = ?', (id,))`) pour empêcher toute injection SQL."
+                "**1. `PUT` vs `PATCH` (RFC 5789)** :\n  - **`PUT /api/v1/formations/1`** effectue un **remplacement complet** de l'enregistrement n°1. Le client doit envoyer l'intégralité des champs de la ressource (`titre`, `duree_jours`, `salle`). Si un champ est omis, il est soit rejeté (`400`), soit écrasé par sa valeur vide.\n  - **`PATCH /api/v1/formations/1`** effectue une **mise à jour partielle**. Le client peut envoyer uniquement `{\"salle\": \"Amphi B\"}` : seule la colonne `salle` est modifiée, le `titre` et la `duree_jours` restent intacts !",
+                "**2. Rendre `POST` idempotent grâce à l'en-tête `Idempotency-Key` (Standard Stripe / Adyen / Banques)** :\n  - Par nature, `POST` n'est pas idempotent. Si un client mobile envoie `POST /api/commandes`, que le serveur crée la commande, mais que le Wi-Fi coupe avant que le téléphone ne reçoive la réponse `201`, le téléphone va renvoyer la requête `POST`.\n  - Pour éviter de créer un doublon, le client génère un identifiant unique (`Idempotency-Key: cmd-2026-xyz`) dans les Headers. Le serveur mémorise la réponse associée à cette clé : si le client renvoie la même clé, le serveur lui redonne la réponse déjà enregistrée sans recréer l'objet !"
+            ],
+            "code": _read("03_put_patch_et_idempotence.py"),
+            "line_explanations": [
+                {"lines": "17-22", "text": "Contrôle de l'en-tête `Idempotency-Key` sur `POST` : si la clé a déjà été traitée, renvoie immédiatement l'objet précédemment créé (`rejoue_sans_doublon: True`) sans réinsérer."},
+                {"lines": "41-55", "text": "Implémentation stricte de `PUT` : exige la présence de tous les attributs (`titre`, `duree_jours`, `salle`) et remplace l'enregistrement complet."},
+                {"lines": "59-68", "text": "Implémentation de `PATCH` : met à jour uniquement les clés présentes dans le JSON envoyé."}
+            ],
+            "python_runner": {
+                "prompt": "Simulez un client qui envoie 2 fois le même POST avec la même Idempotency-Key suite à une coupure réseau :",
+                "initial_code": '''cache_idempotence = {}
+base_commandes = []
+
+def post_commande(cle_idempotence, donnees):
+    if cle_idempotence in cache_idempotence:
+        print(f"[REJEU DÉTECTÉ : {cle_idempotence}] Aucun doublon créé, renvoi de la commande existante.")
+        return cache_idempotence[cle_idempotence]
+
+    nouvelle = {"id": len(base_commandes) + 1, **donnees}
+    base_commandes.append(nouvelle)
+    cache_idempotence[cle_idempotence] = nouvelle
+    print(f"[CRÉATION : {cle_idempotence}] Nouvelle commande enregistrée :", nouvelle)
+    return nouvelle
+
+# Premier envoi par le client
+post_commande("idem-998877", {"formation": "API Flask", "montant": 45000})
+# Deuxième envoi (retry réseau avec la même clé)
+post_commande("idem-998877", {"formation": "API Flask", "montant": 45000})
+print("Total commandes en base :", len(base_commandes))'''
+            },
+            "vscode_instructions": {
+                "filename": "day_3/03_put_patch_et_idempotence.py",
+                "steps": [
+                    "Ouvrir `day_3/03_put_patch_et_idempotence.py` dans l'éditeur.",
+                    "Exécuter `.venv/bin/python day_3/03_put_patch_et_idempotence.py`."
+                ]
+            }
+        },
+        {
+            "id": "d3-l3",
+            "file": "day_3/04_gestion_erreurs_globale.py",
+            "title": "3.3 — Gestionnaires d'Erreurs Globaux (`@app.errorhandler`) : Zéro Page HTML d'Erreur dans une API",
+            "duration": "50 min",
+            "analogy": {
+                "title": "Un traducteur diplomatique qui répond toujours dans la langue attendue (JSON), même en cas d'incident",
+                "text": "Par défaut, lorsqu'un client appelle une URL qui n'existe pas (`404`) ou utilise la mauvaise méthode HTTP (`405`), Flask renvoie une **page Web HTML** (`<!doctype html><title>404 Not Found</title>...`). Or, l'application mobile ou le script qui appelle votre API s'attend à recevoir du **JSON** (`reponse.json()`) et plante sur une erreur de décodage ! Une API professionnelle doit **intercepter 100% des erreurs pour les formater en JSON**."
+            },
+            "explanation": [
+                "**1. Le décorateur `@app.errorhandler(code_ou_exception)`** : Permet de remplacer les pages d'erreur HTML par défaut de Flask par des réponses JSON uniformes.",
+                "**2. Les 3 gestionnaires indispensables** :\n  - `@app.errorhandler(404)` : Route introuvable.\n  - `@app.errorhandler(405)` : Méthode HTTP non autorisée sur cette route (ex. faire un `DELETE` sur `/api/login`).\n  - `@app.errorhandler(Exception)` : Filet de sécurité ultime qui capture toute erreur Python imprévue (`ZeroDivisionError`, `KeyError`, panne base de données), écrit la trace technique dans les logs du serveur pour le développeur, et renvoie au client un JSON `500 Internal Server Error` propre **sans jamais divulguer le code source ni les mots de passe dans le message d'erreur**."
+            ],
+            "code": _read("04_gestion_erreurs_globale.py"),
+            "line_explanations": [
+                {"lines": "11-17", "text": "Intercepte toute erreur `404` sur le serveur et retourne un objet JSON indiquant le chemin et la méthode appelés."},
+                {"lines": "20-24", "text": "Intercepte toute erreur `405 Method Not Allowed` en JSON."},
+                {"lines": "27-36", "text": "Filet de sécurité global : journalise l'exception côté serveur et renvoie un JSON `500` générique et sécurisé au client."}
+            ],
+            "vscode_instructions": {
+                "filename": "day_3/04_gestion_erreurs_globale.py",
+                "steps": [
+                    "Ouvrir `day_3/04_gestion_erreurs_globale.py`.",
+                    "Exécuter `.venv/bin/python day_3/04_gestion_erreurs_globale.py` et appeler `http://127.0.0.1:5001/api/v1/division?a=10&b=0` pour voir comment le crash `ZeroDivisionError` est converti en JSON propre."
+                ]
+            }
+        },
+        {
+            "id": "d3-l4",
+            "file": "day_3/02_api_crud_sqlite.py",
+            "title": "3.4 — Persistance Relationnelle SQLite, Transactions ACID & Parade contre l'Injection SQL (`?`)",
+            "duration": "65 min",
+            "analogy": {
+                "title": "Séparer le plan d'exécution SQL des données saisies par l'utilisateur",
+                "text": "L'**Injection SQL** fait partie des failles de sécurité les plus critiques au monde (OWASP Top 10). Elle survient lorsqu'un développeur construit sa requête SQL en collant directement la variable du client avec un `+` ou une `f-string`. Si le client envoie `\"Alger' OR '1'='1\"`, il détourne l'ordre SQL et peut lire ou détruire toute la base !"
+            },
+            "explanation": [
+                "**1. Pourquoi les Requêtes Paramétrées (`?`) neutralisent 100% des Injections SQL** :\n  - **DANGEREUX (À proscrire absolument)** : `conn.execute(f\"SELECT * FROM formations WHERE salle = '{salle}'\")`.\n  - **SÉCURISÉ (Requête paramétrée)** : `conn.execute(\"SELECT * FROM formations WHERE salle = ?\", (salle,))`.\n  - Avec le point d'interrogation `?`, le moteur SQLite compile d'abord la structure de l'ordre SQL, puis insère la valeur de `salle` comme une simple donnée inerte : même si elle contient des guillemets ou `DROP TABLE`, elle ne sera jamais exécutée comme une commande !",
+                "**2. Transactions ACID (`conn.commit()` et `conn.rollback()`)** : En SQLite, toute modification (`INSERT`, `UPDATE`, `DELETE`) ouvre une transaction. Si plusieurs tables doivent être mises à jour ensemble, `conn.commit()` valide l'ensemble d'un seul bloc atomique, tandis que `conn.rollback()` annule tout en cas d'erreur à mi-chemin."
             ],
             "code": _read("02_api_crud_sqlite.py"),
             "line_explanations": [
-                {"lines": "10-21", "text": "Création de la table `formations` dans le fichier SQLite `day_3_formations.db` si elle n'existe pas encore."},
-                {"lines": "37-40", "text": "Recherche sécurisée par paramètre `?`. Si l'enregistrement n'existe pas, retour immédiat `404`."},
-                {"lines": "42-46", "text": "Mise à jour `UPDATE` suivie de `conn.commit()` pour sauvegarder sur disque."}
+                {"lines": "10-21", "text": "Initialisation du schéma SQLite avec clé primaire auto-incrémentée (`INTEGER PRIMARY KEY AUTOINCREMENT`)."},
+                {"lines": "37", "text": "Requête `SELECT` paramétrée avec `?` et le tuple `(id,)`."},
+                {"lines": "44-45", "text": "Requête `UPDATE` paramétrée `(titre, salle, id)` suivie de la validation transactionnelle `conn.commit()`."},
+                {"lines": "51-54", "text": "`cur.rowcount` indique combien de lignes ont été effectivement supprimées par `DELETE` (si `0`, la ressource n'existait pas -> `404`)."}
             ],
             "sandbox_preset": {
-                "label": "Tester PUT /api/sandbox/formations/1",
+                "label": "Tester PUT /api/sandbox/formations/1 sur la base SQLite",
                 "method": "PUT",
                 "url": "/api/sandbox/formations/1",
                 "body": '{\n  "titre": "Architecture des APIs REST (Niveau Avancé)",\n  "salle": "Amphithéâtre ISGP"\n}'
             },
             "python_runner": {
-                "prompt": "Exécutez ce cycle complet SQLite (CREATE, INSERT paramétré, SELECT) directement :",
+                "prompt": "Comparez l'effet d'une tentative d'Injection SQL sur une requête vulnérable vs une requête paramétrée avec ? :",
                 "initial_code": '''import sqlite3
 
 conn = sqlite3.connect(":memory:")
-conn.row_factory = sqlite3.Row
-conn.execute("CREATE TABLE formations (id INTEGER PRIMARY KEY, titre TEXT, salle TEXT)")
+conn.execute("CREATE TABLE utilisateurs (id INT, login TEXT, role TEXT)")
+conn.execute("INSERT INTO utilisateurs VALUES (1, 'admin', ' direction'), (2, 'amine', 'stagiaire')")
 
-# Insertion sécurisée avec paramètres ?
-conn.execute("INSERT INTO formations (titre, salle) VALUES (?, ?)", ("API Flask & Sécurité", "Salle 101"))
-conn.execute("INSERT INTO formations (titre, salle) VALUES (?, ?)", ("Tokens & Rate Limiting", "Salle 202"))
-conn.commit()
+# Entrée malveillante envoyée par un attaquant :
+entree_pirate = "' OR '1'='1"
 
-lignes = conn.execute("SELECT * FROM formations").fetchall()
-print("Enregistrements SQLite :", [dict(r) for r in lignes])'''
+# 1. REQUÊTE PARAMÉTRÉE SÉCURISÉE AVEC ? :
+lignes_sures = conn.execute("SELECT * FROM utilisateurs WHERE login = ?", (entree_pirate,)).fetchall()
+print("1. Résultat avec requête paramétrée (?) :", lignes_sures, "-> Attaque neutralisée !")'''
             },
             "vscode_instructions": {
                 "filename": "day_3/02_api_crud_sqlite.py",

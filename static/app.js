@@ -22,6 +22,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   registerServiceWorker();
   setupPwaInstallPrompt();
   await loadCourseData();
+  renderCurlCheatsheet();
   updateCurlPreview();
   refreshLiveTables();
 });
@@ -73,6 +74,9 @@ function switchTab(tabName) {
     updateCurlPreview();
     refreshLiveTables();
   }
+  if (tabName === "curl") {
+    renderCurlCheatsheet();
+  }
 }
 
 // ============================================================================
@@ -82,6 +86,7 @@ function toggleDayGroup(dayNumber) {
   if (STATE.expandedDays.has(dayNumber)) {
     STATE.expandedDays.delete(dayNumber);
   } else {
+    STATE.expandedDays.clear();
     STATE.expandedDays.add(dayNumber);
   }
   renderDaysSidebar();
@@ -101,7 +106,7 @@ function renderDaysSidebar() {
           return `
             <button class="lesson-nav-btn ${isLessonActive ? "active" : ""}"
                     onclick="selectLesson(${day.day_number}, '${lesson.id}')">
-              <span>${escapeHtml(lesson.title)}</span>
+              <span>${formatInlineText(lesson.title)}</span>
               <span class="muted-small">${escapeHtml(lesson.duration)}</span>
             </button>
           `;
@@ -128,6 +133,7 @@ function renderDaysSidebar() {
 function selectLesson(dayNumber, lessonId) {
   STATE.activeDay = dayNumber;
   STATE.activeLessonId = lessonId;
+  STATE.expandedDays.clear();
   STATE.expandedDays.add(dayNumber);
   renderDaysSidebar();
   renderActiveLesson();
@@ -149,8 +155,8 @@ function renderActiveLesson() {
   banner.innerHTML = `
     <div>
       <div class="day-banner-meta">${escapeHtml(dayObj.badge)} — Dossier : ${escapeHtml(dayObj.folder)}/</div>
-      <h2>${escapeHtml(dayObj.title)}</h2>
-      <p><strong>Objectif :</strong> ${escapeHtml(dayObj.goal)}</p>
+      <h2>${formatInlineText(dayObj.title)}</h2>
+      <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
     </div>
     <div class="btn-group">
       <a class="btn-secondary" href="/api/day-file/${dayObj.day_number}/${encodeURIComponent(fileBasename)}?download=1" download>
@@ -164,9 +170,115 @@ function renderActiveLesson() {
 
   const detailContainer = document.getElementById("lesson-detail-container");
 
+  const contextHtml = lesson.context
+    ? `
+      <div class="doc-context-box">
+        <h4>1. Contexte &amp; Problématique d'Ingénierie</h4>
+        <div class="doc-context-text">${formatRichText(lesson.context)}</div>
+      </div>
+    `
+    : "";
+
+  const deepSectionsHtml =
+    lesson.deep_sections && lesson.deep_sections.length
+      ? `
+      <div class="deep-sections-wrapper">
+        ${lesson.deep_sections
+          .map(
+            (sec) => `
+          <div class="deep-section-card">
+            <h5>${formatInlineText(sec.heading)}</h5>
+            <div class="deep-section-body">${formatRichText(sec.body)}</div>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    `
+      : "";
+
   const explanationsHtml = (lesson.explanation || [])
     .map((item) => `<div class="explanation-item">${formatRichText(item)}</div>`)
     .join("");
+
+  const archDiagramHtml = lesson.architecture_diagram
+    ? `
+      <div class="arch-diagram-box">
+        <h4>Schéma d'Architecture &amp; Flux d'Exécution</h4>
+        <pre class="arch-diagram-pre">${escapeHtml(lesson.architecture_diagram)}</pre>
+      </div>
+    `
+    : "";
+
+  const refTableHtml =
+    lesson.reference_table && lesson.reference_table.headers
+      ? `
+      <div class="ref-table-box">
+        <h4>${formatInlineText(lesson.reference_table.title || "Tableau de Synthèse & Référence Technique")}</h4>
+        <table class="data-table">
+          <thead>
+            <tr>
+              ${lesson.reference_table.headers.map((h) => `<th>${formatInlineText(h)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${(lesson.reference_table.rows || [])
+              .map(
+                (row) => `
+              <tr>
+                ${row.map((cell) => `<td>${formatInlineText(cell)}</td>`).join("")}
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `
+      : "";
+
+  const pitfallsHtml =
+    lesson.pitfalls && lesson.pitfalls.length
+      ? `
+      <div class="pitfalls-box">
+        <h4>Erreurs Fréquentes en Production (Anti-Patterns) vs Standards Industriels</h4>
+        <div class="pitfalls-grid">
+          ${lesson.pitfalls
+            .map(
+              (pf) => `
+            <div class="pitfall-row">
+              <div class="pitfall-bad">
+                <div class="pitfall-tag">[Anti-Pattern — À proscrire]</div>
+                <div>${formatInlineText(pf.bad)}</div>
+              </div>
+              <div class="pitfall-good">
+                <div class="pitfall-tag">[Standard de Production]</div>
+                <div>${formatInlineText(pf.good)}</div>
+              </div>
+              <div class="pitfall-why">
+                <div class="pitfall-tag">[Justification Technique]</div>
+                <div>${formatInlineText(pf.why)}</div>
+              </div>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+    `
+      : "";
+
+  const exercisesHtml =
+    lesson.practical_exercises && lesson.practical_exercises.length
+      ? `
+      <div class="exercises-box">
+        <h4>Travaux Pratiques &amp; Exercices d'Approfondissement Post-Bootcamp</h4>
+        <ol style="margin:6px 0 0 0; padding-left:20px; font-size:13.3px; color:#1f2937; line-height:1.6;">
+          ${lesson.practical_exercises.map((ex) => `<li style="margin-bottom:6px;">${formatRichText(ex)}</li>`).join("")}
+        </ol>
+      </div>
+    `
+      : "";
 
   const lineExplainHtml = (lesson.line_explanations || [])
     .map(
@@ -189,7 +301,7 @@ function renderActiveLesson() {
             Exécuter le code
           </button>
         </div>
-        <p class="muted-small" style="margin-top:0;">${escapeHtml(lesson.python_runner.prompt)}</p>
+        <p class="muted-small" style="margin-top:0;">${formatInlineText(lesson.python_runner.prompt)}</p>
         <textarea id="lesson-runner-code-${lesson.id}" rows="10" class="code-textarea">${escapeHtml(lesson.python_runner.initial_code)}</textarea>
         <div style="margin-top:8px;">
           <pre id="lesson-runner-output-${lesson.id}" class="terminal-output">Cliquez sur « Exécuter le code » pour afficher la sortie standard.</pre>
@@ -203,17 +315,37 @@ function renderActiveLesson() {
     const p = lesson.sandbox_preset;
     const headersJson = JSON.stringify(p.headers || {}).replace(/"/g, "&quot;");
     const bodyEscaped = JSON.stringify(p.body || "");
+
+    // Construction automatique de la commande curl correspondante
+    let lessonCurl = `curl -i -X ${p.method} "http://127.0.0.1:5000${p.url}"`;
+    if (p.headers) {
+      Object.entries(p.headers).forEach(([k, v]) => {
+        lessonCurl += ` \\\n  -H "${k}: ${v}"`;
+      });
+    }
+    if ((p.method === "POST" || p.method === "PUT" || p.method === "PATCH") && p.body) {
+      const compactBody = p.body.replace(/\s*\n\s*/g, " ").trim();
+      lessonCurl += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${compactBody}'`;
+    }
+    const lessonCurlEscaped = JSON.stringify(lessonCurl);
+
     sandboxPresetHtml = `
       <div class="interactive-try-box">
         <div class="label-row">
-          <h4>Test de l'Endpoint dans le Client HTTP</h4>
-          <button class="btn-primary btn-sm" onclick='launchSandboxFromLesson(${JSON.stringify(p.method)}, ${JSON.stringify(p.url)}, ${bodyEscaped}, ${headersJson})'>
-            ${escapeHtml(p.label)}
-          </button>
+          <h4>Test de l'Endpoint (<code>curl</code>, Postman &amp; Client HTTP)</h4>
+          <div class="btn-group">
+            <button class="btn-secondary btn-sm" onclick='launchCurlLabFromLesson(${lessonCurlEscaped})'>
+              Exécuter avec curl
+            </button>
+            <button class="btn-primary btn-sm" onclick='launchSandboxFromLesson(${JSON.stringify(p.method)}, ${JSON.stringify(p.url)}, ${bodyEscaped}, ${headersJson})'>
+              ${escapeHtml(p.label)}
+            </button>
+          </div>
         </div>
-        <p class="muted-small" style="margin:0;">
-          Exécute la requête <code>${escapeHtml(p.method)} ${escapeHtml(p.url)}</code> dans l'inspecteur HTTP et affiche la réponse et la trace serveur.
+        <p class="muted-small" style="margin:0 0 8px 0;">
+          Commande <code>curl</code> équivalente à exécuter dans votre terminal ou dans l'onglet <strong>curl &amp; Postman</strong> :
         </p>
+        <pre class="code-block-mini" style="margin:0;">${escapeHtml(lessonCurl)}</pre>
       </div>
     `;
   }
@@ -241,28 +373,36 @@ function renderActiveLesson() {
   detailContainer.innerHTML = `
     <article class="lesson-card">
       <div class="lesson-title-row">
-        <h3>${escapeHtml(lesson.title)}</h3>
+        <h3>${formatInlineText(lesson.title)}</h3>
         <div class="btn-group">
           <span class="category-tag">Fichier : ${escapeHtml(filePath)}</span>
           <span class="category-tag">Durée : ${escapeHtml(lesson.duration)}</span>
         </div>
       </div>
 
+      ${contextHtml}
+
       ${
         lesson.analogy
           ? `
         <div class="analogy-box">
-          <h4>Analogie Fonctionnelle — ${escapeHtml(lesson.analogy.title)}</h4>
-          <p>${formatRichText(lesson.analogy.text)}</p>
+          <h4>Modèle Mental &amp; Analogie Fonctionnelle — ${formatInlineText(lesson.analogy.title)}</h4>
+          <div class="analogy-text">${formatRichText(lesson.analogy.text)}</div>
         </div>
       `
           : ""
       }
 
+      ${deepSectionsHtml}
+
       <div class="explanation-box">
-        <h4>Présentation Méthodique (Sans Prérequis)</h4>
+        <h4>Synthèse Méthodique &amp; Règles d'Ingénierie</h4>
         ${explanationsHtml}
       </div>
+
+      ${archDiagramHtml}
+      ${refTableHtml}
+      ${pitfallsHtml}
 
       <div class="code-walkthrough-grid">
         <div class="code-panel">
@@ -286,6 +426,7 @@ function renderActiveLesson() {
       ${sandboxPresetHtml}
       ${runnerHtml}
       ${vscodeHtml}
+      ${exercisesHtml}
 
       <div class="lesson-footer-nav">
         ${
@@ -416,18 +557,18 @@ function loadSandboxPreset(method, url, body, headers = {}) {
   sendSandboxRequest();
 }
 
-async function quickGenerateAndInjectToken() {
+async function quickGenerateAndInjectToken(identifiant = "stagiaire") {
   try {
     const res = await fetch("/api/sandbox/auth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifiant: "stagiaire", mot_de_passe: "isgp2026" })
+      body: JSON.stringify({ identifiant, mot_de_passe: "isgp2026" })
     });
     const data = await res.json();
     if (data.access_token) {
       document.getElementById("http-header-bearer").value = data.access_token;
       updateCurlPreview();
-      showToast("Bearer Token signé généré et injecté dans le champ Authorization.");
+      showToast(`Bearer Token '${identifiant}' généré et injecté dans Authorization.`);
     }
   } catch (e) {
     showToast("Erreur lors de la génération du jeton.");
@@ -466,7 +607,7 @@ function updateCurlPreview() {
   if (apiKey) {
     cmd += ` \\\n  -H "X-API-Key: ${apiKey}"`;
   }
-  if ((method === "POST" || method === "PUT") && body) {
+  if ((method === "POST" || method === "PUT" || method === "PATCH") && body) {
     cmd += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${body.replace(/\n/g, " ")}'`;
   }
 
@@ -491,7 +632,7 @@ async function sendSandboxRequest() {
   }
 
   const fetchOptions = { method, headers };
-  if (method === "POST" || method === "PUT") {
+  if (method === "POST" || method === "PUT" || method === "PATCH") {
     headers["Content-Type"] = "application/json";
     if (bodyText) {
       try {
@@ -749,14 +890,14 @@ function renderGlossary() {
       (item) => `
       <div class="glossary-card">
         <div class="glossary-card-top">
-          <h3>${escapeHtml(item.term)}</h3>
+          <h3>${formatInlineText(item.term)}</h3>
           <span class="category-tag">${escapeHtml(item.category)}</span>
         </div>
-        <p style="margin:0; font-weight:600; color:#111827;">${escapeHtml(item.short)}</p>
+        <p style="margin:0; font-weight:600; color:#111827;">${formatInlineText(item.short)}</p>
         <div class="glossary-analogy">
-          <strong>Analogie :</strong> ${escapeHtml(item.analogy)}
+          <strong>Analogie :</strong> ${formatInlineText(item.analogy)}
         </div>
-        <p style="margin:0; font-size:13px; color:#374151; white-space:pre-line;">${formatRichText(item.explanation)}</p>
+        <div style="margin:0; font-size:13px; color:#374151;">${formatRichText(item.explanation)}</div>
         <pre class="code-block" style="font-size:12px; padding:10px; border-radius:4px;">${escapeHtml(item.code_example)}</pre>
       </div>
     `
@@ -797,8 +938,8 @@ function renderQuiz(dayNum) {
 
   container.innerHTML = `
     <div class="card" style="margin-bottom:14px;">
-      <h3 style="margin:0 0 4px 0;">${escapeHtml(quiz.title)}</h3>
-      <p class="muted-small" style="margin:0;">${escapeHtml(quiz.description)}</p>
+      <h3 style="margin:0 0 4px 0;">${formatInlineText(quiz.title)}</h3>
+      <p class="muted-small" style="margin:0;">${formatInlineText(quiz.description)}</p>
     </div>
     ${quiz.questions
       .map(
@@ -812,7 +953,7 @@ function renderQuiz(dayNum) {
                 <button class="quiz-option-btn"
                         id="quiz-opt-${q.id}-${optIdx}"
                         onclick="checkQuizAnswer('${dayNum}', '${q.id}', ${optIdx}, ${q.correct_index})">
-                  ${escapeHtml(opt)}
+                  ${formatInlineText(opt)}
                 </button>
               `
               )
@@ -896,9 +1037,390 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function formatRichText(str) {
-  const escaped = escapeHtml(str);
-  return escaped
+function formatInlineText(str) {
+  const raw = String(str ?? "")
+    .replace(/\$\\rightarrow\$/g, "→")
+    .replace(/\\rightarrow/g, "→");
+
+  // 1. Extraire et protéger tous les blocs `code` par des jetons temporaires
+  //    afin que les expressions **gras (`code`)** ou *italique* englobant du code fonctionnent toujours.
+  const codeBlocks = [];
+  const tokenized = raw.replace(/`([^`]+)`/g, (_, codeContent) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<code>${escapeHtml(codeContent)}</code>`);
+    return `\x00CODE${idx}\x00`;
+  });
+
+  // 2. Échapper le HTML et formater le gras (**...**) et l'italique (*...*) sur la ligne entière
+  let formatted = escapeHtml(tokenized)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>");
+    .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>")
+    .replace(/ -&gt; /g, " &rarr; ");
+
+  // 3. Réinjecter les blocs <code>...</code> protégés
+  return formatted.replace(/\x00CODE(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
+}
+
+function formatRichText(str) {
+  const lines = String(str ?? "").split("\n");
+  if (lines.length === 1) {
+    return formatInlineText(lines[0]);
+  }
+  return lines
+    .map((line, idx) => {
+      if (!line.trim()) return "";
+      if (/^\s{4,}-\s+/.test(line)) {
+        return `<div class="rich-line-sub2">&ndash; ${formatInlineText(line.replace(/^\s+-\s+/, ""))}</div>`;
+      }
+      if (/^\s*-\s+/.test(line)) {
+        return `<div class="rich-line-sub">&bull; ${formatInlineText(line.replace(/^\s*-\s+/, ""))}</div>`;
+      }
+      if (/^\s*\d+\.\s+/.test(line)) {
+        return `<div class="rich-line-sub">${formatInlineText(line.trim())}</div>`;
+      }
+      return `<div class="${idx === 0 ? "rich-line-main" : "rich-line-p"}">${formatInlineText(line)}</div>`;
+    })
+    .join("");
+}
+
+// ============================================================================
+// 10. LABORATOIRE CURL, POSTMAN & HTTPIE
+// ============================================================================
+const CURL_PRESETS = {
+  get_list: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc" \\\n  -H "Accept: application/json"`,
+  post_create: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/formations" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Tests Automatisés avec curl", "formateur": "Formateur ISGP", "duree_jours": 4, "salle": "Labo 2"}'`,
+  put_update: `curl -i -X PUT "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Architecture API REST & Flask (Complet)", "duree_jours": 5, "salle": "Salle Conférence"}'`,
+  patch_partial: `curl -i -X PATCH "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"salle": "Amphithéâtre Principal"}'`,
+  apikey_auth: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/admin-stats" \\\n  -H "X-API-Key: isgp-secret-2026"`,
+  bearer_issue: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/auth/token" \\\n  -H "Content-Type: application/json" \\\n  -d '{"identifiant": "stagiaire", "mot_de_passe": "isgp2026"}'`,
+  ratelimit_429: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/ratelimit-demo"`,
+  verbose_trace: `curl -v -X GET "http://127.0.0.1:5000/api/sandbox/bonjour"`
+};
+
+function loadCurlPreset(key) {
+  const input = document.getElementById("curl-lab-input");
+  if (!input || !CURL_PRESETS[key]) return;
+  input.value = CURL_PRESETS[key];
+  executeLiveCurlCommand();
+}
+
+function launchCurlLabFromLesson(curlCmd) {
+  switchTab("curl");
+  const input = document.getElementById("curl-lab-input");
+  if (input) {
+    input.value = curlCmd;
+    executeLiveCurlCommand();
+  }
+}
+
+async function executeLiveCurlCommand() {
+  const input = document.getElementById("curl-lab-input");
+  const output = document.getElementById("curl-lab-output");
+  if (!input || !output) return;
+
+  output.style.color = "#e2e8f0";
+  output.textContent = "Exécution de la commande curl en cours...";
+  try {
+    const res = await fetch("/api/curl/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: input.value })
+    });
+    const data = await res.json();
+    if (data.error) {
+      output.style.color = "#fca5a5";
+      output.textContent = "Erreur :\n" + data.error;
+    } else {
+      output.style.color = "#e2e8f0";
+      output.textContent = data.output || "(Aucune sortie)";
+    }
+  } catch (err) {
+    output.style.color = "#fca5a5";
+    output.textContent = "Erreur lors de l'exécution de curl.";
+  }
+}
+
+const CURL_CHEATSHEET_ITEMS = [
+  // ================= 1. INSPECTION & DIAGNOSTIC HTTP =================
+  {
+    category: "1. Inspection & Diagnostic HTTP",
+    badge: "GET simple",
+    title: "1.1 — Requête GET minimale (Corps uniquement)",
+    desc: "Interroge une URL en GET et affiche uniquement le corps JSON sur la sortie standard (sans les en-têtes HTTP).",
+    cmd: `curl "http://127.0.0.1:5000/api/sandbox/bonjour"`,
+    liveRunnable: true
+  },
+  {
+    category: "1. Inspection & Diagnostic HTTP",
+    badge: "-i / --include",
+    title: "1.2 — Inspecter la Ligne de Statut et les En-têtes HTTP (-i)",
+    desc: "Affiche la ligne HTTP/1.1 200 OK et tous les en-têtes (Content-Type, X-RateLimit-*, Date) au-dessus du corps JSON.",
+    cmd: `curl -i "http://127.0.0.1:5000/api/sandbox/formations"`,
+    liveRunnable: true
+  },
+  {
+    category: "1. Inspection & Diagnostic HTTP",
+    badge: "-I / --head",
+    title: "1.3 — Requête HEAD : récupérer uniquement les En-têtes (-I)",
+    desc: "Vérifie si une route répond (200 OK), sa taille (Content-Length) et son type MIME sans télécharger le corps JSON.",
+    cmd: `curl -I "http://127.0.0.1:5000/api/sandbox/formations"`,
+    liveRunnable: true
+  },
+  {
+    category: "1. Inspection & Diagnostic HTTP",
+    badge: "-v / --verbose",
+    title: "1.4 — Diagnostic Réseau Complet en Mode Verbeux (-v)",
+    desc: "Affiche la connexion TCP, la requête brute envoyée (lignes '>'), et la réponse brute reçue (lignes '<'). Indispensable en débogage.",
+    cmd: `curl -v "http://127.0.0.1:5000/api/sandbox/bonjour"`,
+    liveRunnable: true
+  },
+  {
+    category: "1. Inspection & Diagnostic HTTP",
+    badge: "-G --data-urlencode",
+    title: "1.5 — Paramètres d'URL (Query String) avec encodage automatique (-G)",
+    desc: "Combine -G et --data-urlencode pour encoder proprement les espaces et caractères spéciaux dans l'URL (?salle=Labo%201&page=1).",
+    cmd: `curl -i -G "http://127.0.0.1:5000/api/sandbox/formations" \\\n  --data-urlencode "salle=Labo 1" \\\n  --data-urlencode "page=1" \\\n  --data-urlencode "limit=2"`,
+    liveRunnable: true
+  },
+  {
+    category: "1. Inspection & Diagnostic HTTP",
+    badge: "Accept / User-Agent",
+    title: "1.6 — Personnaliser le User-Agent (-A) et la Négociation de Contenu (Accept)",
+    desc: "Spécifie l'identifiant du logiciel client (-A) et exige explicitement le format JSON via l'en-tête Accept.",
+    cmd: `curl -i -A "ISGP-Audit-Client/1.0" \\\n  -H "Accept: application/json" \\\n  "http://127.0.0.1:5000/api/sandbox/meteo?ville=Alger"`,
+    liveRunnable: true
+  },
+
+  // ================= 2. OPÉRATIONS CRUD & ENVOI JSON =================
+  {
+    category: "2. Opérations CRUD & Envoi JSON",
+    badge: "POST JSON (-d)",
+    title: "2.1 — Créer une ressource avec POST et un Corps JSON (-X POST -H -d)",
+    desc: "La commande standard universelle pour envoyer un dictionnaire JSON à une route POST et recevoir 201 Created.",
+    cmd: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/formations" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Microservices Python", "formateur": "ISGP", "duree_jours": 5, "salle": "Salle C"}'`,
+    liveRunnable: true
+  },
+  {
+    category: "2. Opérations CRUD & Envoi JSON",
+    badge: "--json (curl 7.82+)",
+    title: "2.2 — Syntaxe Moderne Raccourcie (--json)",
+    desc: "Depuis curl 7.82+, l'option --json configure automatiquement -X POST, Content-Type: application/json et Accept: application/json.",
+    cmd: `curl -i --json '{"titre": "Créé avec --json", "duree_jours": 3, "salle": "Labo 1"}' \\\n  "http://127.0.0.1:5000/api/sandbox/formations"`,
+    liveRunnable: true
+  },
+  {
+    category: "2. Opérations CRUD & Envoi JSON",
+    badge: "PUT (Remplacement)",
+    title: "2.3 — Mise à jour intégrale et idempotente d'une ressource (-X PUT)",
+    desc: "Remplace les données de la ressource ciblée (/formations/1) par le nouveau JSON fourni.",
+    cmd: `curl -i -X PUT "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Architecture API REST & Sécurité", "duree_jours": 5, "salle": "Salle Conférence"}'`,
+    liveRunnable: true
+  },
+  {
+    category: "2. Opérations CRUD & Envoi JSON",
+    badge: "PATCH (Partiel)",
+    title: "2.4 — Modification partielle d'un seul champ (-X PATCH)",
+    desc: "Modifie uniquement le champ 'salle' de la formation #1 sans toucher à son titre ni à sa durée.",
+    cmd: `curl -i -X PATCH "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"salle": "Amphithéâtre ISGP"}'`,
+    liveRunnable: true
+  },
+  {
+    category: "2. Opérations CRUD & Envoi JSON",
+    badge: "DELETE",
+    title: "2.5 — Supprimer une ressource par son identifiant (-X DELETE)",
+    desc: "Envoie une requête DELETE sur l'URI de la ressource ciblée.",
+    cmd: `curl -i -X DELETE "http://127.0.0.1:5000/api/sandbox/formations/999"`,
+    liveRunnable: true
+  },
+  {
+    category: "2. Opérations CRUD & Envoi JSON",
+    badge: "Idempotency-Key",
+    title: "2.6 — Requête POST critique protégée contre les doublons (Idempotency-Key)",
+    desc: "Envoie une clé d'idempotence unique dans les en-têtes pour garantir qu'un réessai réseau ne crée pas de doublon.",
+    cmd: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/wall" \\\n  -H "Content-Type: application/json" \\\n  -H "Idempotency-Key: tx-2026-99812" \\\n  -d '{"auteur": "Stagiaire ISGP", "message": "Test curl validé avec succès."}'`,
+    liveRunnable: true
+  },
+
+  // ================= 3. AUTHENTIFICATION & SÉCURITÉ =================
+  {
+    category: "3. Authentification & Sécurité",
+    badge: "X-API-Key",
+    title: "3.1 — Authentification Machine-à-Machine par Clé API (X-API-Key)",
+    desc: "Transmet la clé secrète dans l'en-tête HTTP X-API-Key (ne jamais la passer dans l'URL !).",
+    cmd: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/admin-stats" \\\n  -H "X-API-Key: isgp-secret-2026"`,
+    liveRunnable: true
+  },
+  {
+    category: "3. Authentification & Sécurité",
+    badge: "Login -> Token",
+    title: "3.2 — Émission d'un Bearer Token signé (POST /auth/token)",
+    desc: "Envoie les identifiants JSON en POST pour obtenir un jeton signé temporaire (access_token).",
+    cmd: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/auth/token" \\\n  -H "Content-Type: application/json" \\\n  -d '{"identifiant": "stagiaire", "mot_de_passe": "isgp2026"}'`,
+    liveRunnable: true
+  },
+  {
+    category: "3. Authentification & Sécurité",
+    badge: "Bearer Token",
+    title: "3.3 — Appeler une route protégée avec Authorization: Bearer <token>",
+    desc: "Présente le jeton signé dans l'en-tête standard RFC 6750 Authorization: Bearer.",
+    cmd: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/auth/profil" \\\n  -H "Authorization: Bearer <COLLER_VOTRE_TOKEN_ICI>"`,
+    liveRunnable: true
+  },
+  {
+    category: "3. Authentification & Sécurité",
+    badge: "-u (Basic Auth)",
+    title: "3.4 — Authentification HTTP Basic (-u identifiant:mot_de_passe)",
+    desc: "L'option -u encode automatiquement 'identifiant:mot_de_passe' en Base64 dans l'en-tête 'Authorization: Basic ...'.",
+    cmd: `curl -v -u "stagiaire:isgp2026" "http://127.0.0.1:5000/api/sandbox/bonjour"`,
+    liveRunnable: true
+  },
+  {
+    category: "3. Authentification & Sécurité",
+    badge: "CORS Preflight",
+    title: "3.5 — Tester la politique CORS d'une API (Requête OPTIONS Preflight)",
+    desc: "Simule la vérification CORS d'un navigateur Web en envoyant les en-têtes Origin et Access-Control-Request-Method.",
+    cmd: `curl -i -X OPTIONS "http://127.0.0.1:5000/api/sandbox/formations" \\\n  -H "Origin: http://localhost:3000" \\\n  -H "Access-Control-Request-Method: POST"`,
+    liveRunnable: true
+  },
+  {
+    category: "3. Authentification & Sécurité",
+    badge: "-k / --insecure",
+    title: "3.6 — Ignorer un certificat HTTPS/TLS auto-signé en test local (-k)",
+    desc: "Permet d'interroger un serveur HTTPS de développement local dont le certificat n'est pas signé par une autorité publique.",
+    cmd: `curl -k -i "https://localhost:8443/api/health/live"`,
+    liveRunnable: false
+  },
+
+  // ================= 4. FICHIERS, FORMULAIRES & TÉLÉCHARGEMENT =================
+  {
+    category: "4. Fichiers, Formulaires & Téléchargement",
+    badge: "-d @fichier.json",
+    title: "4.1 — Envoyer un fichier JSON stocké sur le disque (-d @payload.json)",
+    desc: "Le préfixe @ indique à curl de lire le contenu du fichier payload.json comme corps de requête (évite tout problème de guillemets).",
+    cmd: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/formations" \\\n  -H "Content-Type: application/json" \\\n  -d @payload.json`,
+    liveRunnable: false
+  },
+  {
+    category: "4. Fichiers, Formulaires & Téléchargement",
+    badge: "-F (Multipart Upload)",
+    title: "4.2 — Uploader un fichier PDF/Image (multipart/form-data avec -F)",
+    desc: "L'option -F construit une requête multipart/form-data permettant d'envoyer un fichier binaire (@rapport.pdf) et des champs texte.",
+    cmd: `curl -i -X POST "http://127.0.0.1:5000/api/upload" \\\n  -F "fichier=@rapport_isgp.pdf" \\\n  -F "description=Support de cours"`,
+    liveRunnable: false
+  },
+  {
+    category: "4. Fichiers, Formulaires & Téléchargement",
+    badge: "-L -o (Download)",
+    title: "4.3 — Télécharger un fichier (-o) en suivant les redirections 301/302 (-L)",
+    desc: "Télécharge la Collection Postman de l'API et l'enregistre dans le fichier local collection.json.",
+    cmd: `curl -L -o collection.json "http://127.0.0.1:5000/api/download/postman-collection"`,
+    liveRunnable: false
+  },
+  {
+    category: "4. Fichiers, Formulaires & Téléchargement",
+    badge: "-c / -b (Cookies)",
+    title: "4.4 — Sauvegarder (-c) et réutiliser (-b) les Cookies de session HTTP",
+    desc: "Enregistre les cookies Set-Cookie reçus lors du login dans cookies.txt (-c) puis les renvoie aux appels suivants (-b).",
+    cmd: `# 1. Sauvegarder les cookies dans cookies.txt :\ncurl -c cookies.txt -X POST "http://127.0.0.1:5000/login" -d "user=stagiaire"\n\n# 2. Renvoyer les cookies sauvegardés :\ncurl -b cookies.txt "http://127.0.0.1:5000/espace-membre"`,
+    liveRunnable: false
+  },
+
+  // ================= 5. PERFORMANCE, TIMEOUTS, RETRIES & SCRIPTING =================
+  {
+    category: "5. Performance, Timeouts, Retries & Scripting",
+    badge: "Timeouts (-m)",
+    title: "5.1 — Imposer des Timeouts stricts de connexion et d'exécution (--connect-timeout / -m)",
+    desc: "Abandonne si la connexion TCP dépasse 2 secondes (--connect-timeout 2) ou si la réponse totale dépasse 5 secondes (-m 5).",
+    cmd: `curl -i --connect-timeout 2 -m 5 "http://127.0.0.1:5000/api/sandbox/calcul-tva?ht=2500&taux=19"`,
+    liveRunnable: true
+  },
+  {
+    category: "5. Performance, Timeouts, Retries & Scripting",
+    badge: "Chronométrage (-w)",
+    title: "5.2 — Mesurer la latence détaillée (DNS, TCP, TTFB, Temps Total avec -w)",
+    desc: "Affiche une ventilation chronométrique précise de la requête grâce aux variables de formatage --write-out (-w).",
+    cmd: `curl -s -w "\\nCode HTTP : %{http_code}\\nTemps DNS : %{time_namelookup}s\\nTemps TCP : %{time_connect}s\\nTemps TTFB: %{time_starttransfer}s\\nTotal     : %{time_total}s\\n" \\\n  "http://127.0.0.1:5000/api/sandbox/formations"`,
+    liveRunnable: true
+  },
+  {
+    category: "5. Performance, Timeouts, Retries & Scripting",
+    badge: "Pipe JSON (jq / python)",
+    title: "5.3 — Formater et filtrer la sortie JSON en terminal (| python3 -m json.tool ou | jq)",
+    desc: "Utilise -s (silencieux) pour envoyer le JSON brut dans le formateur intégré de Python ou dans l'outil jq.",
+    cmd: `# Avec le module standard Python (installé partout) :\ncurl -s "http://127.0.0.1:5000/api/sandbox/formations" | python3 -m json.tool\n\n# Avec jq (extraire uniquement les titres des formations) :\ncurl -s "http://127.0.0.1:5000/api/sandbox/formations" | jq '.formations[].titre'`,
+    liveRunnable: false
+  },
+  {
+    category: "5. Performance, Timeouts, Retries & Scripting",
+    badge: "Chaînage Auth -> API",
+    title: "5.4 — Script Bash : Capturer le Bearer Token dans une variable et appeler une route protégée",
+    desc: "Automatise en une seule ligne l'obtention du jeton sur /auth/token, son extraction et son injection dans Authorization: Bearer.",
+    cmd: `TOKEN=$(curl -s -X POST "http://127.0.0.1:5000/api/sandbox/auth/token" \\\n  -H "Content-Type: application/json" \\\n  -d '{"identifiant":"stagiaire","mot_de_passe":"isgp2026"}' \\\n  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")\n\ncurl -i -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:5000/api/sandbox/auth/profil"`,
+    liveRunnable: false
+  }
+];
+
+let FILTERED_CHEATSHEET = [];
+
+function renderCurlCheatsheet() {
+  const grid = document.getElementById("curl-cheatsheet-grid");
+  if (!grid) return;
+
+  const q = (document.getElementById("curl-cheatsheet-search")?.value || "").toLowerCase().trim();
+  const cat = document.getElementById("curl-cheatsheet-category")?.value || "ALL";
+
+  FILTERED_CHEATSHEET = CURL_CHEATSHEET_ITEMS.filter((item) => {
+    const matchCat = cat === "ALL" || item.category === cat;
+    const matchQ =
+      !q ||
+      item.title.toLowerCase().includes(q) ||
+      item.badge.toLowerCase().includes(q) ||
+      item.desc.toLowerCase().includes(q) ||
+      item.cmd.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+
+  if (FILTERED_CHEATSHEET.length === 0) {
+    grid.innerHTML = `<div class="card"><p class="muted-small">Aucune commande curl ne correspond à ce filtre.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = FILTERED_CHEATSHEET.map((item, idx) => {
+    const testBtn = item.liveRunnable
+      ? `<button class="btn-primary btn-xs" onclick="runCheatsheetItem(${idx})">Tester en direct</button>`
+      : `<span class="category-tag">Terminal Système</span>`;
+    return `
+      <div class="glossary-card">
+        <div class="glossary-top">
+          <h4>${escapeHtml(item.title)}</h4>
+          <span class="category-tag">${escapeHtml(item.badge)}</span>
+        </div>
+        <p class="glossary-short">${escapeHtml(item.desc)}</p>
+        <pre class="code-block-mini" style="margin-top: auto;">${escapeHtml(item.cmd)}</pre>
+        <div class="label-row" style="margin-top: 6px; margin-bottom: 0;">
+          <span class="muted-small">${escapeHtml(item.category)}</span>
+          <div class="btn-group">
+            <button class="btn-xs" onclick="copyCheatsheetItem(${idx})">Copier</button>
+            ${testBtn}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function copyCheatsheetItem(idx) {
+  const item = FILTERED_CHEATSHEET[idx];
+  if (item) copyText(item.cmd);
+}
+
+function runCheatsheetItem(idx) {
+  const item = FILTERED_CHEATSHEET[idx];
+  if (!item) return;
+  const input = document.getElementById("curl-lab-input");
+  if (input) {
+    input.value = item.cmd;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    executeLiveCurlCommand();
+  }
 }
