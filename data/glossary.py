@@ -1,11 +1,162 @@
 """
-Référentiel des Concepts Fondamentaux pour le Bootcamp ISGP :
-Développement d'APIs et Services Web.
-Chaque concept est expliqué sans aucun prérequis, avec une analogie fonctionnelle
-et un exemple concret en Python / Flask.
+Référentiel des Concepts Fondamentaux & Addendum Technique (OpenSSL, Cryptographie, Linux & Réseau)
+pour le Bootcamp ISGP : Développement d'APIs et Services Web.
+Chaque concept ou outil est expliqué sans aucun prérequis, avec une analogie fonctionnelle
+et des commandes / exemples prêts pour la production.
 """
 
 GLOSSARY_TERMS = [
+    # =========================================================================
+    # CATÉGORIE 1 : CRYPTOGRAPHIE & OPENSSL (ADDENDUM SÉCURITÉ)
+    # =========================================================================
+    {
+        "id": "openssl_rand_secrets",
+        "term": "Génération de Secrets Cryptographiques (openssl rand & secrets)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Commandes permettant de générer des clés secrètes (SECRET_KEY, API Keys) à haute entropie impossibles à deviner.",
+        "analogy": "Un générateur mécanique de combinaisons de coffre-fort à 256 bits : contrairement à un mot de passe inventé par un humain, aucun dictionnaire ni supercalculateur ne peut deviner une clé aléatoire cryptographique de 32 octets.",
+        "explanation": "- **Pourquoi ne jamais inventer sa `SECRET_KEY` au clavier ?** Un secret tapé par un humain manque d'entropie et peut être cassé par dictionnaire.\n- **Avec `openssl rand`** : Utilise le générateur aléatoire matériel/noyau (`/dev/urandom`) pour produire des octets imprévisibles en hexadécimal (`-hex 32` = 64 caractères) ou en Base64 (`-base64 32`).\n- **Avec Python (`module secrets`)** : N'utilisez jamais `random` pour la sécurité (qui est prédictible), utilisez toujours le module standard `secrets`.",
+        "code_example": '# 1. Générer une clé secrète de 256 bits (32 octets) en hexadécimal avec OpenSSL :\nopenssl rand -hex 32\n\n# 2. Générer une clé secrète en Base64 :\nopenssl rand -base64 48\n\n# 3. Équivalent avec la bibliothèque standard Python :\npython3 -c "import secrets; print(secrets.token_hex(32))"\npython3 -c "import secrets; print(secrets.token_urlsafe(32))"'
+    },
+    {
+        "id": "openssl_dgst_hash",
+        "term": "Hachage Irréversible SHA-256 / SHA-512 (openssl dgst & sha256sum)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Calcul d'une empreinte numérique unique à sens unique (irréversible) pour vérifier l'intégrité d'une donnée ou d'un fichier.",
+        "analogy": "L'empreinte digitale d'un document : en un coup d'œil sur les 64 caractères hexadécimaux, on vérifie qu'aucune virgule n'a changé, mais il est mathématiquement impossible de reconstruire le document à partir de son empreinte.",
+        "explanation": "- **Piège classique sous Linux (`echo` vs `printf`)** : La commande `echo \"secret\"` ajoute un retour à la ligne invisible `\\n` à la fin, ce qui fausse complètement le hash SHA-256 par rapport à Python ! Utilisez toujours `printf '%s' \"secret\"` (ou `echo -n`).\n- **Vérification de fichiers** : `sha256sum archive.tar.gz` ou `openssl dgst -sha256 archive.tar.gz` garantit qu'une sauvegarde ou un binaire n'a pas été corrompu ni altéré.",
+        "code_example": '# 1. Hacher une chaîne en SHA-256 (SANS retour à la ligne parasite) :\nprintf \'%s\' "isgp-secret-2026" | openssl dgst -sha256\n\n# 2. Hacher en SHA-512 :\nprintf \'%s\' "isgp-secret-2026" | openssl dgst -sha512\n\n# 3. Calculer et vérifier l\'empreinte SHA-256 d\'un fichier SQLite :\nsha256sum ecole_isgp.db > ecole_isgp.db.sha256\nsha256sum -c ecole_isgp.db.sha256'
+    },
+    {
+        "id": "openssl_hmac_cli",
+        "term": "Signature HMAC-SHA256 en Terminal (openssl dgst -hmac)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Calcul en ligne de commande d'une signature HMAC-SHA256 avec clé secrète pour tester vos Webhooks et jetons.",
+        "analogy": "Apposer le sceau officiel du serveur directement depuis votre terminal Linux afin de simuler l'envoi d'un Webhook authentique (Stripe, GitHub, paiement) vers votre API Flask.",
+        "explanation": "- Contrairement à un simple hash SHA-256 que tout le monde peut recalculer, **HMAC (`Hash-based Message Authentication Code`)** combine le corps du message avec une **clé secrète (`-hmac \"cle\"`)**.\n- C'est l'outil indispensable pour générer l'en-tête `X-Webhook-Signature` lors d'un test avec `curl`.",
+        "code_example": '# 1. Calculer la signature HMAC-SHA256 d\'un corps JSON avec OpenSSL :\nprintf \'%s\' \'{"id":101,"statut":"paye"}\' | openssl dgst -sha256 -hmac "whsec_isgp_2026"\n\n# 2. Stocker la signature dans une variable Bash et appeler l\'API avec curl :\nBODY=\'{"id":101,"statut":"paye"}\'\nSIG=$(printf \'%s\' "$BODY" | openssl dgst -sha256 -hmac "whsec_isgp_2026" | awk \'{print $2}\')\ncurl -i -X POST http://127.0.0.1:5000/api/webhooks -H "X-Webhook-Signature: sha256=$SIG" -d "$BODY"'
+    },
+    {
+        "id": "openssl_aes_encryption",
+        "term": "Chiffrement Symétrique AES-256 (openssl enc -aes-256-cbc -pbkdf2)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Chiffrement réversible de fichiers sensibles (.env, sauvegardes SQLite .db) à l'aide de l'algorithme AES-256 et d'une phrase secrète.",
+        "analogy": "Un coffre-fort blindé à clé symétrique : contrairement au hachage (qui broie le document de manière irréversible), le chiffrement AES verrouille le document dans un coffre ; quiconque possède la clé secrète peut l'ouvrir et retrouver le fichier exact à l'octet près.",
+        "explanation": "- **Hachage != Chiffrement** : On *hache* les mots de passe (car on n'a jamais besoin de les relire en clair), mais on *chiffre* les sauvegardes de bases de données, les fichiers `.env` ou les numéros de cartes bancaires (car on doit pouvoir les déchiffrer).\n- **Options OpenSSL obligatoires** : Toujours utiliser `-salt` (sel aléatoire), `-pbkdf2` (dérivation de clé standard) et `-iter 600000` (protection contre la force brute).",
+        "code_example": '# 1. CHIFFRER une base SQLite avant de l\'envoyer sur le Cloud :\nopenssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 \\\n  -in ecole_isgp.db -out ecole_isgp.db.enc -pass pass:"MonSecretRobuste2026!"\n\n# 2. DÉCHIFFRER l\'archive (-d) pour restaurer la base SQLite :\nopenssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \\\n  -in ecole_isgp.db.enc -out ecole_isgp_restauree.db -pass pass:"MonSecretRobuste2026!"'
+    },
+    {
+        "id": "openssl_rsa_ed25519",
+        "term": "Chiffrement Asymétrique RSA / Ed25519 : Clé Privée vs Clé Publique (openssl genpkey)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Génération d'une paire de clés mathématiquement liées : la Clé Privée (secrète, qui signe) et la Clé Publique (partagée, qui vérifie).",
+        "analogy": "Une boîte aux lettres à double serrure ou un tampon notarié : seul le serveur d'authentification central possède la Clé Privée pour signer les jetons JWT (`RS256` / `EdDSA`), mais tous les microservices de l'entreprise possèdent la Clé Publique pour vérifier les jetons sans jamais pouvoir en fabriquer de faux !",
+        "explanation": "- **Avantage majeur sur HMAC (`HS256`) en architecture Microservices** : Avec HMAC (symétrique), si vous avez 20 microservices qui vérifient les jetons, les 20 serveurs doivent connaître la même `SECRET_KEY` (si l'un est piraté, il peut forger des jetons `admin`). Avec **RSA / Ed25519 (asymétrique)**, seul le serveur de Login détient la `private.pem`, et les 20 autres serveurs n'ont que `public.pem` (lecture seule).",
+        "code_example": '# 1. Générer une clé privée RSA de 4096 bits :\nopenssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out private_key.pem\nchmod 600 private_key.pem\n\n# 2. Extraire la clé publique correspondante (à distribuer aux APIs) :\nopenssl pkey -in private_key.pem -pubout -out public_key.pem\n\n# 3. Alternative moderne ultra-rapide (Courbe elliptique Ed25519) :\nopenssl genpkey -algorithm Ed25519 -out ed25519_priv.pem\nopenssl pkey -in ed25519_priv.pem -pubout -out ed25519_pub.pem'
+    },
+    {
+        "id": "openssl_tls_x509",
+        "term": "Certificats HTTPS / TLS (X.509) & Diagnostic SSL (openssl req / s_client)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Création de certificats TLS auto-signés pour le développement HTTPS local et inspection des certificats de serveurs en production.",
+        "analogy": "Le passeport biométrique officiel d'un serveur Web (`X.509`), vérifié par le navigateur lors de la poignée de main TLS avant même d'envoyer le premier octet HTTP pour garantir que le canal est chiffré de bout en bout.",
+        "explanation": "- **En production** : On utilise un certificat signé par une Autorité de Certification reconnue (ex: **Let's Encrypt / Certbot** sur Nginx).\n- **En test local ou réseau interne** : `openssl req -x509` génère en une seule commande la clé privée (`key.pem`) et le certificat (`cert.pem`).\n- **Diagnostic d'expiration** : `openssl s_client` permet de vérifier pourquoi un appel API HTTPS échoue (certificat expiré, chaîne incomplète).",
+        "code_example": '# 1. Générer un certificat HTTPS auto-signé valable 365 jours pour localhost :\nopenssl req -x509 -newkey rsa:4096 -nodes \\\n  -keyout key.pem -out cert.pem -days 365 \\\n  -subj "/C=DZ/ST=Alger/O=ISGP/CN=localhost"\n\n# 2. Inspecter le contenu et les dates de validité d\'un fichier certificat :\nopenssl x509 -in cert.pem -noout -subject -issuer -dates\n\n# 3. Vérifier le certificat HTTPS d\'un serveur distant en direct :\nopenssl s_client -connect example.com:443 -servername example.com </dev/null 2>/dev/null | openssl x509 -noout -dates -subject'
+    },
+    {
+        "id": "base64_encoding_cli",
+        "term": "Encodage & Décodage Base64 en Terminal (base64 & openssl base64)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Représentation de données binaires ou JSON sous forme de texte ASCII pour les en-têtes HTTP (Basic Auth, Payload JWT).",
+        "analogy": "Traduire un document en alphabet morse pour qu'il passe sur une ligne télégraphique : cela permet le transport sans erreur d'encodage, mais ce n'est absolument pas un chiffrement secret.",
+        "explanation": "- Utilisé par l'authentification **`Authorization: Basic <base64(user:pass)>`** et pour encoder l'en-tête et le Payload d'un **JWT (`Header.Payload.Signature`)**.\n- Sous Linux, `base64 -w 0` encode sur une seule ligne (sans coupure tous les 76 caractères), et `base64 -d` décode instantanément.",
+        "code_example": '# 1. Encoder des identifiants pour un en-tête HTTP Basic Auth :\nprintf \'%s\' "admin:secret2026" | base64\n# Résultat : YWRtaW46c2VjcmV0MjAyNg==\n\n# 2. Décoder une chaîne Base64 (ex: lire le Payload d\'un Token) :\necho -n "eyJ1c2VyIjoiYW1pbmUiLCJyb2xlIjoiYWRtaW4ifQ==" | base64 -d\n# Résultat : {"user":"amine","role":"admin"}\n\n# 3. Avec OpenSSL :\nprintf \'%s\' "Texte à encoder" | openssl base64 -A'
+    },
+    {
+        "id": "password_hashing_kdf",
+        "term": "Dérivation de Mots de Passe Salés (PBKDF2, Scrypt, Argon2, openssl passwd)",
+        "category": "Cryptographie & OpenSSL",
+        "level": "Addendum Sécurité",
+        "short": "Hachage volontairement ralenti et salé destiné exclusivement à protéger les mots de passe humains stockés en base de données.",
+        "analogy": "Ajouter un labyrinthe de 600 000 portes (itérations) et un grain de sable unique (Salt) devant chaque mot de passe : un utilisateur légitime met 0,1 seconde à se connecter, mais un pirate qui tente 1 milliard de mots de passe mettra plusieurs siècles.",
+        "explanation": "- **Pourquoi SHA-256 seul est interdit pour les mots de passe ?** SHA-256 est conçu pour être ultra-rapide (des milliards de calculs/seconde sur carte graphique). Pour les mots de passe, on utilise une fonction **KDF (*Key Derivation Function*)** lente avec sel aléatoire : `scrypt`, `pbkdf2:sha256` (intégrés à `werkzeug.security`) ou `openssl passwd -6`.",
+        "code_example": '# 1. Générer un hash de mot de passe salé SHA-512 sous Linux :\nopenssl passwd -6 "MotDePasseStagiaire2026!"\n\n# 2. Générer et vérifier un hash Scrypt / PBKDF2 en Python (Werkzeug/Flask) :\npython3 -c "from werkzeug.security import generate_password_hash, check_password_hash; \\\nh = generate_password_hash(\'Secret2026!\'); print(\'Hash:\', h); print(\'Valide:\', check_password_hash(h, \'Secret2026!\'))"'
+    },
+
+    # =========================================================================
+    # CATÉGORIE 2 : LINUX & RÉSEAU DE PRODUCTION (ADDENDUM SYSTÈME)
+    # =========================================================================
+    {
+        "id": "linux_ports_ss_lsof",
+        "term": "Inspection des Ports & Processus Linux (ss -tulpn, lsof -i, kill)",
+        "category": "Linux & Réseau Prod",
+        "level": "Addendum Linux",
+        "short": "Commandes système permettant d'identifier quel programme écoute sur un port TCP (ex. :5000) et de libérer un port bloqué.",
+        "analogy": "Le tableau de contrôle de la capitainerie du port : permet de voir instantanément quel navire (processus `PID`) est amarré au quai n°5000 lorsque Flask affiche l'erreur `Address already in use`.",
+        "explanation": "- **`ss -tulpn`** (*Socket Statistics*, remplaçant moderne de `netstat`) : Liste tous les ports TCP (`-t`) et UDP (`-u`) en écoute (`-l`), avec le numéro de port numérique (`-n`) et le nom/PID du processus (`-p`).\n- **`lsof -i :5000`** (*List Open Files*) : Cible directement le port `5000`.\n- **Arrêt propre vs forcé** : Utilisez d'abord `kill -15 <PID>` (`SIGTERM`, laisse Flask fermer SQLite proprement) avant `kill -9 <PID>` (`SIGKILL`, arrêt brutal).",
+        "code_example": '# 1. Lister tous les serveurs en écoute sur la machine Linux :\nsudo ss -tulpn | grep -E "5000|8000|80|443"\n\n# 2. Trouver le PID exact qui bloque le port 5000 :\nlsof -i :5000\n# ou :\nfuser 5000/tcp\n\n# 3. Terminer proprement le processus (ex. PID 14520) :\nkill -15 14520'
+    },
+    {
+        "id": "linux_dns_netcat",
+        "term": "Diagnostic Réseau, DNS & Pare-feu (dig, nc -zv, ip a, ping)",
+        "category": "Linux & Réseau Prod",
+        "level": "Addendum Linux",
+        "short": "Utilitaires de diagnostic permettant de vérifier la résolution de nom de domaine (DNS) et l'ouverture d'un port TCP distant.",
+        "analogy": "Vérifier d'abord que l'adresse figure bien dans l'annuaire (`dig`), puis vérifier que la route est praticable (`ping`) et que le guichet est ouvert (`nc -zv`) avant d'accuser le code Python.",
+        "explanation": "- **`ip -br a`** : Affiche de façon compacte toutes les adresses IP de votre serveur Linux.\n- **`dig +short domaine.dz`** : Interroge le serveur DNS pour obtenir l'adresse IP associée à un nom de domaine.\n- **`nc -zv HOTE PORT` (Netcat)** : Teste uniquement la poignée de main TCP (*3-way handshake*) sur un port précis (ex: vérifier si PostgreSQL `:5432` ou Flask `:5000` est joignable à travers le pare-feu).",
+        "code_example": '# 1. Afficher les adresses IP locales du serveur de manière lisible :\nip -br addr show\n\n# 2. Tester si le port TCP 5000 est ouvert en local ou à distance :\nnc -zv 127.0.0.1 5000\n\n# 3. Résoudre un nom de domaine en adresse IP via DNS :\ndig +short api.github.com'
+    },
+    {
+        "id": "linux_jq_json",
+        "term": "Traitement et Filtrage JSON en Terminal (jq & json.tool)",
+        "category": "Linux & Réseau Prod",
+        "level": "Addendum Linux",
+        "short": "Processeur JSON en ligne de commande permettant d'indenter, coloriser, extraire et filtrer les réponses de `curl`.",
+        "analogy": "Un scalpel chirurgical pour réponses d'API : au lieu de lire un bloc compact de 5 000 caractères JSON renvoyé par `curl`, `jq` extrait en une fraction de seconde uniquement les champs qui vous intéressent.",
+        "explanation": "- **`python3 -m json.tool`** : Toujours disponible sans rien installer dès que Python est présent ; indente et valide n'importe quel flux JSON.\n- **`jq`** : Permet d'extraire une clé (`.meta.total_items`), de parcourir un tableau (`.data[]`), ou de filtrer selon une condition (`select(.duree_jours >= 5)`).",
+        "code_example": '# 1. Indenter une réponse curl avec Python (sans installer jq) :\ncurl -s http://127.0.0.1:5000/api/sandbox/formations | python3 -m json.tool\n\n# 2. Extraire uniquement les titres des formations avec jq :\ncurl -s http://127.0.0.1:5000/api/sandbox/formations | jq \'.data[].titre\'\n\n# 3. Filtrer les formations de 5 jours ou plus avec jq :\ncurl -s http://127.0.0.1:5000/api/sandbox/formations | jq \'.data[] | select(.duree_jours >= 5)\''
+    },
+    {
+        "id": "linux_logs_audit",
+        "term": "Analyse de Journaux (Logs) en Temps Réel (tail -f, grep, awk, journalctl)",
+        "category": "Linux & Réseau Prod",
+        "level": "Addendum Linux",
+        "short": "Commandes d'exploitation permettant de surveiller le trafic HTTP en direct, isoler les erreurs 500 et détecter les adresses IP suspectes.",
+        "analogy": "Les écrans de vidéosurveillance et la boîte noire du serveur : permettent de suivre chaque requête à la milliseconde près et de repérer immédiatement une anomalie ou une attaque.",
+        "explanation": "- **`tail -f fichier.log`** : Affiche en temps réel chaque nouvelle ligne ajoutée au journal.\n- **`grep`** : Filtre les lignes contenant un motif précis (ex: `\" 500 \"`, `\" 401 \"` ou un `X-Request-ID`).\n- **`awk` + `sort` + `uniq -c`** : Permet d'agréger les logs Nginx/Gunicorn pour calculer le top 10 des adresses IP consommatrices.",
+        "code_example": '# 1. Suivre les logs en temps réel en filtrant uniquement les erreurs 4xx et 5xx :\ntail -f /var/log/nginx/access.log | grep --line-buffered -E " (401|403|429|500) "\n\n# 2. Retrouver toute l\'histoire d\'une requête grâce à son X-Request-ID :\ngrep "req-8f2a9c01" /var/log/api_isgp/*.log\n\n# 3. Identifier le Top 10 des adresses IP qui appellent le plus l\'API :\nawk \'{print $1}\' /var/log/nginx/access.log | sort | uniq -c | sort -nr | head -n 10'
+    },
+    {
+        "id": "linux_chmod_env",
+        "term": "Permissions Linux (chmod 600) & Variables d'Environnement (export / .env)",
+        "category": "Linux & Réseau Prod",
+        "level": "Addendum Linux",
+        "short": "Verrouillage des droits d'accès aux fichiers secrets (.env, clés privées .pem) et injection de variables d'environnement sous Linux.",
+        "analogy": "Mettre les clés du serveur dans un tiroir dont seul l'utilisateur propriétaire possède la clé (`chmod 600`), au lieu de les laisser sur une table accessible à tous les comptes de la machine (`chmod 644` ou `777`).",
+        "explanation": "- **Code `chmod 600` (`-rw-------`)** : Seul le propriétaire du fichier peut le lire et l'écrire ; les autres utilisateurs du serveur n'ont aucun droit (`0`). C'est obligatoire pour `.env`, `private.pem` et `~/.ssh/id_rsa`.\n- **Commande `export`** : Définit une variable d'environnement transmise au processus Python/Gunicorn lancé depuis ce terminal (`os.environ.get(...)`).",
+        "code_example": '# 1. Restreindre la lecture du fichier .env et de la clé privée au seul propriétaire :\nchmod 600 .env private_key.pem\nls -l .env  # Affiche : -rw------- 1 abdelouahab abdelouahab ...\n\n# 2. Exporter une variable d\'environnement et lancer l\'API :\nexport API_SECRET_KEY="$(openssl rand -hex 32)"\n.venv/bin/python app.py'
+    },
+    {
+        "id": "linux_systemd_nginx",
+        "term": "Déploiement Linux : Service systemd, Gunicorn & Reverse Proxy Nginx",
+        "category": "Linux & Réseau Prod",
+        "level": "Addendum Linux",
+        "short": "Architecture standard permettant de faire tourner une API Flask 24h/24 en tâche de fond avec redémarrage automatique et HTTPS.",
+        "analogy": "Transformer un moteur posé sur un établi (`python app.py`) en une centrale électrique automatisée (`systemd` + `Gunicorn`) protégée par un poste de garde blindé (`Nginx`).",
+        "explanation": "- **`systemd` (`/etc/systemd/system/isgp-api.service`)** : Gère le cycle de vie du serveur (`systemctl start/restart/status isgp-api`) et le relance automatiquement en 2 secondes s'il plante (`Restart=always`).\n- **`Nginx`** : Écoute sur les ports publics `80`/`443` (HTTPS) et relaie les requêtes propres vers `http://127.0.0.1:8000` (`proxy_pass`).",
+        "code_example": '# Commandes d\'exploitation du service systemd en production :\nsudo systemctl daemon-reload\nsudo systemctl enable --now isgp-api\nsudo systemctl status isgp-api\n\n# Consulter les journaux du service en temps réel :\nsudo journalctl -u isgp-api -f'
+    },
+
+    # =========================================================================
+    # CATÉGORIE 3 : SÉCURITÉ & ARCHITECTURE API
+    # =========================================================================
     {
         "id": "curl_postman_httpie",
         "term": "curl, Postman, HTTPie & REST Client (.http)",
@@ -65,6 +216,16 @@ GLOSSARY_TERMS = [
         "analogy": "Le cachet de cire officiel d'un ministère sur un diplôme : tout le monde peut lire ce qui est écrit sur le diplôme, mais personne ne peut modifier son nom ou sa note sans briser le cachet, car seul le ministère possède le tampon officiel (`SECRET_KEY`).",
         "explanation": "Utilisé à la fois pour signer les Bearer Tokens et pour vérifier l'authenticité des **Webhooks** entrants (`X-Webhook-Signature: sha256=...`). La comparaison doit toujours utiliser `hmac.compare_digest(a, b)` pour contrer les attaques temporelles (*Timing Attacks*).",
         "code_example": 'import hmac, hashlib\nsig = hmac.new(SECRET.encode(), corps_brut, hashlib.sha256).hexdigest()\nest_valide = hmac.compare_digest(sig_recue, sig)'
+    },
+    {
+        "id": "cors_preflight",
+        "term": "CORS (Cross-Origin Resource Sharing) & Requête Preflight OPTIONS",
+        "category": "Sécurité & Architecture API",
+        "level": "Cœur d'API",
+        "short": "Mécanisme de sécurité des navigateurs Web contrôlant quels domaines externes sont autorisés à lire les réponses de votre API.",
+        "analogy": "Une liste d'invités accrochée à l'entrée d'un salon privé : si une application React hébergée sur un domaine inconnu tente d'interroger l'API depuis le navigateur d'un client, le navigateur vérifie d'abord si ce domaine figure sur la liste blanche (`Access-Control-Allow-Origin`).",
+        "explanation": "- **Pourquoi `curl` n'est jamais bloqué par CORS ?** Parce que la politique *Same-Origin* est appliquée uniquement par les navigateurs Web.\n- **Requête `OPTIONS` (*Preflight*)** : Avant un `POST`/`PUT`/`DELETE` avec JSON ou `Authorization`, le navigateur envoie une requête `OPTIONS` pour vérifier les en-têtes `Access-Control-Allow-Methods` et `Access-Control-Allow-Headers`.",
+        "code_example": '@app.after_request\ndef ajouter_cors(resp):\n    origine = request.headers.get("Origin")\n    if origine in {"https://portail.isgp.dz", "http://localhost:3000"}:\n        resp.headers["Access-Control-Allow-Origin"] = origine\n    return resp'
     },
     {
         "id": "idempotence_put_patch",

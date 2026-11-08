@@ -7,7 +7,7 @@
   <title>ISGP — Développement d'APIs et services web</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=15" />
 </head>
 <body>
   <!-- Barre de navigation compacte (type documentation technique) -->
@@ -434,33 +434,285 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
       </div>
     </section>
 
-    <!-- ONGLET 4 : RÉFÉRENTIEL DES CONCEPTS -->
+    <!-- ONGLET 4 : RÉFÉRENTIEL & ADDENDUM TECHNIQUE (OPENSSL, LINUX & CONCEPTS) -->
     <section id="tab-glossary" class="tab-section">
       <div class="section-intro">
         <div>
-          <h2>Référentiel des Concepts Fondamentaux</h2>
-          <p>Définitions méthodiques sans jargon implicite, accompagnées d'analogies fonctionnelles et d'exemples d'implémentation en Python et Flask.</p>
+          <h2>Référentiel &amp; Addendum Technique : Cryptographie OpenSSL, Commandes Linux &amp; Architecture API</h2>
+          <p>Manuel complémentaire de l'ingénieur backend : différences exactes entre Encodage, Hachage, Signature HMAC et Chiffrement (AES / RSA), aide-mémoire complet <code>openssl</code>, commandes Linux de diagnostic réseau/production et fiches de synthèse.</p>
         </div>
         <div class="glossary-filters">
           <input
             type="search"
             id="glossary-search"
             class="search-input"
-            placeholder="Filtrer par terme (ex. Rate Limit, Token, Secret, JSON, Port, 429...)"
+            placeholder="Filtrer (ex. openssl, AES, RSA, sha256, ss, lsof, jq, systemd, chmod, 429...)"
             oninput="renderGlossary()"
           />
           <select id="glossary-category" class="select-input" onchange="renderGlossary()">
-            <option value="ALL">Toutes les catégories</option>
-            <option value="Sécurité & Architecture API">Sécurité, Tokens, Secrets &amp; Rate Limit</option>
-            <option value="Bases Python">Bases Python</option>
-            <option value="Architecture Web">Architecture Web &amp; HTTP</option>
-            <option value="Flask">Framework Flask</option>
-            <option value="Données">Données (JSON &amp; SQLite)</option>
-            <option value="Réseau">Réseau (IP &amp; Port)</option>
+            <option value="ALL">Toutes les catégories (33 fiches)</option>
+            <option value="Cryptographie & OpenSSL">Addendum 1 — Cryptographie &amp; OpenSSL (Hachage, AES, RSA, TLS)</option>
+            <option value="Linux & Réseau Prod">Addendum 2 — Commandes Linux, Réseau, Logs &amp; Production</option>
+            <option value="Sécurité & Architecture API">Sécurité, Tokens, AuthN/AuthZ &amp; Rate Limit</option>
+            <option value="Architecture Web">Architecture Web, REST &amp; HTTP</option>
+            <option value="Flask">Framework Flask, Blueprints &amp; WSGI</option>
+            <option value="Données">Données (JSON &amp; SQLite ACID)</option>
+            <option value="Bases Python">Fondations Python</option>
           </select>
         </div>
       </div>
 
+      <!-- ADDENDUM PARTIE 1 : MATRICE CRYPTOGRAPHIQUE & AIDE-MÉMOIRE OPENSSL -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Addendum I — Cryptographie Appliquée &amp; Aide-Mémoire <code>openssl</code> (Hachage, HMAC, Chiffrement AES/RSA &amp; Certificats TLS)</h3>
+          <span class="step-badge">Cryptographie &amp; Sécurité</span>
+        </div>
+
+        <div class="doc-context-box" style="margin-bottom: 16px;">
+          <h4>Comprendre sans confusion : Encodage vs Hachage vs Signature HMAC vs Chiffrement</h4>
+          <div class="doc-context-text">
+            En sécurité des APIs et administration système Linux, confondre ces cinq opérations conduit à des failles critiques. Voici la matrice de décision exacte à conserver en permanence :
+          </div>
+          <div class="table-wrapper" style="margin-top: 12px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Opération</th>
+                  <th>Est-ce Réversible ?</th>
+                  <th>Utilise une Clé Secrète ?</th>
+                  <th>Objectif Exact</th>
+                  <th>Outils Standards (OpenSSL / Python)</th>
+                  <th>Cas d'Usage en API Web</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>1. Encodage</strong><br/>(<code>Base64</code>, <code>Hex</code>, <code>UTF-8</code>)</td>
+                  <td><strong>Oui, par tout le monde</strong> (0 sécurité)</td>
+                  <td>Non</td>
+                  <td>Transporter des octets binaires dans un canal texte (HTTP/JSON)</td>
+                  <td><code>base64</code>, <code>openssl base64</code>, <code>base64.b64encode()</code></td>
+                  <td>En-tête <code>Authorization: Basic</code>, segments d'un jeton JWT</td>
+                </tr>
+                <tr>
+                  <td><strong>2. Hachage Rapide</strong><br/>(<code>SHA-256</code>, <code>SHA-512</code>)</td>
+                  <td><strong>Non (Irréversible)</strong></td>
+                  <td>Non</td>
+                  <td>Garantir l'intégrité d'un fichier ou calculer l'empreinte d'une clé haute entropie</td>
+                  <td><code>openssl dgst -sha256</code>, <code>sha256sum</code>, <code>hashlib.sha256()</code></td>
+                  <td>Vérifier qu'une archive n'est pas altérée, stocker l'empreinte d'une <code>API Key</code></td>
+                </tr>
+                <tr>
+                  <td><strong>3. Hachage Lent Salé (KDF)</strong><br/>(<code>Scrypt</code>, <code>PBKDF2</code>, <code>Argon2</code>)</td>
+                  <td><strong>Non (Irréversible + Lent)</strong></td>
+                  <td>Non (Sel aléatoire public inclus)</td>
+                  <td>Protéger les mots de passe humains contre le cassage par GPU</td>
+                  <td><code>openssl passwd -6</code>, <code>generate_password_hash()</code></td>
+                  <td>Colonne <code>password_hash</code> de la table <code>users</code> en base SQL</td>
+                </tr>
+                <tr>
+                  <td><strong>4. Signature HMAC</strong><br/>(<code>HMAC-SHA256</code>)</td>
+                  <td><strong>Non</strong> (Vérifié par recalcul)</td>
+                  <td><strong>Oui</strong> (Clé secrète partagée)</td>
+                  <td>Prouver à la fois l'intégrité ET l'authenticité de l'émetteur</td>
+                  <td><code>openssl dgst -sha256 -hmac</code>, <code>hmac.new()</code></td>
+                  <td>Signature des jetons Bearer/JWT (<code>HS256</code>) et des Webhooks (<code>X-Webhook-Signature</code>)</td>
+                </tr>
+                <tr>
+                  <td><strong>5. Chiffrement Symétrique</strong><br/>(<code>AES-256-CBC</code> / <code>GCM</code>)</td>
+                  <td><strong>Oui</strong> (Avec la même clé secrète)</td>
+                  <td><strong>Oui</strong> (1 clé secrète unique pour chiffrer et déchiffrer)</td>
+                  <td>Rendre un fichier ou une colonne illisible aux tiers tout en pouvant le restaurer</td>
+                  <td><code>openssl enc -aes-256-cbc -pbkdf2</code>, <code>cryptography.fernet</code></td>
+                  <td>Chiffrer une sauvegarde SQLite (<code>.db.enc</code>), un fichier <code>.env</code> ou un secret bancaire</td>
+                </tr>
+                <tr>
+                  <td><strong>6. Chiffrement Asymétrique</strong><br/>(<code>RSA-4096</code>, <code>Ed25519</code>)</td>
+                  <td><strong>Oui / Vérifiable</strong> (Paire Privée / Publique)</td>
+                  <td><strong>Oui</strong> (Clé Privée secrète + Clé Publique distribuée)</td>
+                  <td>Signer avec la clé privée et permettre à tous de vérifier avec la clé publique</td>
+                  <td><code>openssl genpkey</code>, <code>openssl pkey</code>, <code>ssh-keygen</code></td>
+                  <td>Certificats HTTPS/TLS, clés SSH, jetons JWT inter-microservices (<code>RS256</code> / <code>EdDSA</code>)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Les 14 Commandes <code>openssl</code> Indispensables en Terminal Linux</h4>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Besoin Opérationnel</th>
+                <th style="width: 48%;">Commande Exacte à Exécuter sous Linux</th>
+                <th>Explication Technique &amp; Précautions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Générer une <code>SECRET_KEY</code></strong><br/>(256 bits en Hexadécimal)</td>
+                <td><code>openssl rand -hex 32</code></td>
+                <td>Produit 64 caractères hexadécimaux (32 octets d'entropie pure) parfaits pour <code>FLASK_SECRET_KEY</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Générer une clé aléatoire</strong><br/>(Format Base64)</td>
+                <td><code>openssl rand -base64 32</code></td>
+                <td>Produit une chaîne aléatoire compacte idéale pour une clé d'API (<code>X-API-Key</code>) ou un mot de passe BDD.</td>
+              </tr>
+              <tr>
+                <td><strong>3. Hacher un texte en SHA-256</strong><br/>(Sans saut de ligne <code>\n</code>)</td>
+                <td><code>printf '%s' "mon_texte" | openssl dgst -sha256</code></td>
+                <td>Toujours utiliser <code>printf '%s'</code> (et non <code>echo</code> qui ajoute un <code>\n</code> invisible modifiant le hash !).</td>
+              </tr>
+              <tr>
+                <td><strong>4. Hacher un fichier en SHA-256</strong><br/>(Contrôle d'intégrité)</td>
+                <td><code>openssl dgst -sha256 ecole_isgp.db</code></td>
+                <td>Calcule l'empreinte SHA-256 d'un fichier SQLite ou d'une archive (équivalent à <code>sha256sum</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>5. Signer en <code>HMAC-SHA256</code></strong><br/>(Test de Webhook / JWT)</td>
+                <td><code>printf '%s' '{"id":1}' | openssl dgst -sha256 -hmac "cle_secrete"</code></td>
+                <td>Calcule exactement la signature attendue dans l'en-tête <code>X-Webhook-Signature</code> de votre API Flask.</td>
+              </tr>
+              <tr>
+                <td><strong>6. Encoder / Décoder en Base64</strong></td>
+                <td><code>printf '%s' "admin:pass" | openssl base64 -A</code><br/><code>echo "YWRtaW46cGFzcw==" | openssl base64 -d</code></td>
+                <td>L'option <code>-A</code> garde la sortie sur une seule ligne ; <code>-d</code> décode le Base64 vers le texte d'origine.</td>
+              </tr>
+              <tr>
+                <td><strong>7. Chiffrer un fichier en <code>AES-256</code></strong><br/>(Sauvegarde sécurisée)</td>
+                <td><code>openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 -in base.db -out base.db.enc</code></td>
+                <td>Chiffre <code>base.db</code> avec AES-256, un sel aléatoire et 600 000 itérations PBKDF2 (demande un mot de passe).</td>
+              </tr>
+              <tr>
+                <td><strong>8. Déchiffrer un fichier <code>AES-256</code></strong></td>
+                <td><code>openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in base.db.enc -out base.db</code></td>
+                <td>L'option <code>-d</code> (*decrypt*) restaure le fichier original à l'octet près à partir du mot de passe.</td>
+              </tr>
+              <tr>
+                <td><strong>9. Générer une clé privée <code>RSA 4096</code></strong></td>
+                <td><code>openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out private.pem</code></td>
+                <td>Crée une clé privée asymétrique RSA de 4096 bits. Toujours protéger par <code>chmod 600 private.pem</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>10. Extraire la clé publique <code>RSA</code></strong></td>
+                <td><code>openssl pkey -in private.pem -pubout -out public.pem</code></td>
+                <td>Extrait la clé publique <code>public.pem</code> qui peut être partagée sans risque avec tous les microservices.</td>
+              </tr>
+              <tr>
+                <td><strong>11. Générer une clé <code>Ed25519</code></strong><br/>(Courbe elliptique moderne)</td>
+                <td><code>openssl genpkey -algorithm Ed25519 -out ed_priv.pem &amp;&amp; openssl pkey -in ed_priv.pem -pubout -out ed_pub.pem</code></td>
+                <td>Algorithme asymétrique moderne : clés ultra-courtes, signatures ultra-rapides et sécurité maximale.</td>
+              </tr>
+              <tr>
+                <td><strong>12. Créer un certificat HTTPS/TLS</strong><br/>(Auto-signé 365 jours)</td>
+                <td><code>openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj "/CN=localhost"</code></td>
+                <td>Génère <code>key.pem</code> et <code>cert.pem</code> pour tester HTTPS en local (ex: Nginx ou Gunicorn <code>--certfile</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>13. Inspecter un certificat <code>.pem</code></strong></td>
+                <td><code>openssl x509 -in cert.pem -noout -subject -issuer -dates -fingerprint -sha256</code></td>
+                <td>Affiche le propriétaire (<code>subject</code>), l'autorité émettrice (<code>issuer</code>) et les dates d'expiration du certificat.</td>
+              </tr>
+              <tr>
+                <td><strong>14. Tester le TLS d'une API distante</strong></td>
+                <td><code>openssl s_client -connect api.domaine.dz:443 -servername api.domaine.dz &lt;/dev/null</code></td>
+                <td>Se connecte en TLS au port 443 pour diagnostiquer la chaîne de certificats et la version TLS (TLS 1.2 / 1.3).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADDENDUM PARTIE 2 : COMMANDES LINUX & RÉSEAU POUR L'INGÉNIEUR API -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Addendum II — Commandes Linux, Réseau, Diagnostic &amp; Exploitation Serveur pour APIs en Production</h3>
+          <span class="step-badge">Administration Linux &amp; DevOps</span>
+        </div>
+
+        <p style="margin: 0 0 12px 0; font-size: 15.5px; color: #374151; line-height: 1.65;">
+          Lorsqu'une API est déployée sur un serveur Linux (Ubuntu, Debian, RHEL/Rocky), l'ingénieur backend utilise quotidiennement ces commandes pour diagnostiquer les ports, filtrer les réponses JSON, analyser les logs d'erreurs et sécuriser les processus :
+        </p>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Catégorie &amp; Action</th>
+                <th style="width: 46%;">Commande Linux de Référence</th>
+                <th>Utilité en Développement &amp; Production d'API</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Réseau — Voir les ports ouverts</strong></td>
+                <td><code>sudo ss -tulpn | grep -E "5000|8000|80|443"</code></td>
+                <td>Affiche tous les processus en écoute TCP/UDP avec leur numéro de processus (<code>PID</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Identifier qui bloque un port</strong></td>
+                <td><code>lsof -i :5000</code> &nbsp;ou&nbsp; <code>fuser 5000/tcp</code></td>
+                <td>Indispensable face à l'erreur <code>OSError: [Errno 98] Address already in use</code> au lancement de Flask.</td>
+              </tr>
+              <tr>
+                <td><strong>Processus — Arrêter proprement</strong></td>
+                <td><code>kill -15 &lt;PID&gt;</code> &nbsp;(ou <code>kill -9 &lt;PID&gt;</code> si figé)</td>
+                <td><code>-15</code> (<code>SIGTERM</code>) permet à Flask/Gunicorn de terminer les requêtes SQL en cours avant de s'éteindre.</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Tester un port TCP</strong></td>
+                <td><code>nc -zv 127.0.0.1 5000</code></td>
+                <td>Vérifie avec Netcat si le port TCP 5000 (ou 5432 pour PostgreSQL) est ouvert à travers le pare-feu.</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Diagnostic DNS &amp; IP</strong></td>
+                <td><code>dig +short api.domaine.dz</code> &nbsp;|&nbsp; <code>ip -br a</code></td>
+                <td>Vérifie la résolution DNS d'un nom de domaine et liste les adresses IP des cartes réseau du serveur.</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Capturer les paquets HTTP</strong></td>
+                <td><code>sudo tcpdump -i lo -A -s 0 'tcp port 5000'</code></td>
+                <td>Capture et affiche en ASCII (<code>-A</code>) les trames TCP/HTTP brutes circulant sur le port 5000.</td>
+              </tr>
+              <tr>
+                <td><strong>JSON — Formater &amp; Filtrer avec <code>jq</code></strong></td>
+                <td><code>curl -s http://127.0.0.1:5000/api/sandbox/formations | jq '.data[] | {id, titre}'</code></td>
+                <td>Extrait, colorise et transforme les réponses JSON directement dans un pipeline Bash.</td>
+              </tr>
+              <tr>
+                <td><strong>Logs — Surveillance temps réel</strong></td>
+                <td><code>tail -f access.log | grep --line-buffered -E " (401|403|429|500) "</code></td>
+                <td>Affiche en direct uniquement les requêtes en échec ou bloquées par la sécurité.</td>
+              </tr>
+              <tr>
+                <td><strong>Logs — Top 10 des IP (Anti-DoS)</strong></td>
+                <td><code>awk '{print $1}' access.log | sort | uniq -c | sort -nr | head -n 10</code></td>
+                <td>Compte le nombre de requêtes par adresse IP cliente dans les journaux Nginx/Apache pour repérer un abus.</td>
+              </tr>
+              <tr>
+                <td><strong>Sécurité — Verrouiller <code>.env</code> et clés</strong></td>
+                <td><code>chmod 600 .env private.pem</code></td>
+                <td>Interdit la lecture du fichier de secrets à tout autre compte utilisateur de la machine Linux (<code>-rw-------</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Sécurité — Pare-feu Linux <code>ufw</code></strong></td>
+                <td><code>sudo ufw allow 22/tcp &amp;&amp; sudo ufw allow 443/tcp &amp;&amp; sudo ufw enable</code></td>
+                <td>Ferme tous les ports entrants du serveur sauf SSH (22) et HTTPS (443), rendant le port Gunicorn 8000 inaccessible de l'extérieur.</td>
+              </tr>
+              <tr>
+                <td><strong>Prod — Gérer le démon <code>systemd</code></strong></td>
+                <td><code>sudo systemctl restart isgp-api &amp;&amp; sudo journalctl -u isgp-api -f</code></td>
+                <td>Redémarre les workers Gunicorn de production et affiche leurs journaux système en continu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- GRILLE INTERACTIVE DES 33 FICHES DU RÉFÉRENTIEL -->
       <div id="glossary-grid" class="glossary-grid"></div>
     </section>
 
@@ -481,6 +733,6 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=15"></script>
 </body>
 </html>

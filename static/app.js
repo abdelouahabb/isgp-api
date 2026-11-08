@@ -273,8 +273,8 @@ function renderActiveLesson() {
       ? `
       <div class="exercises-box">
         <h4>Travaux Pratiques &amp; Exercices d'Approfondissement Post-Bootcamp</h4>
-        <ol style="margin:6px 0 0 0; padding-left:20px; font-size:13.3px; color:#1f2937; line-height:1.6;">
-          ${lesson.practical_exercises.map((ex) => `<li style="margin-bottom:6px;">${formatRichText(ex)}</li>`).join("")}
+        <ol style="margin:8px 0 0 0; padding-left:22px; font-size:15.5px; color:#1f2937; line-height:1.7;">
+          ${lesson.practical_exercises.map((ex) => `<li style="margin-bottom:8px;">${formatRichText(ex)}</li>`).join("")}
         </ol>
       </div>
     `
@@ -361,7 +361,7 @@ function renderActiveLesson() {
           <h4>Exécution Locale — VS Code / Antigravity IDE (<code>${escapeHtml(lesson.vscode_instructions.filename)}</code>)</h4>
           <button class="btn-secondary btn-sm" onclick="copyLessonCode()">Copier le code source</button>
         </div>
-        <ol style="margin:6px 0 0 0; padding-left:20px; font-size:13px; color:#374151;">
+        <ol style="margin:8px 0 0 0; padding-left:22px; font-size:15.5px; color:#374151; line-height:1.7;">
           ${stepsHtml}
         </ol>
       </div>
@@ -897,8 +897,8 @@ function renderGlossary() {
         <div class="glossary-analogy">
           <strong>Analogie :</strong> ${formatInlineText(item.analogy)}
         </div>
-        <div style="margin:0; font-size:13px; color:#374151;">${formatRichText(item.explanation)}</div>
-        <pre class="code-block" style="font-size:12px; padding:10px; border-radius:4px;">${escapeHtml(item.code_example)}</pre>
+        <div style="margin:0; font-size:15px; color:#374151; line-height:1.65;">${formatRichText(item.explanation)}</div>
+        <pre class="code-block" style="font-size:13.5px; padding:12px; border-radius:4px;">${escapeHtml(item.code_example)}</pre>
       </div>
     `
     )
