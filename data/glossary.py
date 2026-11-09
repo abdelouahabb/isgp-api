@@ -248,6 +248,16 @@ GLOSSARY_TERMS = [
         "code_example": 'page = max(1, request.args.get("page", 1, type=int))\nlimit = min(100, request.args.get("limit", 10, type=int))\noffset = (page - 1) * limit'
     },
     {
+        "id": "path_variables_syntax",
+        "term": "Variables d'URL : <variable> (Flask) vs :variable (Postman/Node) vs {variable} (OpenAPI)",
+        "category": "Flask",
+        "level": "Fondamental",
+        "short": "Les trois notations différentes utilisées selon les frameworks et outils pour représenter un paramètre dynamique dans le chemin d'une URL.",
+        "analogy": "Trois façons d'écrire un champ à remplir sur un formulaire administratif selon le pays : `« Votre Nom : <___> »` (Flask), `« Votre Nom : :nom »` (Postman/Express), ou `« Votre Nom : {nom} »` (OpenAPI/FastAPI). Le principe est identique, seule la ponctuation change selon l'outil.",
+        "explanation": "- **`<variable>` et `<int:id>` (Chevrons — Flask & Django)** : C'est la **seule syntaxe valide dans `@app.route(...)` en Flask**. Elle permet de typer le paramètre (`<int:id>`, `<float:prix>`, `<uuid:code>`, `<path:chemin>`).\n- **`:variable` (Deux-points — Postman, Express.js/Node, Ruby on Rails, Go Gin)** : Dans **Postman**, écrire `/api/formations/:id` active automatiquement la table *Path Variables*. **Attention** : n'écrivez jamais `:id` dans une route Flask (Flask chercherait le texte littéral `':id'`) !\n- **`{variable}` (Accolades — OpenAPI 3.0 / Swagger, FastAPI, Spring Boot, f-strings Python)** : Standard IETF RFC 6570.\n- **Dans `curl` ou le navigateur** : On remplace toujours la variable par la **valeur concrète** (`/api/formations/42`).",
+        "code_example": '# 1. Dans le code serveur Python Flask (Chevrons <...>) :\n@app.route("/api/v1/formations/<int:id>", methods=["GET"])\ndef lire_formation(id):\n    return jsonify({"id": id})\n\n# 2. Dans Postman (Deux-points :variable) :\n# GET http://127.0.0.1:5000/api/v1/formations/:id\n\n# 3. Dans OpenAPI 3.0 / FastAPI (Accolades {variable}) :\n# GET /api/v1/formations/{id}\n\n# 4. Dans curl (Valeur réelle) :\n# curl -i http://127.0.0.1:5000/api/v1/formations/42'
+    },
+    {
         "id": "middlewares_hooks",
         "term": "Middlewares (@before_request / @after_request) & X-Request-ID",
         "category": "Flask",

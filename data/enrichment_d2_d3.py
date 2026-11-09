@@ -146,30 +146,59 @@ ENRICHMENT_D2_D3 = {
                     "`request.args.get(\"duree_min\", default=1, type=int)` de Flask tente de convertir la valeur en `int` : "
                     "si le client envoie `?duree_min=abc`, Flask ne plante pas et retourne proprement la valeur `default=1`."
                 )
+            },
+            {
+                "heading": "4. Pourquoi voit-on `:variable`, `<variable>` et `{variable}` selon les outils et frameworks ?",
+                "body": (
+                    "En lisant des documentations d'API ou en utilisant Postman, les développeurs rencontrent trois notations "
+                    "différentes pour représenter exactement le même concept (une **variable de chemin / Path Parameter**) :\n"
+                    "1. **`<variable>` et `<int:variable>` (Syntaxe Flask / Werkzeug & Django)** :\n"
+                    "   - Utilise des chevrons `<...>` côté serveur Python : `@app.route(\"/api/formations/<int:formation_id>\")`.\n"
+                    "   - Pourquoi Flask a-t-il choisi `<...>` au lieu de `:variable` ? Parce que les chevrons permettent de préciser "
+                    "un **convertisseur de type** avant les deux-points (`<int:id>`, `<float:prix>`, `<uuid:code>`, `<path:fichier>`) !\n"
+                    "2. **`:variable` (Syntaxe Postman, Express.js / Node.js, Ruby on Rails, Go Gin, React Router)** :\n"
+                    "   - Utilise le préfixe deux-points `:` : `/api/formations/:id`.\n"
+                    "   - Dans **Postman**, taper `http://127.0.0.1:5000/api/formations/:id` fait apparaître automatiquement la clé `id` "
+                    "dans le tableau *Path Variables* pour que vous puissiez tester différentes valeurs sans réécrire l'URL.\n"
+                    "   - **Piège classique** : Si vous écrivez `@app.route(\"/api/formations/:id\")` dans votre code Python Flask, "
+                    "cela **ne fonctionne pas** ! Flask interprète `:id` comme du texte fixe et renverra `404 Not Found` sur `/api/formations/42`.\n"
+                    "3. **`{variable}` (Syntaxe OpenAPI 3.0 / Swagger, FastAPI, Spring Boot, ASP.NET & f-strings Python)** :\n"
+                    "   - Utilise des accolades `{...}` (standard IETF RFC 6570 *URI Template*) : `/api/formations/{id}`."
+                )
             }
         ],
         "architecture_diagram": (
-            "COMPARAISON ARCHITECTURALE : ANTI-PATTERN RPC vs STANDARD REST (NIVEAU 2)\n"
+            "1. COMPARAISON ARCHITECTURALE : ANTI-PATTERN RPC vs STANDARD REST (NIVEAU 2)\n"
             "  [ANTI-PATTERN RPC]                       [STANDARD RESTFUL (Noms au pluriel + Verbes HTTP)]\n"
             "  GET  /api/getAllFormations       ===>    GET    /api/v1/formations\n"
             "  GET  /api/getFormationById?id=5  ===>    GET    /api/v1/formations/5\n"
             "  POST /api/createNewFormation     ===>    POST   /api/v1/formations\n"
             "  POST /api/updateFormation/5      ===>    PUT    /api/v1/formations/5\n"
-            "  GET  /api/deleteFormation?id=5   ===>    DELETE /api/v1/formations/5"
+            "  GET  /api/deleteFormation?id=5   ===>    DELETE /api/v1/formations/5\n\n"
+            "2. TRADUCTION D'UNE VARIABLE DE CHEMIN SELON L'OUTIL :\n"
+            "  - Dans le code serveur Flask   : @app.route(\"/api/v1/formations/<int:id>\")   <-- Chevrons <...>\n"
+            "  - Dans l'interface Postman     : GET http://.../api/v1/formations/:id        <-- Deux-points :id\n"
+            "  - Dans OpenAPI / FastAPI       : GET /api/v1/formations/{id}                 <-- Accolades {...}\n"
+            "  - Dans curl / Navigateur       : curl http://.../api/v1/formations/42        <-- Valeur réelle 42"
         ),
         "reference_table": {
-            "title": "Les Propriétés de l'Objet `flask.request` pour Lire Toute Entrée Client",
-            "headers": ["Propriété Flask", "Source dans la trame HTTP", "Exemple d'entrée client", "Syntaxe de lecture sécurisée"],
+            "title": "Synthèse : Lecture avec `flask.request` & Notations des Variables d'URL (`<var>` vs `:var` vs `{var}`)",
+            "headers": ["Élément / Syntaxe", "Où est-il utilisé ?", "Exemple concret", "Comportement & Règle d'or"],
             "rows": [
-                ["Paramètre de fonction", "Chemin URL (`Path`)", "`GET /api/formations/42`", "`def get_one(formation_id):` via `<int:formation_id>`"],
+                ["`<variable>` / `<int:id>`", "**Flask (Werkzeug)** & Django", "`@app.route('/api/formations/<int:id>')`", "Valide le type (`int`, `float`, `uuid`, `string`) et passe `id` en argument à la fonction Python"],
+                ["`:variable` (ex. `:id`)", "**Postman**, Express.js (Node), Rails, Go Gin", "`/api/formations/:id`", "Crée une variable de chemin dans Postman/Express, mais **n'est pas reconnu par Flask** !"],
+                ["`{variable}` (ex. `{id}`)", "**OpenAPI 3.0 (Swagger)**, FastAPI, f-string", "`/api/formations/{id}`", "Standard officiel de documentation d'API (RFC 6570) et du framework FastAPI"],
                 ["`request.args`", "Query String (après `?`)", "`GET /api/formations?salle=Alger&page=2`", "`request.args.get(\"page\", 1, type=int)`"],
                 ["`request.headers`", "En-têtes HTTP (`Headers`)", "`X-API-Key: secret`", "`request.headers.get(\"X-API-Key\", \"\")`"],
-                ["`request.get_json()`", "Corps (`Body` JSON)", "`{\"titre\": \"Flask\", \"jours\": 5}`", "`corps = request.get_json(silent=True) or {}`"],
-                ["`request.method`", "Request Line (Verbe)", "`POST`, `GET`, `DELETE`", "`if request.method == \"POST\":`"],
-                ["`request.remote_addr`", "Socket réseau TCP", "`127.0.0.1` / `192.168.1.25`", "Utilisé pour les journaux d'audit et le Rate Limiting"]
+                ["`request.get_json()`", "Corps (`Body` JSON)", "`{\"titre\": \"Flask\", \"jours\": 5}`", "`corps = request.get_json(silent=True) or {}`"]
             ]
         },
         "pitfalls": [
+            {
+                "bad": "Écrire `@app.route('/api/formations/:id')` dans un serveur Python Flask en copiant une documentation Postman ou Node.js",
+                "good": "Toujours utiliser les chevrons `@app.route('/api/formations/<int:id>')` dans Flask",
+                "why": "Dans Flask, `:id` sans chevrons est traité comme les 3 caractères littéraux `':id'` et non comme une variable dynamique (`GET /api/formations/1` renverra `404`)."
+            },
             {
                 "bad": "Mettre des verbes d'action dans les URLs : `/api/creer_formation`, `/api/listerFormations`",
                 "good": "Utiliser uniquement des noms de ressources au pluriel (`/api/formations`) et laisser le verbe HTTP (`POST`, `GET`) définir l'action",

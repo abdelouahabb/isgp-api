@@ -57,15 +57,16 @@ DAY_2_DATA = {
         {
             "id": "d2-l2",
             "file": "day_2/02_routes_et_parametres.py",
-            "title": "2.2 — Routage Dynamique, Convertisseurs de Types (`<int:id>`) & Objet Contextuel `request`",
+            "title": "2.2 — Routage Dynamique (`<variable>` vs `:variable` vs `{variable}`), Convertisseurs `<int:id>` & Objet `request`",
             "duration": "55 min",
             "analogy": {
                 "title": "Le contrôleur de guichet qui filtre automatiquement le format du numéro de dossier",
                 "text": "Si un guichet attend un numéro de dossier entier (`/api/formations/42`) et qu'un visiteur demande `/api/formations/bonjour`, le routeur de Flask rejette automatiquement la demande en `404` grâce au convertisseur de type `<int:id>`, avant même d'exécuter votre fonction Python."
             },
             "explanation": [
-                "**1. Les convertisseurs de route intégrés à Flask** :\n  - `<nom>` ou `<string:nom>` : Capture toute chaîne de caractères (sans slash `/`).\n  - `<int:id>` : Capture uniquement un entier positif et le convertit directement en `int` Python.\n  - `<float:montant>` : Capture un nombre décimal.\n  - `<uuid:jeton_id>` : Capture uniquement un identifiant UUID valide.",
-                "**2. Anatomie complète de l'objet `request` dans Flask** :\n  - `request.method` : `'GET'`, `'POST'`, `'PUT'`, `'DELETE'`.\n  - `request.path` : Le chemin appelé (ex. `'/api/calcul-tva'`).\n  - `request.args` : Dictionnaire des paramètres de requête après `?` (`request.args.get('ht', 1000)`).\n  - `request.headers` : Dictionnaire insensible à la casse des en-têtes HTTP (`request.headers.get('Authorization')`).\n  - `request.remote_addr` : Adresse IP du client appelant.\n  - `request.get_json(silent=True)` : Charge utile JSON désérialisée."
+                "**1. Les convertisseurs de route intégrés à Flask (`<convertisseur:variable>`)** :\n  - `<nom>` ou `<string:nom>` : Capture toute chaîne de caractères (sans slash `/`).\n  - `<int:id>` : Capture uniquement un entier positif et le convertit directement en `int` Python.\n  - `<float:montant>` : Capture un nombre décimal.\n  - `<uuid:jeton_id>` : Capture uniquement un identifiant UUID valide.",
+                "**2. Distinction cruciale : `<variable>` (Flask) vs `:variable` (Postman / Express.js) vs `{variable}` (OpenAPI / FastAPI)** :\n  - **`<variable>` ou `<int:id>`** : Syntaxe officielle de **Flask / Werkzeug** et **Django** côté serveur Python (`@app.route('/api/formations/<int:id>')`).\n  - **`:variable` (ex. `:id`)** : Syntaxe utilisée dans **Postman** (onglet *Path Variables*), **Express.js (Node.js)**, **Ruby on Rails** ou **Gin (Go)** (`/api/formations/:id`). **Attention** : écrire `:id` dans une route Flask ne crée PAS de variable (Flask cherche alors le texte littéral `':id'`) !\n  - **`{variable}` (ex. `{id}`)** : Syntaxe standard **OpenAPI 3.0 / Swagger**, **FastAPI** et des **f-strings Python** (`/api/formations/{id}`).\n  - **Dans `curl` ou le navigateur** : On n'écrit jamais de variable générique, on envoie toujours la **valeur réelle** (`/api/formations/42`).",
+                "**3. Anatomie complète de l'objet `request` dans Flask** :\n  - `request.method` : `'GET'`, `'POST'`, `'PUT'`, `'DELETE'`.\n  - `request.path` : Le chemin appelé (ex. `'/api/calcul-tva'`).\n  - `request.args` : Dictionnaire des paramètres de requête après `?` (`request.args.get('ht', 1000)`).\n  - `request.headers` : Dictionnaire insensible à la casse des en-têtes HTTP (`request.headers.get('Authorization')`).\n  - `request.remote_addr` : Adresse IP du client appelant.\n  - `request.get_json(silent=True)` : Charge utile JSON désérialisée."
             ],
             "code": _read("02_routes_et_parametres.py"),
             "line_explanations": [
