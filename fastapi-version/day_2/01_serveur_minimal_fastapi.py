@@ -73,7 +73,7 @@ if __name__ == "__main__":
     print("\n=== 2. RÉPONSE API JSON (GET /api/bonjour -> FastAPI JSONResponse) ===")
     print("Statut HTTP :", rep_json.status_code, "| Content-Type :", rep_json.headers["content-type"])
     print("Payload JSON :", rep_json.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

@@ -92,7 +92,7 @@ async def _demo():
     app.settings["log_function"] = lambda h: print(
         f"[IOLOOP TORNADO] HTTP {h.get_status()} | {h.request.method} {h.request.uri} ({h.request.remote_ip}) | {round(1000.0 * h.request.request_time(), 2)} ms"
     )
-    bind_port = 0 if os.environ.get("ISGP_WEB_RUNNER") == "1" else int(os.environ.get("PORT", 8889))
+    bind_port = int(os.environ.get("PORT", 8889))
     try:
         sockets = tornado.netutil.bind_sockets(bind_port, "127.0.0.1")
     except OSError:
@@ -113,7 +113,7 @@ async def _demo():
     print("\n=== 3. TEST QUERY PARAMETERS (?ht=2500&taux=19 via self.get_query_argument) ===")
     r3 = await client.fetch(f"http://127.0.0.1:{port}/api/calcul-tva?ht=2500&taux=19")
     print(tornado.escape.json_decode(r3.body))
-    if os.environ.get("ISGP_WEB_RUNNER") == "1" or "--once" in sys.argv:
+    if "--once" in sys.argv:
         server.stop()
     else:
         print("\n" + "=" * 76)

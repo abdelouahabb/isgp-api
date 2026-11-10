@@ -61,7 +61,7 @@ if __name__ == "__main__":
     print("1. Test 404 JSON :", client.get("/route-inconnue").status_code, client.get("/route-inconnue").json())
     print("2. Test 405 JSON :", client.delete("/api/v1/division").status_code, client.delete("/api/v1/division").json())
     print("3. Test 500 JSON :", client.get("/api/v1/division?a=100&b=0").status_code, client.get("/api/v1/division?a=100&b=0").json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

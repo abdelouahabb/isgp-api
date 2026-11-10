@@ -136,7 +136,7 @@ if __name__ == "__main__":
         r2 = client.get("/api/v2/formations")
         print("Headers v2 :", {"X-API-Version": r2.headers["X-API-Version"]})
         print("JSON v2    :", r2.get_json()["data"][0])
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         port = int(os.environ.get("PORT", 5001))
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")

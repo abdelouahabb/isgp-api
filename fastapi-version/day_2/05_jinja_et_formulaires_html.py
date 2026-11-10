@@ -161,7 +161,7 @@ if __name__ == "__main__":
         files={"document_pdf": ("programme_isgp 2026.pdf", io.BytesIO(b"%PDF-1.4 Programme officiel du bootcamp ISGP"), "application/pdf")},
     )
     print("Réponse JSON upload :", rep_upload.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

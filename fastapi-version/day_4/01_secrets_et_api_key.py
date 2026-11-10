@@ -43,7 +43,7 @@ if __name__ == "__main__":
     print("1. Appel sans clé (401) :", client.get("/api/admin/statistiques").status_code, client.get("/api/admin/statistiques").json())
     r_ok = client.get("/api/admin/statistiques", headers={"X-API-Key": "isgp-secret-2026"})
     print("2. Appel avec X-API-Key (200) :", r_ok.status_code, r_ok.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

@@ -130,7 +130,7 @@ if __name__ == "__main__":
     r2 = client.get("/api/v2/formations")
     print("Headers v2 :", {"x-api-version": r2.headers["x-api-version"]})
     print("JSON v2    :", r2.json()["data"][0])
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

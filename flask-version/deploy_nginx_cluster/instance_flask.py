@@ -78,6 +78,6 @@ if __name__ == "__main__":
         print("Statut :", rep.status_code)
         print("En-tête X-Flask-Instance :", rep.headers.get("X-Flask-Instance"))
         print("Payload JSON :", rep.get_json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         print(f"\n[{INSTANCE_ID}] Serveur Flask WSGI actif sur http://127.0.0.1:{PORT} (Ctrl+C pour arrêter)")
         app.run(host="127.0.0.1", port=PORT, debug=False)

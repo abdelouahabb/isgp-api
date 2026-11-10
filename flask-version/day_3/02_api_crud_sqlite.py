@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
         print("\n=== 2. LECTURE DU CATALOGUE SQLITE (GET /api/formations -> JSON) ===")
         print(client.get("/api/formations").get_json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         port = int(os.environ.get("PORT", 5001))
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")

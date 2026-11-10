@@ -124,7 +124,7 @@ async def _demo():
     app.settings["log_function"] = lambda h: print(
         f"[IOLOOP TORNADO] HTTP {h.get_status()} | {h.request.method} {h.request.uri} ({h.request.remote_ip}) | {round(1000.0 * h.request.request_time(), 2)} ms"
     )
-    bind_port = 0 if os.environ.get("ISGP_WEB_RUNNER") == "1" else int(os.environ.get("PORT", 8889))
+    bind_port = int(os.environ.get("PORT", 8889))
     try:
         sockets = tornado.netutil.bind_sockets(bind_port, "127.0.0.1")
     except OSError:
@@ -143,7 +143,7 @@ async def _demo():
     r2 = await client.fetch(f"http://127.0.0.1:{port}/api/v2/formations")
     print("Headers v2 :", {"X-API-Version": r2.headers["X-API-Version"]})
     print("JSON v2    :", tornado.escape.json_decode(r2.body)["data"][0])
-    if os.environ.get("ISGP_WEB_RUNNER") == "1" or "--once" in sys.argv:
+    if "--once" in sys.argv:
         server.stop()
     else:
         print("\n" + "=" * 76)

@@ -73,7 +73,7 @@ if __name__ == "__main__":
     print(f"3. REST (Payload JSON)    : {len(rep_json.content)} octets | Content-Type: {rep_json.headers['content-type']}")
     print("\nPayload REST/JSON prêt pour tout client (Web, Mobile, Python) :")
     print(rep_json.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

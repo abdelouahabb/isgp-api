@@ -99,7 +99,7 @@ if __name__ == "__main__":
     print("2. Jeton stagiaire (403)    :", client.get("/api/admin/audit", headers={"Authorization": f"Bearer {tok_stagiaire}"}).status_code)
     r_adm = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {tok_directeur}"})
     print("3. Jeton directeur (200)    :", r_adm.status_code, r_adm.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

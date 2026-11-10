@@ -94,7 +94,7 @@ async def executer_client_asynchrone():
 
 if __name__ == "__main__":
     asyncio.run(executer_client_asynchrone())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

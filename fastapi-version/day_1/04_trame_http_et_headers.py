@@ -101,7 +101,7 @@ if __name__ == "__main__":
     print("Réponse JSON :", r_json.json())
     r_form = client.post("/sandbox/formulaire-jinja", data=donnees_formation)
     print("Réponse Form :", r_form.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

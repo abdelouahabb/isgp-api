@@ -94,7 +94,7 @@ if __name__ == "__main__":
     )
     print("Statut POST :", rep_post.status_code, "| Location :", rep_post.headers.get("location"))
     print("Payload     :", rep_post.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

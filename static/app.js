@@ -362,15 +362,21 @@ function renderActiveLesson() {
     runnerHtml = `
       <div class="interactive-try-box">
         <div class="label-row">
-          <h4>Exécution Directe Python (<code>${escapeHtml(filePath)}</code>)</h4>
-          <button class="btn-primary btn-sm" onclick="runLessonPython('${lesson.id}')">
-            Exécuter le code
-          </button>
+          <h4>Exécution Directe &amp; Simulateur de Boucle Serveur (<code>${escapeHtml(filePath)}</code>)</h4>
+          <div class="btn-group">
+            <button class="btn-primary btn-sm" onclick="runLessonPython('${lesson.id}')">
+              Démarrer / Exécuter le code
+            </button>
+            <button id="lesson-runner-stop-${lesson.id}" class="btn-secondary btn-sm" style="display:none; background:#fee2e2; color:#991b1b; border-color:#fca5a5;" onclick="stopLivePythonServer('${lesson.id}')">
+              Envoyer Ctrl+C (Arrêter la boucle)
+            </button>
+          </div>
         </div>
         <p class="muted-small" style="margin-top:0;">${formatInlineText(lesson.python_runner.prompt)}</p>
         <textarea id="lesson-runner-code-${lesson.id}" rows="10" class="code-textarea">${escapeHtml(lesson.python_runner.initial_code)}</textarea>
+        <div id="lesson-runner-livebar-${lesson.id}" style="display:none; margin-top:8px; padding:10px 12px; background:#064e3b; color:#ecfdf5; border:1px solid #10b981; border-radius:4px; font-size:13.5px;"></div>
         <div style="margin-top:8px;">
-          <pre id="lesson-runner-output-${lesson.id}" class="terminal-output">Cliquez sur « Exécuter le code » pour afficher la sortie standard.</pre>
+          <pre id="lesson-runner-output-${lesson.id}" class="terminal-output">Cliquez sur « Démarrer / Exécuter le code » pour lancer le script ou démarrer la boucle serveur interactive.</pre>
         </div>
       </div>
     `;
@@ -541,25 +547,146 @@ function copyLessonCode() {
   if (el) copyText(el.innerText);
 }
 
+let LIVE_PYTHON_POLL_TIMER = null;
+
+function _clearLivePythonPoll() {
+  if (LIVE_PYTHON_POLL_TIMER) {
+    clearInterval(LIVE_PYTHON_POLL_TIMER);
+    LIVE_PYTHON_POLL_TIMER = null;
+  }
+}
+
+function _renderLiveLoopBar(targetId, data) {
+  const barEl = document.getElementById(`lesson-runner-livebar-${targetId}`) || document.getElementById("studio-runner-livebar");
+  const stopBtn = document.getElementById(`lesson-runner-stop-${targetId}`) || document.getElementById("studio-runner-stop");
+  if (!barEl) return;
+
+  if (!data || !data.running) {
+    barEl.style.display = "none";
+    if (stopBtn) stopBtn.style.display = "none";
+    _clearLivePythonPoll();
+    return;
+  }
+
+  if (stopBtn) stopBtn.style.display = "inline-flex";
+  barEl.style.display = "block";
+  const port = data.port || 8889;
+  const routes = Array.isArray(data.routes) && data.routes.length > 0 ? data.routes : ["/"];
+  const routeBtns = routes
+    .map(
+      (r) =>
+        `<button class="btn-xs" style="background:#047857; color:#ffffff; border:1px solid #34d399; padding:3px 9px; border-radius:4px; cursor:pointer; font-family:monospace;" onclick="probeLivePythonServer('${escapeHtml(r)}', '${targetId}')">GET ${escapeHtml(r)}</button>`
+    )
+    .join(" ");
+
+  barEl.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+      <div>
+        <strong style="color:#6ee7b7;">[BOUCLE SERVEUR EN ÉCOUTE ACTIVE]</strong>
+        <span style="margin-left:8px; font-family:monospace;">PID #${data.pid} • http://127.0.0.1:${port}</span>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <a href="http://127.0.0.1:${port}${escapeHtml(routes[0])}" target="_blank" style="color:#a7f3d0; text-decoration:underline; font-size:12.5px; font-weight:600;">
+          Ouvrir http://127.0.0.1:${port}${escapeHtml(routes[0])} dans un onglet
+        </a>
+        <button class="btn-xs" style="background:#991b1b; color:#ffffff; border:1px solid #f87171; padding:3px 9px; border-radius:4px; cursor:pointer;" onclick="stopLivePythonServer('${targetId}')">
+          Envoyer Ctrl+C (SIGINT)
+        </button>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+      <span style="font-size:12.5px; color:#d1fae5;">Envoyer une requête en direct à la boucle :</span>
+      ${routeBtns}
+    </div>
+  `;
+}
+
+function _startLivePythonPoll(targetId, outEl, statusEl) {
+  _clearLivePythonPoll();
+  LIVE_PYTHON_POLL_TIMER = setInterval(async () => {
+    try {
+      const res = await fetch("/api/python/status");
+      const data = await res.json();
+      if (outEl && data.output) {
+        outEl.textContent = data.output;
+        outEl.scrollTop = outEl.scrollHeight;
+      }
+      if (!data.running) {
+        _renderLiveLoopBar(targetId, { running: false });
+        if (statusEl) statusEl.textContent = "Boucle arrêtée (Code 0)";
+      }
+    } catch (e) {
+      _clearLivePythonPoll();
+    }
+  }, 1200);
+}
+
+async function probeLivePythonServer(path, targetId) {
+  const outEl =
+    document.getElementById(`lesson-runner-output-${targetId}`) || document.getElementById("studio-python-output");
+  try {
+    const res = await fetch("/api/python/probe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path })
+    });
+    const data = await res.json();
+    if (outEl && data.output) {
+      outEl.style.color = "#e2e8f0";
+      outEl.textContent = data.output;
+      outEl.scrollTop = outEl.scrollHeight;
+    }
+  } catch (e) {
+    showToast("Erreur lors de l'appel à la boucle active.");
+  }
+}
+
+async function stopLivePythonServer(targetId) {
+  const outEl =
+    document.getElementById(`lesson-runner-output-${targetId}`) || document.getElementById("studio-python-output");
+  const statusEl = document.getElementById("studio-run-status");
+  _clearLivePythonPoll();
+  try {
+    const res = await fetch("/api/python/stop", { method: "POST" });
+    const data = await res.json();
+    _renderLiveLoopBar(targetId, { running: false });
+    if (statusEl) statusEl.textContent = "Boucle arrêtée par Ctrl+C (SIGINT)";
+    if (outEl && data.output) {
+      outEl.textContent = data.output;
+      outEl.scrollTop = outEl.scrollHeight;
+    }
+    showToast("Signal Ctrl+C (SIGINT) envoyé : boucle serveur arrêtée.");
+  } catch (e) {
+    showToast("Erreur lors de l'arrêt du serveur.");
+  }
+}
+
 async function runLessonPython(lessonId) {
   const codeEl = document.getElementById(`lesson-runner-code-${lessonId}`);
   const outEl = document.getElementById(`lesson-runner-output-${lessonId}`);
   if (!codeEl || !outEl) return;
 
-  outEl.textContent = "Exécution en cours...";
+  _clearLivePythonPoll();
+  outEl.textContent = "Démarrage du script Python / Boucle serveur en cours...";
   try {
-    const res = await fetch("/api/python/run", {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/python/run?framework=${encodeURIComponent(fw)}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
       body: JSON.stringify({ code: codeEl.value })
     });
     const data = await res.json();
+    _renderLiveLoopBar(lessonId, data);
     if (data.error) {
       outEl.style.color = "#fca5a5";
       outEl.textContent = (data.output ? data.output + "\n" : "") + "Erreur d'exécution :\n" + data.error;
     } else {
       outEl.style.color = "#e2e8f0";
       outEl.textContent = data.output || "(Exécution terminée sans sortie sur stdout)";
+      outEl.scrollTop = outEl.scrollHeight;
+      if (data.running) {
+        _startLivePythonPoll(lessonId, outEl, null);
+      }
     }
   } catch (e) {
     outEl.textContent = "Erreur lors de l'exécution du script.";
@@ -934,22 +1061,42 @@ async function runStudioPython() {
   const outEl = document.getElementById("studio-python-output");
   const statusEl = document.getElementById("studio-run-status");
 
-  statusEl.textContent = "Exécution en cours...";
-  outEl.textContent = "Exécution en cours...";
+  let barEl = document.getElementById("studio-runner-livebar");
+  if (!barEl && outEl && outEl.parentElement) {
+    barEl = document.createElement("div");
+    barEl.id = "studio-runner-livebar";
+    barEl.style.cssText =
+      "display:none; margin-bottom:8px; padding:10px 12px; background:#064e3b; color:#ecfdf5; border:1px solid #10b981; border-radius:4px; font-size:13.5px;";
+    outEl.parentElement.insertBefore(barEl, outEl);
+  }
+
+  _clearLivePythonPoll();
+  statusEl.textContent = "Démarrage en cours...";
+  outEl.textContent = "Démarrage du script Python / Boucle serveur en cours...";
   try {
-    const res = await fetch("/api/python/run", {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/python/run?framework=${encodeURIComponent(fw)}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
       body: JSON.stringify({ code })
     });
     const data = await res.json();
-    statusEl.textContent = data.exit_code === 0 ? "Code retour : 0 (Succès)" : `Code retour : ${data.exit_code}`;
-    if (data.error) {
-      outEl.style.color = "#fca5a5";
-      outEl.textContent = (data.output ? data.output + "\n" : "") + data.error;
-    } else {
+    _renderLiveLoopBar("studio", data);
+    if (data.running) {
+      statusEl.textContent = `Boucle active (PID #${data.pid} • Port :${data.port})`;
       outEl.style.color = "#e2e8f0";
-      outEl.textContent = data.output || "(Exécution terminée sans sortie sur stdout)";
+      outEl.textContent = data.output || "";
+      outEl.scrollTop = outEl.scrollHeight;
+      _startLivePythonPoll("studio", outEl, statusEl);
+    } else {
+      statusEl.textContent = data.exit_code === 0 ? "Code retour : 0 (Succès)" : `Code retour : ${data.exit_code}`;
+      if (data.error) {
+        outEl.style.color = "#fca5a5";
+        outEl.textContent = (data.output ? data.output + "\n" : "") + data.error;
+      } else {
+        outEl.style.color = "#e2e8f0";
+        outEl.textContent = data.output || "(Exécution terminée sans sortie sur stdout)";
+      }
     }
   } catch (e) {
     statusEl.textContent = "Erreur";

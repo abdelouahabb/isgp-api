@@ -49,7 +49,7 @@ if __name__ == "__main__":
         for i in range(1, 5):
             r = client.get("/api/catalogue-protege")
             print(f"Appel #{i} -> HTTP {r.status_code} | X-RateLimit-Remaining={r.headers.get('X-RateLimit-Remaining')} | {r.get_json()}")
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         port = int(os.environ.get("PORT", 5001))
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")

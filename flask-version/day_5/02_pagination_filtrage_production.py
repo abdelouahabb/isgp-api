@@ -102,7 +102,7 @@ if __name__ == "__main__":
         print("\n=== 2. PAGINATION PAR CURSEUR HAUTE PERFORMANCE (?after_id=2&limit=2) ===")
         r2 = client.get("/api/v1/catalogue/cursor?after_id=2&limit=2")
         print(r2.get_json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         port = int(os.environ.get("PORT", 5001))
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")

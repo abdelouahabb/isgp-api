@@ -77,7 +77,7 @@ if __name__ == "__main__":
     print("2. En-tête CORS Access-Control-Allow-Origin :", r_ok.headers.get("access-control-allow-origin"))
     r_ko = client.post("/api/webhooks/paiement", content=charge_json, headers={"X-Webhook-Signature": "sha256=faux"})
     print("3. Webhook HMAC falsifié (401) :", r_ko.status_code, r_ko.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

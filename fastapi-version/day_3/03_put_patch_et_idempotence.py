@@ -94,7 +94,7 @@ if __name__ == "__main__":
     print("\n=== 2. TEST PATCH PARTIEL (exclude_unset=True) ===")
     r_patch = client.patch("/api/v1/formations/1", json={"salle": "Amphithéâtre Alger"})
     print("PATCH /api/v1/formations/1 :", r_patch.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

@@ -90,7 +90,7 @@ if __name__ == "__main__":
         r_dir = client.post("/api/auth/login", json={"identifiant": "directeur"}).get_json()
         r_200 = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {r_dir['access_token']}"})
         print("2. Directeur sur route Admin (200 OK) :", r_200.status_code, r_200.get_json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         port = int(os.environ.get("PORT", 5001))
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")

@@ -70,7 +70,7 @@ if __name__ == "__main__":
     print("2. Profil protégé (200) :", r_prof.status_code, r_prof.json())
     r_faux = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {jeton} falsifie"})
     print("3. Jeton falsifié (401) :", r_faux.status_code, r_faux.json())
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

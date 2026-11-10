@@ -125,7 +125,7 @@ if __name__ == "__main__":
         print("\n=== 3. DÉCONNEXION ET RÉVOCATION (POST /api/auth/cookie-logout) ===")
         r_out = client.post("/api/auth/cookie-logout")
         print("  Après logout -> GET /api/auth/cookie-inspect :", client.get("/api/auth/cookie-inspect").status_code)
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         port = int(os.environ.get("PORT", 5001))
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")

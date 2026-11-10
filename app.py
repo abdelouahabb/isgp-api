@@ -3,12 +3,16 @@ import json
 import os
 import queue
 import re
+import signal
 import socket
 import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime
 from flask import Flask, Response, jsonify, make_response, redirect, render_template, render_template_string, request, send_from_directory, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -1305,8 +1309,19 @@ def sandbox_reset():
 
 
 # ==============================================================================
-# 7. EXÉCUTEUR PYTHON PÉDAGOGIQUE INTÉGRÉ
+# 7. EXÉCUTEUR PYTHON PÉDAGOGIQUE INTÉGRÉ & SIMULATEUR DE BOUCLE D'ÉVÉNEMENTS LIVE
 # ==============================================================================
+LIVE_PYTHON_PROCESS = {
+    "proc": None,
+    "tmp_path": None,
+    "logs": [],
+    "port": None,
+    "routes": [],
+    "fw": "flask",
+    "lock": threading.Lock(),
+}
+
+
 def _prepare_runner_dir(fw: str) -> str:
     runner_dir = os.path.join(tempfile.gettempdir(), f"isgp_runner_{fw}")
     tpl_dir = os.path.join(runner_dir, "templates")
@@ -1324,6 +1339,65 @@ def _prepare_runner_dir(fw: str) -> str:
     return runner_dir
 
 
+def _stop_live_python_process():
+    with LIVE_PYTHON_PROCESS["lock"]:
+        proc = LIVE_PYTHON_PROCESS.get("proc")
+        tmp_path = LIVE_PYTHON_PROCESS.get("tmp_path")
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.send_signal(signal.SIGINT)
+                proc.wait(timeout=0.6)
+            except Exception:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=0.4)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        LIVE_PYTHON_PROCESS["proc"] = None
+        LIVE_PYTHON_PROCESS["tmp_path"] = None
+
+
+def _extract_routes_and_port(code: str, output_text: str, fw: str):
+    port = {"tornado": 8889, "fastapi": 8001, "flask": 5001}.get(fw, 5001)
+    m_port = re.search(r"http://(?:127\.0\.0\.1|0\.0\.0\.0):(\d+)", output_text)
+    if m_port:
+        port = int(m_port.group(1))
+
+    raw_routes = []
+    # Tornado routes: (r"/api/...", Handler)
+    for m in re.finditer(r'\(\s*r"(/[^"]*)"', code):
+        raw_routes.append(m.group(1))
+    # FastAPI routes: @app.get("/api/...") or @router_v1.get("/...")
+    for m in re.finditer(r'@(?:app|router\w*)\.(?:get|post|put|patch|delete)\(\s*"(/[^"]*)"', code):
+        raw_routes.append(m.group(1))
+    # Flask routes: @app.route("/api/...") or @bp_v1.route("/...")
+    for m in re.finditer(r'@(?:app|bp\w*)\.route\(\s*"(/[^"]*)"', code):
+        raw_routes.append(m.group(1))
+
+    clean_routes = []
+    for r in raw_routes:
+        r_clean = r.replace("([^/]+)", "Yasmine").replace("([0-9]+)", "1")
+        r_clean = re.sub(r"<int:[^>]+>", "1", r_clean)
+        r_clean = re.sub(r"<[^>]+>", "Yasmine", r_clean)
+        r_clean = re.sub(r"\{[^}]*id[^}]*\}", "1", r_clean)
+        r_clean = re.sub(r"\{[^}]+\}", "Yasmine", r_clean)
+        if r_clean not in clean_routes:
+            clean_routes.append(r_clean)
+
+    if fw == "fastapi" and "/docs" not in clean_routes:
+        clean_routes.append("/docs")
+
+    return port, clean_routes[:6]
+
+
 @app.route("/api/python/run", methods=["POST"])
 def run_python_snippet():
     data = request.get_json(silent=True) or {}
@@ -1339,44 +1413,166 @@ def run_python_snippet():
     elif "from flask" in code or "import flask" in code:
         fw = "flask"
 
+    _stop_live_python_process()
+
     try:
         runner_dir = _prepare_runner_dir(fw)
         with tempfile.NamedTemporaryFile("w", suffix=".py", dir=runner_dir, delete=False, encoding="utf-8") as tmp:
             tmp.write(code)
             tmp_path = tmp.name
 
-        proc = subprocess.run(
-            [sys.executable, tmp_path],
-            capture_output=True,
+        proc = subprocess.Popen(
+            [sys.executable, "-u", tmp_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=4,
+            bufsize=1,
             cwd=runner_dir,
             env={
                 "PATH": os.environ.get("PATH", ""),
                 "PYTHONIOENCODING": "utf-8",
-                "ISGP_WEB_RUNNER": "1",
+                "PYTHONUNBUFFERED": "1",
             },
         )
-        os.unlink(tmp_path)
-        return jsonify(
-            {
-                "output": proc.stdout,
-                "error": proc.stderr,
-                "exit_code": proc.returncode,
-            }
-        )
-    except subprocess.TimeoutExpired:
-        if "tmp_path" in locals() and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        return jsonify(
-            {
-                "output": "",
-                "error": "Délai d'exécution dépassé (4s). Si votre script démarre un serveur (--serve), exécutez-le dans le terminal de VS Code / Antigravity IDE.",
-                "exit_code": 124,
-            }
-        )
+
+        logs = []
+        LIVE_PYTHON_PROCESS.update({
+            "proc": proc,
+            "tmp_path": tmp_path,
+            "logs": logs,
+            "fw": fw,
+            "port": None,
+            "routes": [],
+        })
+
+        def _reader_thread():
+            try:
+                for line in iter(proc.stdout.readline, ""):
+                    if not line:
+                        break
+                    logs.append(line)
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_reader_thread, daemon=True)
+        t.start()
+
+        # Attendre jusqu'à 1.6s pour laisser le script finir (s'il est synchrone) ou démarrer sa boucle (IOLoop / Uvicorn / Flask)
+        deadline = time.time() + 1.6
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                break
+            joined = "".join(logs)
+            if any(marker in joined for marker in ("[BOUCLE ", "[SERVEUR ", "Uvicorn running on", "Running on http://")):
+                time.sleep(0.25)
+                break
+            time.sleep(0.08)
+
+        output_so_far = "".join(logs)
+        is_running = proc.poll() is None
+
+        if is_running:
+            port, routes = _extract_routes_and_port(code, output_so_far, fw)
+            LIVE_PYTHON_PROCESS["port"] = port
+            LIVE_PYTHON_PROCESS["routes"] = routes
+            return jsonify({
+                "running": True,
+                "pid": proc.pid,
+                "port": port,
+                "routes": routes,
+                "framework": fw,
+                "output": output_so_far,
+                "error": "",
+                "exit_code": 0,
+            })
+
+        exit_code = proc.returncode or 0
+        _stop_live_python_process()
+        return jsonify({
+            "running": False,
+            "output": output_so_far if exit_code == 0 else "",
+            "error": output_so_far if exit_code != 0 else "",
+            "exit_code": exit_code,
+        })
     except Exception as exc:
-        return jsonify({"output": "", "error": str(exc), "exit_code": 1})
+        _stop_live_python_process()
+        return jsonify({"running": False, "output": "", "error": str(exc), "exit_code": 1})
+
+
+@app.route("/api/python/status", methods=["GET"])
+def get_python_runner_status():
+    proc = LIVE_PYTHON_PROCESS.get("proc")
+    is_running = proc is not None and proc.poll() is None
+    return jsonify({
+        "running": is_running,
+        "pid": proc.pid if is_running else None,
+        "port": LIVE_PYTHON_PROCESS.get("port"),
+        "routes": LIVE_PYTHON_PROCESS.get("routes", []),
+        "framework": LIVE_PYTHON_PROCESS.get("fw", "flask"),
+        "output": "".join(LIVE_PYTHON_PROCESS.get("logs", [])),
+        "exit_code": 0 if is_running else (proc.returncode if proc else 0),
+    })
+
+
+@app.route("/api/python/probe", methods=["POST"])
+def probe_live_python_server():
+    proc = LIVE_PYTHON_PROCESS.get("proc")
+    if proc is None or proc.poll() is not None:
+        return jsonify({"erreur": "Aucune boucle serveur n'est actuellement active. Cliquez d'abord sur « Démarrer / Exécuter »."}), 400
+
+    data = request.get_json(silent=True) or {}
+    path = str(data.get("path", "/")).strip() or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    port = LIVE_PYTHON_PROCESS.get("port") or 8889
+    target_url = f"http://127.0.0.1:{port}{path}"
+
+    try:
+        req = urllib.request.Request(target_url, method="GET")
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            status_code = resp.status
+            body = resp.read().decode("utf-8", errors="replace")
+            content_type = resp.headers.get("Content-Type", "")
+    except urllib.error.HTTPError as e:
+        status_code = e.code
+        body = e.read().decode("utf-8", errors="replace")
+        content_type = e.headers.get("Content-Type", "") if e.headers else ""
+    except Exception as exc:
+        return jsonify({"erreur": f"Erreur lors de l'appel à {target_url} : {exc}"}), 502
+
+    time.sleep(0.15)
+    LIVE_PYTHON_PROCESS["logs"].append(
+        f"\n>>> [CLIENT SIMULATEUR -> GET {target_url}] Statut HTTP {status_code} ({content_type})\n"
+        f"{body[:600].strip()}\n"
+    )
+    return jsonify({
+        "running": proc.poll() is None,
+        "status_code": status_code,
+        "target_url": target_url,
+        "response_body": body[:1000],
+        "output": "".join(LIVE_PYTHON_PROCESS.get("logs", [])),
+    })
+
+
+@app.route("/api/python/stop", methods=["POST"])
+def stop_python_snippet():
+    proc = LIVE_PYTHON_PROCESS.get("proc")
+    if proc is not None and proc.poll() is None:
+        try:
+            proc.send_signal(signal.SIGINT)
+            proc.wait(timeout=0.5)
+        except Exception:
+            pass
+    time.sleep(0.15)
+    final_output = "".join(LIVE_PYTHON_PROCESS.get("logs", []))
+    if "[Arrêt SIGINT / Ctrl+C envoyé depuis le simulateur]" not in final_output:
+        final_output += "\n[SIMULATEUR] Signal SIGINT (Ctrl+C) envoyé : boucle serveur arrêtée proprement.\n"
+    _stop_live_python_process()
+    return jsonify({
+        "running": False,
+        "output": final_output,
+        "exit_code": 0,
+    })
 
 
 # ==============================================================================

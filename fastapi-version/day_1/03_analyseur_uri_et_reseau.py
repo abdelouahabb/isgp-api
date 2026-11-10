@@ -68,7 +68,7 @@ if __name__ == "__main__":
     print(f"POST /api/v1/formations -> {r_post.status_code} | Location: {r_post.headers.get('location')}")
     r_del = client.delete("/api/v1/formations/2")
     print(f"DELETE /api/v1/formations/2 -> {r_del.status_code} (No Content)")
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)

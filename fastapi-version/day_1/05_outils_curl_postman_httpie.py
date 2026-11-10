@@ -111,7 +111,7 @@ if __name__ == "__main__":
             data={"titre": "Atelier Curl Formulaire", "formateur": "ISGP", "duree_jours": 3, "salle": "Salle B"},
         ),
     )
-    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+    if "--once" not in sys.argv:
         import uvicorn
         port = int(os.environ.get("PORT", 8001))
         print("\n" + "=" * 76)
