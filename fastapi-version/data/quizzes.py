@@ -1,5 +1,5 @@
 """
-Évaluations formatives approfondies (Jour 0 à Jour 5 + Modules Spéciaux SQLite & Temps Réel).
+Évaluations formatives approfondies (Jour 0 à Jour 5 + Modules Spéciaux SQLite & Temps Réel / Nginx Offload).
 Chaque question contient une justification méthodique sans prérequis implicite.
 """
 
@@ -800,4 +800,24 @@ QUIZZES = {0: {'title': 'Évaluation Jour 0 : Fondations Python, Exceptions & D�
                                    '**Contrôle de Concurrence Optimiste (OCC)** au niveau HTTP (RFC 9110) : '
                                    "sans poser de verrou bloquant en base pendant que l'humain réfléchit "
                                    'devant son écran, `412 Precondition Failed` détecte toute modification '
-                                   "concurrente survenue entre la lecture et l'écriture."}]}}
+                                   "concurrente survenue entre la lecture et l'écriture."},
+                   {'id': 'q7-9',
+                    'question': 'En production derrière Nginx, comment peut-on protéger les workers Python '
+                                "lors du téléversement d'un fichier de 25 Mo sur une connexion 3G lente, et "
+                                "lors du téléchargement d'un PDF privé soumis à authentification ?",
+                    'options': ['En configurant `client_max_body_size` (bouclier 413 en bordure) + '
+                                '`proxy_request_buffering on` ou `$request_body_file` '
+                                "(`proxy_pass_request_body off`) à l'aller, et l'en-tête interne "
+                                '`X-Accel-Redirect` vers un bloc `location internal;` (`sendfile on`) au '
+                                'retour — tout en gardant la vérification des Magic Bytes et des droits JWT '
+                                'dans Python',
+                                'En plaçant tous les documents confidentiels des clients dans le dossier '
+                                'public `/static/` sans authentification',
+                                'En désactivant toutes les limites de taille avec `client_max_body_size 0` '
+                                'sur la route `/login`',
+                                'Nginx ne peut traiter que des fichiers CSS de moins de 4 Ko'],
+                    'correct_index': 0,
+                    'explanation': 'Nginx excelle au transport binaire C/noyau (`client_max_body_size` '
+                                   'stoppe les abus en 413 avant Python, `$request_body_file` évite de '
+                                   'copier 25 Mo vers Python, et `X-Accel-Redirect` livre les fichiers '
+                                   'privés via `sendfile` après que Python a validé le JWT en < 1 ms).'}]}}

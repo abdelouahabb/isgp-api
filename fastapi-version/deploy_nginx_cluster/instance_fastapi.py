@@ -1,30 +1,17 @@
 """
 Fichier : deploy_nginx_cluster/instance_fastapi.py
 Exécution (4 instances FastAPI / Uvicorn sur 4 ports distincts) :
-  PORT=8001 INSTANCE_ID=fastapi-node-1 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
-  PORT=8002 INSTANCE_ID=fastapi-node-2 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
-  PORT=8003 INSTANCE_ID=fastapi-node-3 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
-  PORT=8004 INSTANCE_ID=fastapi-node-4 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
-
-Ou en production avec Uvicorn (--proxy-headers) :
-  INSTANCE_ID=fastapi-node-1 uvicorn deploy_nginx_cluster.instance_fastapi:app --host 127.0.0.1 --port 8001 --proxy-headers --forwarded-allow-ips="127.0.0.1"
+  PORT=8001 INSTANCE_ID=fastapi-node-1 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py
 """
 
 import os
 import socket
 import sys
 import time
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.testclient import TestClient
 
-app = FastAPI(
-    title="ISGP — Instance Cluster FastAPI / Uvicorn (ASGI)",
-    version="2.0.0",
-)
-
-# CRITIQUE DERRIÈRE NGINX : Avec Uvicorn (--proxy-headers), ou en lisant X-Forwarded-For / X-Real-IP,
-# FastAPI récupère la véritable adresse IP du client transmise par le Reverse Proxy Nginx
-# et le vrai protocole HTTPS dans 'X-Forwarded-Proto' (sinon request.client.host vaudrait '127.0.0.1').
+app = FastAPI(title="ISGP — Instance Cluster FastAPI / Uvicorn (ASGI)", version="2.1.0")
 
 PORT = int(os.environ.get("PORT", 8001))
 INSTANCE_ID = os.environ.get("INSTANCE_ID", f"fastapi-node-{PORT}")
@@ -33,7 +20,6 @@ DEMARRAGE = time.time()
 
 @app.middleware("http")
 async def injecter_entetes_noeud(request: Request, call_next):
-    """Ajoute l'identifiant de l'instance FastAPI/Uvicorn dans les en-têtes HTTP pour vérifier le Load Balancing."""
     reponse = await call_next(request)
     reponse.headers["X-FastAPI-Instance"] = INSTANCE_ID
     reponse.headers["X-FastAPI-Port"] = str(PORT)
@@ -43,7 +29,6 @@ async def injecter_entetes_noeud(request: Request, call_next):
 
 @app.get("/api/health", status_code=status.HTTP_200_OK)
 def healthcheck():
-    """Sonde de santé appelée par Nginx ou l'orchestrateur pour vérifier que l'instance ASGI est vivante."""
     return {
         "statut": "UP",
         "moteur": "FastAPI / Uvicorn ASGI",
@@ -56,7 +41,6 @@ def healthcheck():
 
 @app.get("/api/v1/formations", status_code=status.HTTP_200_OK)
 def lister_formations(request: Request):
-    """Route métier dynamique traitée par l'une des 4 instances FastAPI / Uvicorn."""
     x_forwarded_for = request.headers.get("X-Forwarded-For", "appel-direct-sans-nginx")
     ip_reelle = (
         x_forwarded_for.split(",")[0].strip()
@@ -75,24 +59,62 @@ def lister_formations(request: Request):
             "ip_client_reelle": ip_reelle,
             "x_forwarded_for": x_forwarded_for,
             "x_forwarded_proto": request.headers.get("X-Forwarded-Proto", "http"),
+            "x_request_id": request.headers.get("X-Request-ID", "local"),
         },
         "data": [
             {"id": 1, "titre": "Architecture API REST & FastAPI (ASGI)", "salle": "Salle A"},
-            {"id": 2, "titre": "Déploiement Nginx Load Balancer (4 instances Uvicorn)", "salle": "Labo Prod"},
+            {"id": 2, "titre": "Déploiement Nginx Load Balancer & Upload Offload", "salle": "Labo Prod"},
         ],
     }
 
 
+@app.post("/api/v1/upload-offload", status_code=status.HTTP_201_CREATED)
+async def finaliser_upload_delegue_a_nginx(request: Request):
+    """Nginx a déjà stocké le fichier sur disque NVMe et transmet uniquement X-Uploaded-File-Path !"""
+    chemin_temp_nginx = request.headers.get("X-Uploaded-File-Path", "")
+    octets_declares = int(request.headers.get("X-Uploaded-Bytes", "0") or 0)
+    nom_original = os.path.basename(request.headers.get("X-Original-Filename", "document.pdf"))
+    corps_recu = await request.body()
+
+    if not chemin_temp_nginx:
+        raise HTTPException(status_code=400, detail="En-tête interne X-Uploaded-File-Path manquant")
+    if os.path.isfile(chemin_temp_nginx):
+        with open(chemin_temp_nginx, "rb") as f:
+            if not f.read(5).startswith(b"%PDF-"):
+                raise HTTPException(status_code=415, detail="Magic Bytes invalides (attendu %PDF-)")
+
+    return {
+        "statut": "OFFLOAD_NGINX_VALIDE",
+        "instance_id": INSTANCE_ID,
+        "octets_lus_par_python_sur_reseau": len(corps_recu),
+        "octets_ecrits_par_nginx_sur_disque": octets_declares,
+        "chemin_spool_nginx": chemin_temp_nginx,
+        "nom_assaini": nom_original,
+    }
+
+
+@app.get("/api/v1/exports/{doc_id}")
+async def telecharger_pdf_prive_x_accel(doc_id: str):
+    nom_sain = "".join(c for c in doc_id if c.isalnum() or c in "_-") or "attestation"
+    return Response(
+        content=b"",
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{nom_sain}.pdf"',
+            "X-Accel-Redirect": f"/_protected_exports/{nom_sain}.pdf",
+        },
+    )
+
+
 if __name__ == "__main__":
     with TestClient(app) as c:
-        rep = c.get(
-            "/api/v1/formations",
-            headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"},
-        )
+        rep = c.get("/api/v1/formations", headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"})
         assert rep.status_code == 200
-        print("Statut :", rep.status_code)
-        print("En-tête X-FastAPI-Instance :", rep.headers.get("X-FastAPI-Instance"))
-        print("Payload JSON :", rep.json())
+        rep_up = c.post("/api/v1/upload-offload", headers={"X-Uploaded-File-Path": "/var/spool/nginx/0001", "X-Uploaded-Bytes": "18874368"})
+        assert rep_up.status_code == 201 and rep_up.json()["octets_lus_par_python_sur_reseau"] == 0
+        rep_dl = c.get("/api/v1/exports/certificat_2026")
+        assert rep_dl.headers.get("X-Accel-Redirect") == "/_protected_exports/certificat_2026.pdf"
+        print("[OK] Instance FastAPI + Offload Nginx + X-Accel-Redirect validés :", INSTANCE_ID)
     if "--once" not in sys.argv:
         import uvicorn
         print(f"\n[{INSTANCE_ID}] Serveur Uvicorn ASGI actif sur http://127.0.0.1:{PORT} (Ctrl+C pour arrêter)")

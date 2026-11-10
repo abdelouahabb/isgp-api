@@ -1350,7 +1350,16 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
               Rafale de 12 Requêtes API (Load Balancing)
             </button>
             <button class="btn-secondary" onclick="simulateNginxTraffic('static', 4)">
-              Envoyer 4 Requêtes Statiques (/static/styles.css)
+              4 Requêtes Statiques (/static/)
+            </button>
+            <button class="btn-secondary" style="border-color:#7c3aed; color:#581c87;" onclick="simulateNginxTraffic('upload_offload', 1)">
+              Upload 18 Mo Délégué ($request_body_file)
+            </button>
+            <button class="btn-secondary" style="border-color:#b91c1c; color:#991b1b;" onclick="simulateNginxTraffic('upload_413', 1)">
+              Upload 60 Mo -&gt; Bouclier Nginx 413
+            </button>
+            <button class="btn-secondary" style="border-color:#0f766e; color:#115e59;" onclick="simulateNginxTraffic('x_accel', 1)">
+              Download Privé (X-Accel-Redirect)
             </button>
           </div>
         </div>
@@ -1365,6 +1374,93 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
             <span class="muted-small">Cliquez sur « Simuler Panne (DOWN) » sur une instance ci-dessus pour observer le basculement automatique Nginx</span>
           </div>
           <pre id="nginx-live-logs" class="code-block" style="max-height: 210px; overflow-y: auto; margin: 0; font-size: 13px;"></pre>
+        </div>
+      </div>
+
+      <!-- 2B. DÉLÉGATION DES FICHIERS VOLUMINEUX, BOUCLIER 413 & X-ACCEL-REDIRECT À NGINX -->
+      <div class="card" style="margin-bottom: 16px; border-left: 4px solid #7c3aed;">
+        <div class="card-header">
+          <div>
+            <h3>2B. Déléguer les Uploads, le Bouclier <code>413</code> et les Téléchargements Privés à Nginx (Offload C Zéro-Copie)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Pourquoi faire transiter 25 Mo d'octets binaires dans l'interpréteur Python quand Nginx peut filtrer, écrire et diffuser au niveau du noyau Linux ?
+            </p>
+          </div>
+          <span class="step-badge">Nginx File Offload &amp; X-Accel</span>
+        </div>
+
+        <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-left: 4px solid #7c3aed; padding: 12px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 14px; line-height: 1.65; color: #3b0764;">
+          <strong>Arbitrage architectural Nginx + FastAPI / Uvicorn (ASGI) :</strong> Uvicorn étant asynchrone, il ne bloque pas de thread OS pendant un upload lent, mais parser 25 Mo de <code>multipart/form-data</code> en Python consomme tout de même du CPU sur l'Event Loop. En production, on choisit entre deux modes explicites dans <code>nginx.conf</code> : <strong>Mode A (Offload Disque Nginx via <code>$request_body_file</code>)</strong> lorsque le fichier doit finir sur le disque local avec <code>0 octet</code> transitant vers Uvicorn ; <strong>Mode B (<code>proxy_request_buffering off;</code>)</strong> lorsque FastAPI relaie les chunks en temps réel vers un stockage objet distant (MinIO / Amazon S3 / GCS) via <code>await upload_file.read(65536)</code> sans double écriture disque.
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Cycle Complet de Délégation Binaire à Nginx : Bouclier 413, Offload Upload ($request_body_file) &amp; Download Privé (X-Accel-Redirect)</span>
+            <span class="mermaid-badge">Diagramme de Séquence Mermaid</span>
+          </div>
+          <pre class="mermaid">sequenceDiagram
+    participant C as Client Mobile (4G lente)
+    participant N as Nginx Frontal (C / sendfile)
+    participant D as Disque NVMe (/var/spool &amp; /var/data)
+    participant P as Nœud Python (FASTAPI :8001..8004)
+
+    Note over C,P: CAS 1 — Attaque ou Fichier Géant (60 Mo > client_max_body_size 25M)
+    C->>N: POST /api/v1/upload-offload (Content-Length: 62914560)
+    N-->>C: HTTP 413 Payload Too Large en 0.1 ms (Python n'est JAMAIS appelé !)
+
+    Note over C,P: CAS 2 — Délégation d'Upload (18 Mo absorbés en 5.8s par Nginx, 0 octet envoyé à Python)
+    C->>N: POST /api/v1/upload-offload (Flux binaire 18 Mo sur 5.8s)
+    N->>D: Écrit directement /var/spool/isgp_nginx_uploads/00014
+    N->>P: POST interne SANS CORPS (Content-Length: 0, X-Uploaded-File-Path: .../00014)
+    P->>D: Lit seulement 5 octets (%PDF-) + os.replace() atomique (0.9 ms !)
+    P-->>N: HTTP 201 Created (JSON métadonnées)
+    N-->>C: HTTP 201 Created
+
+    Note over C,P: CAS 3 — Téléchargement Privé Protégé par JWT (X-Accel-Redirect)
+    C->>N: GET /api/v1/exports/certificat_2026 (Authorization: Bearer eyJ...)
+    N->>P: proxy_pass GET /api/v1/exports/certificat_2026
+    P-->>N: 200 OK (0 octet de Body + X-Accel-Redirect: /_protected_exports/certificat_2026.pdf)
+    N->>D: location internal -> noyau Linux sendfile() direct vers la carte réseau
+    N-->>C: Flux binaire PDF 18 Mo à vitesse maximale (Worker Python déjà libre !)</pre>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 21%;">Patron Nginx</th>
+                <th style="width: 34%;">Directives Clés dans <code>nginx.conf</code></th>
+                <th style="width: 45%;">Effet Exact sur la Mémoire RAM &amp; les Workers Python</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Bouclier Segmenté <code>413</code></strong><br/>(Protection RAM JSON vs Upload)</td>
+                <td><code>client_max_body_size 1M;</code> (dans <code>server</code>)<br/><code>client_max_body_size 25M;</code> (dans <code>location /upload</code>)</td>
+                <td>Attention : le défaut implicite de Nginx vaut <strong>1 Mo</strong> ! En gardant <code>1M</code> globalement, toute bombe JSON de 50 Mo sur <code>/login</code> est stoppée en bordure par Nginx (<code>413</code>) avant d'atteindre Python.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Absorption Slow-Client</strong><br/>(Anti-<em>Slowloris</em> 3G/4G)</td>
+                <td><code>proxy_request_buffering on;</code><br/><code>client_body_timeout 12s;</code></td>
+                <td>Nginx encaisse seul la lenteur du réseau mobile du client, puis transfère le corps complet à Python en quelques millisecondes sur la boucle locale <code>127.0.0.1</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>3. Offload Disque Total</strong><br/>(0 octet reçu par Python !)</td>
+                <td><code>client_body_in_file_only clean;</code><br/><code>proxy_pass_request_body off;</code><br/><code>proxy_set_header X-Uploaded-File-Path $request_body_file;</code></td>
+                <td><strong>Délégation maximale</strong> : Python ne lit ni ne copie les 25 Mo sur le socket HTTP ! Il reçoit uniquement le chemin local, vérifie les 5 premiers <em>Magic Bytes</em> (<code>%PDF-</code>) et déplace l'inode via <code>os.replace()</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>4. Streaming Direct vers Python</strong><br/>(Pas de double tampon)</td>
+                <td><code>proxy_request_buffering off;</code></td>
+                <td>Indispensable sur les routes où Python traite chaque paquet en direct (ex: <code>@stream_request_body</code> sous Tornado ou relais temps réel vers Amazon S3 / GCS).</td>
+              </tr>
+              <tr>
+                <td><strong>5. Download Privé Authentifié</strong><br/>(<code>X-Accel-Redirect</code>)</td>
+                <td><code>location /_protected_exports/ { internal; alias /var/data/...; sendfile on; }</code></td>
+                <td>Contrairement à <code>/static/</code> (qui est public sans mot de passe), Python vérifie d'abord le jeton Bearer et les droits SQLite en <code>0.6 ms</code>, puis ordonne secrètement à Nginx de livrer le fichier privé !</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -2707,6 +2803,18 @@ async def televerser_pdf_securise(document: UploadFile = File(...)):
 
     return {"nom_stocke": nom_stockage, "taille_octets": taille_totale, "sha256": empreinte.hexdigest()}</pre>
 
+        <div style="background: #faf5ff; border: 1px solid #d8b4fe; border-left: 4px solid #7c3aed; padding: 12px 14px; border-radius: 4px; margin-bottom: 16px; font-size: 13.8px; line-height: 1.65; color: #3b0764;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
+            <strong>En Production derrière Nginx : Faut-il gérer l'Upload en Python ou le déléguer à Nginx ?</strong>
+            <button class="btn-xs" style="background:#7c3aed; color:#fff; border-color:#7c3aed;" onclick="switchTab('nginx')">
+              Tester l'Offload dans l'onglet Nginx &rarr;
+            </button>
+          </div>
+          En production réelle, <strong>Nginx et Python forment une défense à deux étages complémentaires</strong> :<br/>
+          &bull; <strong>1er étage (Nginx en C)</strong> : <code>client_max_body_size</code> bloque instantanément les fichiers géants en <code>413</code> dès l'en-tête TCP (attention : la limite par défaut de Nginx n'est que de <strong>1 Mo</strong> !), <code>proxy_request_buffering on</code> protège vos workers Python des connexions mobiles 3G lentes, et <code>client_body_in_file_only clean</code> + <code>X-Uploaded-File-Path $request_body_file</code> permet même d'écrire 25 Mo sur disque <strong>sans transmettre un seul octet de corps à Python</strong> (et <code>X-Accel-Redirect</code> fait l'inverse pour les téléchargements privés !).<br/>
+          &bull; <strong>2e étage (Python)</strong> : Nginx ne connaît pas vos règles métier ! Python reste <strong>toujours responsable</strong> de vérifier le jeton utilisateur, d'inspecter les 5 premiers <em>Magic Bytes</em> réels (<code>%PDF-</code> &#8594; sinon <code>415</code>) et d'enregistrer l'audit dans SQLite. Consultez la section <strong>2B</strong> et le fichier <code>nginx_isgp_cluster.conf</code> dans l'onglet <strong>Déploiement &amp; Load Balancing</strong>.
+        </div>
+
         <!-- LABORATOIRE INTERACTIF #2 : INSPECTEUR MULTIPART & MAGIC BYTES -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
@@ -3114,6 +3222,6 @@ async def modifier_avec_verrou_optimiste(
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=37"></script>
+  <script src="/static/app.js?v=38"></script>
 </body>
 </html>

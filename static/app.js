@@ -1782,11 +1782,14 @@ function renderNginxClusterUI(state) {
 
   const totalDynamic = state.dynamic_requests_proxied || 0;
   const totalStatic = state.static_requests_served || 0;
+  const totalOffload = state.uploads_offloaded || 0;
+  const total413 = state.rejected_413_edge || 0;
+  const totalXAccel = state.x_accel_downloads || 0;
   const upCount = state.nodes.filter((n) => n.status === "UP").length;
 
   if (summaryEl) {
     summaryEl.innerHTML = `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 10px;">
         <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #1e3a5f; padding: 12px 14px; border-radius: 4px;">
           <div style="font-size: 12.5px; color: #1e3a5f; font-weight: 700; text-transform: uppercase;">Fichiers Statiques (/static/)</div>
           <div style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 4px 0;">${totalStatic} servis par Nginx</div>
@@ -1796,6 +1799,13 @@ function renderNginxClusterUI(state) {
           <div style="font-size: 12.5px; color: #14532d; font-weight: 700; text-transform: uppercase;">Requêtes API Dynamiques (/api/)</div>
           <div style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 4px 0;">${totalDynamic} réparties</div>
           <div style="font-size: 13px; color: #14532d;">Instances actives : <strong>${upCount} / 4 UP</strong></div>
+        </div>
+        <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-left: 4px solid #7c3aed; padding: 12px 14px; border-radius: 4px;">
+          <div style="font-size: 12.5px; color: #581c87; font-weight: 700; text-transform: uppercase;">Délégation Fichiers Nginx</div>
+          <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 4px 0;">
+            ${totalOffload} Offloads | ${totalXAccel} X-Accel | ${total413} Bloqués 413
+          </div>
+          <div style="font-size: 12.5px; color: #4c1d95;"><code>$request_body_file</code> &amp; <code>client_max_body_size</code></div>
         </div>
         <div style="background: ${state.errors_502 > 0 ? '#fef2f2' : '#f8fafc'}; border: 1px solid ${state.errors_502 > 0 ? '#fecaca' : '#e2e8f0'}; border-left: 4px solid ${state.errors_502 > 0 ? '#b91c1c' : '#64748b'}; padding: 12px 14px; border-radius: 4px;">
           <div style="font-size: 12.5px; color: #334155; font-weight: 700; text-transform: uppercase;">Tolérance aux Pannes (Failover)</div>

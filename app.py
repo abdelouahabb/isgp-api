@@ -2304,6 +2304,9 @@ def _build_initial_nginx_state(fw: str) -> dict:
         "rr_index": 0,
         "static_requests_served": 0,
         "dynamic_requests_proxied": 0,
+        "uploads_offloaded": 0,
+        "rejected_413_edge": 0,
+        "x_accel_downloads": 0,
         "errors_502": 0,
         "nodes": [
             {"id": f"{fw}-node-1", "port": 8001, "addr": "127.0.0.1:8001", "pid": 24101, "weight": 3, "status": "UP", "requests": 0, "active_conns": 1},
@@ -2312,7 +2315,7 @@ def _build_initial_nginx_state(fw: str) -> dict:
             {"id": f"{fw}-node-4", "port": 8004, "addr": "127.0.0.1:8004", "pid": 24104, "weight": 1, "status": "UP", "requests": 0, "active_conns": 1},
         ],
         "logs": [
-            f'[INIT] Nginx Master Process démarré sur 0.0.0.0:80 -> upstream isgp_{fw}_cluster (127.0.0.1:8001..8004) + alias /static/'
+            f'[INIT] Nginx Master Process démarré sur 0.0.0.0:80 -> upstream isgp_{fw}_cluster (:8001..8004) + /static/ + Upload Offload ($request_body_file) + X-Accel-Redirect'
         ],
     }
 
@@ -2376,6 +2379,9 @@ def reset_nginx_cluster_state():
     state["rr_index"] = 0
     state["static_requests_served"] = 0
     state["dynamic_requests_proxied"] = 0
+    state["uploads_offloaded"] = 0
+    state["rejected_413_edge"] = 0
+    state["x_accel_downloads"] = 0
     state["errors_502"] = 0
     for idx, n in enumerate(state["nodes"]):
         n["status"] = "UP"
@@ -2419,8 +2425,28 @@ def simulate_nginx_cluster_requests():
                 "flask_called": False,
                 "latency_ms": 0.4,
             }
+        elif req_type == "upload_413":
+            path = "/api/v1/upload-offload"
+            state["rejected_413_edge"] = state.get("rejected_413_edge", 0) + 1
+            log_line = (
+                f'{client_ip} - [{now_str}] "POST {path} HTTP/1.1 (Content-Length: 62914560)" status=413 '
+                f'edge_shield="client_max_body_size 25M exceeded" (0 octet transmis à {fw_label} !) total_time=0.0001s'
+            )
+            state["logs"].insert(0, log_line)
+            last_decision = {
+                "type": "upload_413",
+                "path": path,
+                "status": 413,
+                "handled_by": "Bouclier Nginx Edge (client_max_body_size -> 413 en 0.1 ms, 0% RAM Python)",
+                "flask_called": False,
+                "latency_ms": 0.1,
+            }
         else:
-            path = "/api/v1/formations"
+            path = (
+                "/api/v1/upload-offload"
+                if req_type == "upload_offload"
+                else ("/api/v1/exports/certificat_2026" if req_type == "x_accel" else "/api/v1/formations")
+            )
             up_nodes = [n for n in state["nodes"] if n["status"] == "UP"]
             if not up_nodes:
                 state["errors_502"] += 1
@@ -2430,7 +2456,7 @@ def simulate_nginx_cluster_requests():
                 )
                 state["logs"].insert(0, log_line)
                 last_decision = {
-                    "type": "dynamic",
+                    "type": req_type,
                     "path": path,
                     "status": 502,
                     "handled_by": f"Erreur 502 Bad Gateway (Les 4 instances {fw_label} sont DOWN !)",
@@ -2453,26 +2479,42 @@ def simulate_nginx_cluster_requests():
                 chosen = weighted_pool[idx]
                 state["rr_index"] += 1
             else:
-                # round_robin
                 idx = state["rr_index"] % len(up_nodes)
                 chosen = up_nodes[idx]
                 state["rr_index"] += 1
 
             chosen["requests"] += 1
             state["dynamic_requests_proxied"] += 1
-            log_line = (
-                f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
-                f'upstream_node={chosen["addr"]} ({chosen["id"]}, PID {chosen["pid"]}) upstream_time=0.008s'
-            )
+
+            if req_type == "upload_offload":
+                state["uploads_offloaded"] = state.get("uploads_offloaded", 0) + 1
+                spool_id = 1000 + state["uploads_offloaded"]
+                log_line = (
+                    f'{client_ip} - [{now_str}] "POST {path} HTTP/1.1 (18 Mo Mobile 4G: 5.8s absorbés par Nginx C)" '
+                    f'status=201 spool=/var/spool/isgp_nginx_uploads/{spool_id} body_sent_to_python=0B '
+                    f'upstream_node={chosen["addr"]} ({chosen["id"]}) upstream_time=0.0009s total_time=5.801s'
+                )
+            elif req_type == "x_accel":
+                state["x_accel_downloads"] = state.get("x_accel_downloads", 0) + 1
+                log_line = (
+                    f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
+                    f'auth_by={chosen["addr"]} (upstream_time=0.0006s) -> X-Accel-Redirect=/_protected_exports/certificat_2026.pdf '
+                    f'(18 Mo streamés par Nginx sendfile internal !)'
+                )
+            else:
+                log_line = (
+                    f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
+                    f'upstream_node={chosen["addr"]} ({chosen["id"]}, PID {chosen["pid"]}) upstream_time=0.008s'
+                )
             state["logs"].insert(0, log_line)
             last_decision = {
-                "type": "dynamic",
+                "type": req_type,
                 "path": path,
-                "status": 200,
+                "status": 201 if req_type == "upload_offload" else 200,
                 "handled_by": f'{chosen["id"]} ({chosen["addr"]}, PID {chosen["pid"]})',
                 "node_port": chosen["port"],
                 "flask_called": True,
-                "latency_ms": 8.2,
+                "latency_ms": 0.9 if req_type == "upload_offload" else (0.6 if req_type == "x_accel" else 8.2),
             }
 
     state["logs"] = state["logs"][:35]

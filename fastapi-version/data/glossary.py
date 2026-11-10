@@ -1,5 +1,5 @@
 """
-Référentiel des Concepts Fondamentaux & Addendum Technique (OpenSSL, Cryptographie, Linux, Réseau, SQLite/APSW & Temps Réel)
+Référentiel des Concepts Fondamentaux & Addendum Technique (OpenSSL, Cryptographie, Linux, Nginx, SQLite/APSW & Temps Réel)
 pour le Bootcamp ISGP : Développement d'APIs et Services Web.
 Chaque concept ou outil est expliqué sans aucun prérequis, avec une analogie fonctionnelle
 et des commandes / exemples prêts pour la production.
@@ -1172,4 +1172,28 @@ GLOSSARY_TERMS = [{'id': 'openssl_rand_secrets',
                   'req_id = client_req_id or f"req-{uuid.uuid4().hex[:12]}"\n'
                   '# ... exécution de la route ...\n'
                   'duree_ms = (time.perf_counter() - debut) * 1000.0\n'
-                  '# En-têtes : X-Request-ID: req-... | X-Process-Time-Ms: 1.84'}]
+                  '# En-têtes : X-Request-ID: req-... | X-Process-Time-Ms: 1.84'},
+ {'id': 'nginx_upload_x_accel_offload',
+  'term': 'Délégation Fichiers Nginx : client_max_body_size, $request_body_file & X-Accel-Redirect',
+  'category': 'Déploiement & Production',
+  'level': 'Avancé',
+  'short': "Architecture à deux étages déléguant à Nginx le filtrage 413, l'écriture disque des uploads "
+           "lents et l'envoi noyau (sendfile) des fichiers privés.",
+  'analogy': "Le quai logistique d'un ministère : le service de sécurité du quai (Nginx) pèse les camions à "
+             "l'entrée (413), décharge les palettes lourdes en entrepôt et ne remet au magistrat (Python) "
+             'que le bordereau scellé (X-Uploaded-File-Path) pour contrôle de conformité.',
+  'explanation': '- **Piège classique** : Le `client_max_body_size` par défaut de Nginx vaut **1 Mo** ! '
+                 "Gardez `1M` sur les routes JSON et ouvrez `25M` uniquement sur la `location` d'upload.\n"
+                 '- **Offload Upload** : `client_body_in_file_only clean;` + `proxy_pass_request_body off;` '
+                 '+ `X-Uploaded-File-Path $request_body_file` transmet `0 octet` de corps à Python.\n'
+                 '- **Download Privé (`X-Accel-Redirect`)** : Python valide le Bearer Token et répond avec '
+                 "l'en-tête `X-Accel-Redirect: /_protected_exports/doc.pdf`, servi par un bloc `internal; "
+                 'sendfile on;`.',
+  'code_example': 'location = /api/v1/upload-offload {\n'
+                  '    client_max_body_size 25M;\n'
+                  '    client_body_in_file_only clean;\n'
+                  '    proxy_pass_request_body off;\n'
+                  '    proxy_set_header Content-Length "";\n'
+                  '    proxy_set_header X-Uploaded-File-Path $request_body_file;\n'
+                  '    proxy_pass http://isgp_cluster;\n'
+                  '}'}]
