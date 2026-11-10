@@ -626,7 +626,9 @@ function _startLivePythonPoll(targetId, outEl, statusEl) {
 
 async function probeLivePythonServer(path, targetId) {
   const outEl =
-    document.getElementById(`lesson-runner-output-${targetId}`) || document.getElementById("studio-python-output");
+    document.getElementById(`lesson-runner-output-${targetId}`) ||
+    (targetId === "sqlite" ? document.getElementById("sqlite-standalone-output") : null) ||
+    document.getElementById("studio-python-output");
   try {
     const res = await fetch("/api/python/probe", {
       method: "POST",
@@ -646,7 +648,9 @@ async function probeLivePythonServer(path, targetId) {
 
 async function stopLivePythonServer(targetId) {
   const outEl =
-    document.getElementById(`lesson-runner-output-${targetId}`) || document.getElementById("studio-python-output");
+    document.getElementById(`lesson-runner-output-${targetId}`) ||
+    (targetId === "sqlite" ? document.getElementById("sqlite-standalone-output") : null) ||
+    document.getElementById("studio-python-output");
   const statusEl = document.getElementById("studio-run-status");
   _clearLivePythonPoll();
   try {
@@ -2034,6 +2038,7 @@ async function runSqliteStandaloneServer() {
   const textarea = document.getElementById("sqlite-standalone-code");
   const out = document.getElementById("sqlite-standalone-output");
   if (!textarea || !out) return;
+  _clearLivePythonPoll();
   out.textContent = "Démarrage du serveur SQLite autonome et exécution des auto-tests...";
   try {
     const fw = getActiveFramework();
@@ -2043,15 +2048,13 @@ async function runSqliteStandaloneServer() {
       body: JSON.stringify({ code: textarea.value })
     });
     const data = await res.json();
+    _renderLiveLoopBar("sqlite", data);
     if (data.running) {
       out.textContent = data.output || "(Boucle serveur SQLite démarrée)";
-      _renderLiveServerBar("sqlite-standalone-output", data);
-      _startLivePythonPolling("sqlite-standalone-output");
+      _startLivePythonPoll("sqlite", out, null);
     } else if (data.error) {
-      _clearLiveServerBar("sqlite-standalone-output");
       out.textContent = `[Erreur d'exécution — Code ${data.exit_code}]\n${data.error}`;
     } else {
-      _clearLiveServerBar("sqlite-standalone-output");
       out.textContent = data.output || "(Aucune sortie console)";
     }
   } catch (err) {
