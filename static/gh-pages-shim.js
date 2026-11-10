@@ -815,7 +815,29 @@
       return jsonResponse({ output: out });
     }
 
-    // 9. Atelier d'exécution Python (Mode GitHub Pages Statique)
+    // 9. Laboratoire Architecture : Nord-Sud vs Est-Ouest, OAuth 2.0 / RFC 8693 & OpenAPI/Swagger
+    if (path.startsWith("/api/architecture-lab/")) {
+      const r = await origFetch(`${SITE_ROOT}/static-data/${fw}/architecture-lab.json`);
+      const archData = await r.json();
+      if (path === "/api/architecture-lab/oauth-flow" && method === "POST") {
+        const scenario = String(bodyObj.scenario || "pkce_north_south");
+        const scenarios = archData.oauth_scenarios || {};
+        const chosen = scenarios[scenario] || scenarios["pkce_north_south"] || {};
+        return jsonResponse({ scenario, framework: fw, ...chosen }, 200);
+      }
+      if (path === "/api/architecture-lab/openapi-compare") {
+        let selectedFw = (parsed.searchParams.get("target_fw") || fw || "flask").toLowerCase();
+        if (!["flask", "fastapi", "tornado"].includes(selectedFw)) selectedFw = fw;
+        const bundle = archData.openapi_bundle || {};
+        return jsonResponse({
+          selected_framework: selectedFw,
+          openapi_yaml: bundle.openapi_yaml || "",
+          framework_detail: (bundle.frameworks || {})[selectedFw] || {}
+        }, 200);
+      }
+    }
+
+    // 10. Atelier d'exécution Python (Mode GitHub Pages Statique)
     if (path.startsWith("/api/python/")) {
       if (path.endsWith("/stop") || path.endsWith("/status")) {
         return jsonResponse({ running: false, output: "Mode statique GitHub Pages." });

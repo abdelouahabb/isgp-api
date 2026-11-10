@@ -7,7 +7,7 @@
   <title>ISGP — Volume II : Développement d'APIs et services web (FastAPI &amp; Uvicorn ASGI)</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
-  <link rel="stylesheet" href="/static/styles.css?v=32" />
+  <link rel="stylesheet" href="/static/styles.css?v=39" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -25,6 +25,9 @@
     <nav class="doc-nav-right">
       <button class="tab-btn active" data-tab="course" onclick="switchTab('course')">
         Support de Cours
+      </button>
+      <button class="tab-btn" data-tab="architecture" onclick="switchTab('architecture')">
+        Architecture, OAuth2 &amp; Swagger
       </button>
       <button class="tab-btn" data-tab="sandbox" onclick="switchTab('sandbox')">
         Client HTTP &amp; Inspecteur
@@ -3205,6 +3208,854 @@ async def modifier_avec_verrou_optimiste(
       </div>
     </section>
 
+    <!-- ONGLET RÉFÉRENCE ARCHITECTURALE : FONDAMENTAUX API, CONTRATS, NORD-SUD / EST-OUEST, OAUTH 2.0 & SWAGGER -->
+    <section id="tab-architecture" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Manuel d'Architecture — Fondamentaux d'une API, Contrats, Nord-Sud vs Est-Ouest, OAuth 2.0 &amp; Swagger</h2>
+          <p>
+            Référence conceptuelle et opérationnelle adaptée à <strong>FastAPI (ASGI Asynchrone & Pydantic v2)</strong> : définitions rigoureuses de chaque terme d'ingénierie,
+            distinction entre <strong>Contrat d'API</strong> et <strong>Documentation</strong>, topologie réseau <strong>Nord-Sud vs Est-Ouest</strong>,
+            délégation d'autorisation <strong>OAuth 2.0 / OIDC / PKCE / Token Exchange RFC 8693</strong> et démystification complète de <strong>Swagger vs OpenAPI 3.1</strong>.
+          </p>
+        </div>
+        <div class="preset-buttons">
+          <a class="btn-chip" href="#arch-ch1">1. Qu'est-ce qu'une API ?</a>
+          <a class="btn-chip" href="#arch-ch2">2. Lexique (12 Termes)</a>
+          <a class="btn-chip" href="#arch-ch3">3. Contrat vs Documentation</a>
+          <a class="btn-chip" href="#arch-ch4">4. Nord-Sud vs Est-Ouest</a>
+          <a class="btn-chip" href="#arch-ch5">5. OAuth 2.0, OIDC &amp; PKCE</a>
+          <a class="btn-chip" href="#arch-ch6">6. Délégation Est-Ouest (Lab)</a>
+          <a class="btn-chip" href="#arch-ch7">7. Qu'est-ce que Swagger ?</a>
+          <a class="btn-chip" href="#arch-ch8">8. OpenAPI 3.1 &amp; Code (Lab)</a>
+          <a class="btn-chip" href="#arch-ch9">9. Synthèse &amp; Quiz</a>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 1 : QU'EST-CE QU'UNE API ?                                -->
+      <!-- ================================================================== -->
+      <div id="arch-ch1" class="card" style="margin-bottom: 18px; border-left: 4px solid #1e3a5f;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 1 — Qu'est-ce qu'une API réellement ? (Au-delà du Web : la Frontière d'Abstraction et de Découplage)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Comprendre l'essence architecturale d'une Application Programming Interface avant de choisir un protocole ou un framework
+            </p>
+          </div>
+          <span class="step-badge">Partie I — Fondations &amp; Terminologie</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.72; color: #1e293b; margin-bottom: 12px;">
+          Une <strong>API (<em>Application Programming Interface</em> — Interface de Programmation d'Application)</strong> n'est pas « un serveur JSON sur Internet » : au sens strict du génie logiciel, une API est une <strong>frontière formelle de découplage entre deux composants logiciels</strong> qui définit avec exactitude <strong>CE QUE</strong> le fournisseur accepte de faire (opérations, entrées, sorties, erreurs possibles), tout en dissimulant intégralement <strong>COMMENT</strong> il le réalise en interne (langage, algorithmes, moteur de base de données, topologie matérielle).
+        </p>
+
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #1d4ed8; padding: 12px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 14px; line-height: 1.65; color: #1e3a8a;">
+          <strong>Analogie de Référence — Le Poste de Conduite Normalisé :</strong> Lorsque vous montez dans une voiture thermique, hybride ou 100 % électrique, le volant, les pédales et le compteur constituent l'<strong>API publique du véhicule</strong>. Le constructeur peut remplacer un moteur essence par deux moteurs électriques et une batterie lithium-fer-phosphate (changement radical d'implémentation interne) : tant que le contrat des pédales et du volant ne change pas, aucun conducteur n'a besoin d'être rééduqué. En informatique, cette propriété permet à une application mobile iOS/Android de continuer à fonctionner sans mise à jour pendant que l'équipe Backend remplace un monolithe PHP par des microservices Python/Rust !
+        </div>
+
+        <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #0f172a;">Les 4 Grandes Strates d'APIs en Informatique</h4>
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Famille d'API</th>
+                <th style="width: 28%;">Frontière Traversée</th>
+                <th style="width: 50%;">Exemples Concrets &amp; Rôle dans votre Serveur FastAPI</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. API Système (OS Syscalls)</strong></td>
+                <td>Espace Utilisateur &#8596; Noyau Linux (Ring 0)</td>
+                <td>Appels POSIX C <code>open()</code>, <code>read()</code>, <code>socket()</code>, <code>epoll_wait()</code>, <code>sendfile()</code>. C'est l'API que Python et Nginx invoquent pour lire un fichier NVMe ou écouter un port TCP.</td>
+              </tr>
+              <tr>
+                <td><strong>2. API de Bibliothèque (In-Process)</strong></td>
+                <td>Votre Code &#8596; Module importé en RAM</td>
+                <td>Standard Python <strong>PEP 249 (<code>DB-API 2.0</code>)</strong> : expose <code>.cursor()</code>, <code>.execute(sql, params)</code> et <code>.fetchall()</code> de façon identique pour <code>sqlite3</code>, <code>psycopg</code> (PostgreSQL) et <code>pymysql</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>3. API Locale / IPC &amp; Matériel</strong></td>
+                <td>Processus A &#8596; Processus B sur la même machine</td>
+                <td>Socket UNIX <code>/run/gunicorn.sock</code> entre Nginx et Python, bus D-Bus Linux, API CUDA/Vulkan pour parler à un processeur graphique GPU.</td>
+              </tr>
+              <tr>
+                <td><strong>4. API Web / Réseau (Distribuée)</strong></td>
+                <td>Machine Cliente &#8596; Machine Serveur via TCP/IP</td>
+                <td><strong>REST (HTTP/JSON)</strong>, <strong>GraphQL</strong>, <strong>gRPC (HTTP/2 + Protobuf)</strong>, <strong>Webhooks</strong>, <strong>SSE / WebSockets</strong>. Les deux systèmes peuvent être écrits dans des langages différents à 10 000 km de distance !</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Principe d'Encapsulation d'une API Web : découplage total entre Consommateurs Hétérogènes et Implémentation Serveur</span>
+            <span class="mermaid-badge">Architecture de Découplage</span>
+          </div>
+          <pre class="mermaid">flowchart LR
+    subgraph Clients["Consommateurs Externes (Indépendants du langage)"]
+      C1["Portail Web SPA / PWA (JS)"]
+      C2["App Mobile iOS / Android (Swift / Kotlin)"]
+      C3["Partenaire B2B / Script ERP (Java / Go)"]
+    end
+
+    Contract["FRONTIÈRE D'API FORMELLE<br/>Contrat HTTP / OpenAPI 3.1 + OAuth 2.0"]
+
+    subgraph Backend["Implémentation Interne Masquée (Modifiable sans casser les clients)"]
+      S1["Serveur Python (FastAPI)"]
+      S2[("SQLite WAL / PostgreSQL")]
+      S3["Cache / File de Tâches"]
+      S1 --> S2
+      S1 --> S3
+    end
+
+    C1 --> Contract
+    C2 --> Contract
+    C3 --> Contract
+    Contract --> S1</pre>
+        </div>
+
+        <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #0f172a;">Panorama des 5 Styles d'APIs Réseau Modernes : Quand choisir lequel ?</h4>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 16%;">Style d'API</th>
+                <th style="width: 20%;">Format &amp; Transport</th>
+                <th style="width: 34%;">Forces Majeures</th>
+                <th style="width: 30%;">Cas d'Usage Idéal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>REST</strong></td>
+                <td>JSON sur HTTP/1.1, HTTP/2 ou HTTP/3</td>
+                <td>Universel, lisible humainement, exploite nativement les verbes HTTP, les codes de statut et le cache standard (CDN, <code>ETag 304</code>).</td>
+                <td>APIs publiques, B2B, portails Web/Mobile, systèmes d'information d'entreprise (90 % du Web).</td>
+              </tr>
+              <tr>
+                <td><strong>gRPC</strong></td>
+                <td>Binaire <strong>Protocol Buffers</strong> sur HTTP/2 multiplexé</td>
+                <td>5x à 10x plus compact et rapide à sérialiser que JSON, typage fort strict (<code>.proto</code>), streaming bidirectionnel natif.</td>
+                <td>Communication interne <strong>Est-Ouest</strong> à très faible latence entre microservices (Python &#8596; Go &#8596; C++).</td>
+              </tr>
+              <tr>
+                <td><strong>GraphQL</strong></td>
+                <td>Requête déclarative typée sur <code>POST /graphql</code></td>
+                <td>Le client demande exactement les champs voulus en 1 seule requête (élimine l'<em>over-fetching</em> et l'<em>under-fetching</em> sur mobile).</td>
+                <td>Écrans Frontend riches agrégeant 10 sources de données imbriquées (réseaux sociaux, e-commerce complexe).</td>
+              </tr>
+              <tr>
+                <td><strong>Webhook</strong></td>
+                <td><code>POST</code> HTTP JSON sortant signé <code>HMAC-SHA256</code></td>
+                <td>« <em>Reverse API</em> » événementielle : au lieu d'interroger le serveur toutes les 5 s, le fournisseur notifie votre URL dès qu'un événement survient.</td>
+                <td>Confirmation de paiement bancaire (Stripe/CIB/SATIM), notification CI/CD GitHub, alerte logistique.</td>
+              </tr>
+              <tr>
+                <td><strong>SSE / WebSocket</strong></td>
+                <td>Flux HTTP persistant ou canal TCP <code>101</code> Full-Duplex</td>
+                <td>Diffusion instantanée en continu sans réouverture de connexion HTTP.</td>
+                <td>Tableaux de bord temps réel, streaming de jetons IA, salles de marché, collaboration en direct.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 2 : LE LEXIQUE COMPLET DE L'INGÉNIEUR API (12 TERMES)     -->
+      <!-- ================================================================== -->
+      <div id="arch-ch2" class="card" style="margin-bottom: 18px; border-left: 4px solid #0284c7;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 2 — Le Lexique Fondamental de l'Ingénieur API : 12 Termes Essentiels Définis avec Précision</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Ne plus jamais confondre Ressource et Représentation, Endpoint et Route, 400 et 422, Idempotence, SLI, SLO et SLA
+            </p>
+          </div>
+          <span class="step-badge">Vocabulaire de Précision</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          En réunion d'architecture comme en diagnostic d'incident de production, l'ambiguïté de vocabulaire coûte très cher. Voici les <strong>12 distinctions exactes</strong> qu'un concepteur d'API maîtrise sur le bout des doigts :
+        </p>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 23%;">Terme / Couple de Concepts</th>
+                <th style="width: 45%;">Définition Exacte &amp; Nuance Technique</th>
+                <th style="width: 32%;">Illustration Concrète</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Ressource vs Représentation</strong></td>
+                <td>La <strong>Ressource</strong> est l'entité métier conceptuelle identifiée par son URI ; la <strong>Représentation</strong> est la projection sérialisée (JSON, XML, CSV, PDF) transmise sur le réseau à un instant donné.</td>
+                <td>Ressource : <code>/api/formations/42</code><br/>Représentations : <code>application/json</code> ou <code>text/csv</code> de cette même formation n°42.</td>
+              </tr>
+              <tr>
+                <td><strong>2. URI vs Endpoint vs Route</strong></td>
+                <td>L'<strong>URI</strong> identifie la ressource (<code>/api/formations/42</code>) ; l'<strong>Endpoint</strong> associe un verbe précis et une URL (<code>DELETE /api/formations/42</code>) ; la <strong>Route</strong> est la règle paramétrée côté code serveur qui capture l'appel.</td>
+                <td>Endpoint : <code>GET /api/formations/42</code><br/>Route Python : <code>/api/formations/&lt;int:id&gt;</code> ou <code>{id}</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>3. Headers (En-têtes) vs Payload (Corps)</strong></td>
+                <td>Les <strong>Headers</strong> constituent l'enveloppe de contrôle lue par les proxys, passerelles et caches sans ouvrir le colis ; le <strong>Payload (Body)</strong> contient la donnée métier transportée.</td>
+                <td>Headers : <code>Authorization</code>, <code>Content-Type</code>, <code>ETag</code><br/>Payload : <code>{"titre": "Audit API", "duree_jours": 5}</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>4. Idempotence &amp; <code>Idempotency-Key</code></strong></td>
+                <td>Une opération est <strong>idempotente</strong> si l'exécuter 1 fois ou 10 fois de suite laisse le serveur dans le même état. <code>GET</code>, <code>PUT</code>, <code>DELETE</code> le sont par norme ; <code>POST</code> ne l'est <strong>pas</strong> sauf ajout d'une clé d'idempotence UUID.</td>
+                <td><code>POST /paiements</code> + <code>Idempotency-Key: 7f8c...</code> &#8594; zéro double débit bancaire en cas de réessai mobile !</td>
+              </tr>
+              <tr>
+                <td><strong>5. Statelessness (Sans État Mémoire)</strong></td>
+                <td>Contrainte REST majeure : le serveur ne conserve aucun contexte client en RAM entre deux requêtes. Chaque requête transporte tout ce qu'il faut pour la traiter (ex: jeton signé).</td>
+                <td>La requête 1 peut atterrir sur le worker <code>:8001</code> et la requête 2 sur <code>:8004</code> sans aucune perte de session.</td>
+              </tr>
+              <tr>
+                <td><strong>6. Désérialisation (<code>400</code>) vs Validation (<code>422</code>)</strong></td>
+                <td>La <strong>désérialisation</strong> transforme les octets UTF-8 en structure Python (échoue en <code>400 Bad Request</code> si JSON tronqué) ; la <strong>validation</strong> vérifie le contrat métier (échoue en <code>422 Unprocessable Content</code>).</td>
+                <td><code>{"duree": </code> &#8594; <code>400</code> (syntaxe cassée)<br/><code>{"duree": -5}</code> &#8594; <code>422</code> (JSON valide mais règle métier violée).</td>
+              </tr>
+              <tr>
+                <td><strong>7. Content Negotiation (<code>406</code> vs <code>415</code>)</strong></td>
+                <td>Mécanisme HTTP permettant au client et au serveur de s'accorder sur le format MIME à l'aller (<code>Content-Type</code>) et au retour (<code>Accept</code>).</td>
+                <td>Envoi d'un XML non supporté &#8594; <code>415 Unsupported Media Type</code>.<br/>Demande <code>Accept: application/pdf</code> impossible &#8594; <code>406 Not Acceptable</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>8. Pagination <code>Offset</code> vs <code>Cursor (Keyset)</code></strong></td>
+                <td><code>?limit=20&amp;offset=100000</code> oblige la BDD à scanner et jeter 100 000 lignes ; la pagination par <strong>curseur</strong> (<code>?after_id=98412&amp;limit=20</code>) saute instantanément via l'index B-Tree en <code>O(log N)</code>.</td>
+                <td>Sur 5 millions de transactions : <code>OFFSET</code> prend 900 ms ; <code>WHERE id &gt; :cursor LIMIT 20</code> prend <strong>0,4 ms</strong>.</td>
+              </tr>
+              <tr>
+                <td><strong>9. Webhook (API Inversée)</strong></td>
+                <td>Au lieu que le client fasse du polling inutile, il enregistre une URL de rappel (<em>Callback URL</em>). Dès qu'un événement se produit, le serveur émet un <code>POST</code> signé cryptographiquement.</td>
+                <td>En-tête <code>X-ISGP-Signature-256: sha256=...</code> vérifié avec <code>hmac.compare_digest()</code> avant traitement.</td>
+              </tr>
+              <tr>
+                <td><strong>10. SDK (Software Development Kit)</strong></td>
+                <td>Bibliothèque cliente typée (Python, TypeScript, Kotlin, Go) encapsulant les appels HTTP, les retries, l'authentification et les modèles d'une API — idéalement générée depuis OpenAPI.</td>
+                <td><code>client.inscriptions.create(formation_id=3)</code> au lieu d'assembler manuellement <code>urllib</code>/<code>fetch</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>11. Rate-Limiting, Quota &amp; Backpressure</strong></td>
+                <td>Le <strong>Rate-Limit</strong> plafonne le débit instantané (ex: 20 req/s) ; le <strong>Quota</strong> plafonne le volume mensuel (ex: 100 000 appels/mois) ; la <strong>Backpressure</strong> signale au client de ralentir.</td>
+                <td>Réponse <code>HTTP 429 Too Many Requests</code> accompagnée de l'en-tête <code>Retry-After: 30</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>12. SLI vs SLO vs SLA</strong></td>
+                <td><strong>SLI</strong> = mesure réelle observée ; <strong>SLO</strong> = objectif interne d'ingénierie ; <strong>SLA</strong> = contrat commercial incluant des pénalités financières si l'engagement est rompu.</td>
+                <td>SLI : latence p99 = <code>84 ms</code>.<br/>SLO interne : <code>99,95 %</code>.<br/>SLA client : remboursement sous <code>99,9 %</code> (max 43 min d'arrêt/mois).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 3 : CONTRAT D'API VS DOCUMENTATION D'API                  -->
+      <!-- ================================================================== -->
+      <div id="arch-ch3" class="card" style="margin-bottom: 18px; border-left: 4px solid #7c3aed;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 3 — Contrat d'API vs Documentation d'API : Gouvernance, Cycle de Vie &amp; Zéro Dérive</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Pourquoi un document Word ou un Wiki Confluence n'est PAS un contrat, et comment industrialiser l'évolution sans jamais casser vos clients
+            </p>
+          </div>
+          <span class="step-badge">Gouvernance &amp; Contrats</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.72; color: #1e293b; margin-bottom: 12px;">
+          L'erreur la plus répandue dans les équipes débutantes consiste à confondre <strong>Contrat d'API</strong> et <strong>Documentation d'API</strong>. Lorsqu'un développeur écrit une page Wiki manuelle décrivant ses routes, puis modifie un champ Python trois semaines plus tard en urgence sans mettre à jour le Wiki, la documentation ment : c'est la <strong>dérive documentaire (<em>Documentation Drift</em>)</strong>, source numéro 1 des bugs d'intégration Mobile/Backend.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; margin-bottom: 16px;">
+          <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-top: 4px solid #7c3aed; padding: 14px; border-radius: 6px;">
+            <h4 style="margin: 0 0 6px 0; color: #4c1d95; font-size: 15px;">Le Contrat d'API (Vérité Exécutable par Machine)</h4>
+            <p style="margin: 0 0 8px 0; font-size: 13.5px; line-height: 1.6; color: #1e293b;">
+              Spécification formelle, déterministe et analysable par un programme informatique (<code>OpenAPI 3.1</code>, <code>JSON Schema</code>, <code>Protobuf .proto</code>, <code>AsyncAPI</code>).
+            </p>
+            <ul style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: #334155;">
+              <li>Définit les types exacts, bornes numériques, expressions régulières, champs obligatoires (<code>required</code>) et <code>nullable</code>.</li>
+              <li>Déclare exhaustivement les statuts HTTP (<code>200</code>, <code>201</code>, <code>401</code>, <code>403</code>, <code>422</code>, <code>429</code>) et le format d'erreur <strong>RFC 7807</strong>.</li>
+              <li><strong>Exécutable en CI/CD</strong> : linting automatique (<em>Spectral</em>), détection de <em>Breaking Changes</em> (<em>oasdiff</em>), serveurs de simulation (<em>Mock</em>) et tests de fuzzing (<em>Schemathesis</em>).</li>
+            </ul>
+          </div>
+
+          <div style="background: #ecfeff; border: 1px solid #a5f3fc; border-top: 4px solid #0891b2; padding: 14px; border-radius: 6px;">
+            <h4 style="margin: 0 0 6px 0; color: #164e63; font-size: 15px;">La Documentation d'API (Expérience Humaine — DX)</h4>
+            <p style="margin: 0 0 8px 0; font-size: 13.5px; line-height: 1.6; color: #1e293b;">
+              Portail pédagogique destiné aux ingénieurs humains qui intègrent l'API, <strong>généré automatiquement à partir du Contrat</strong> et enrichi de guides métiers.
+            </p>
+            <ul style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: #334155;">
+              <li>Guides de démarrage rapide (<em>Quickstart en 5 minutes</em>), obtention des clés/jetons OAuth 2.0 et environnement Bac à Sable.</li>
+              <li>Scénarios métiers bout-en-bout (ex: « Comment inscrire un groupe de 20 stagiaires et récupérer la facture PDF »).</li>
+              <li>Référence interactive de chaque endpoint (<strong>Swagger UI</strong>, <strong>ReDoc</strong>, <strong>Scalar</strong>) compilée directement depuis <code>openapi.yaml</code> &#8594; <strong>zéro dérive possible</strong>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #0f172a;">Contract-First vs Code-First &amp; Gestion des Breaking Changes</h4>
+        <div class="table-wrapper" style="margin-bottom: 12px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Dimension</th>
+                <th style="width: 39%;">Approche <em>Contract-First</em> (Design-First)</th>
+                <th style="width: 39%;">Approche <em>Code-First</em> (Annotations Python)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ordre de travail</strong></td>
+                <td>On rédige et valide <code>openapi.yaml</code> dans Git <strong>avant</strong> d'écrire une ligne de Python.</td>
+                <td>On écrit les modèles typés Python (ex: Pydantic / Marshmallow) et le framework génère <code>/openapi.json</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Avantage décisif</strong></td>
+                <td>Travail en parallèle immédiat : l'équipe Mobile code contre un Mock Server généré dès le Jour 1 pendant que le Backend développe.</td>
+                <td>Productivité maximale pour les équipes agiles : impossible d'oublier de mettre à jour le fichier YAML puisqu'il sort du code.</td>
+              </tr>
+              <tr>
+                <td><strong>Changement <em>Non-Breaking</em> (Sûr en <code>v1</code>)</strong></td>
+                <td colspan="2">Ajouter un nouvel endpoint, ajouter un champ <strong>optionnel</strong> en requête, ou ajouter un nouveau champ dans la réponse JSON (<strong>Loi de Postel</strong> : les clients doivent ignorer les clés JSON inconnues au lieu de planter).</td>
+              </tr>
+              <tr>
+                <td><strong>Changement <em>Breaking</em> (Exige <code>/api/v2/</code> !)</strong></td>
+                <td colspan="2">Supprimer ou renommer un champ (<code>nom</code> &#8594; <code>last_name</code>), changer un type (<code>int</code> &#8594; <code>str</code>), rendre obligatoire un champ autrefois optionnel, ou modifier le sens d'un code HTTP. Accompagner la transition des en-têtes <strong>RFC 8594</strong> : <code>Deprecation: true</code> et <code>Sunset: Thu, 31 Dec 2026 23:59:59 GMT</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 4 : COMMUNICATIONS NORD-SUD VS EST-OUEST                  -->
+      <!-- ================================================================== -->
+      <div id="arch-ch4" class="card" style="margin-bottom: 18px; border-left: 4px solid #d97706;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 4 — Trafic Nord-Sud vs Trafic Est-Ouest : La Topologie qui Impose OAuth 2.0 et le Zero-Trust</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Pourquoi sécuriser uniquement la porte d'entrée Nginx ne protège plus une architecture distribuée moderne
+            </p>
+          </div>
+          <span class="step-badge">Partie II — Topologie &amp; Délégation</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.72; color: #1e293b; margin-bottom: 12px;">
+          Sur tout schéma d'architecture réseau, on dessine traditionnellement Internet et les utilisateurs finaux <strong>en haut (le Nord)</strong> et le centre de données / cluster applicatif <strong>en bas (le Sud)</strong>, tandis que les microservices internes sont alignés <strong>côte à côte de gauche à droite (de l'Ouest vers l'Est)</strong>. Cette géométrie donne naissance aux deux grands régimes de communication d'un système moderne :
+        </p>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Topologie Complète : Flux Vertical Nord-Sud (Entrée Internet) vs Flux Horizontal Est-Ouest (Maillage Interne Zero-Trust)</span>
+            <span class="mermaid-badge">Architecture Réseau d'Entreprise</span>
+          </div>
+          <pre class="mermaid">flowchart TB
+    subgraph North["ZONE NORD — Réseau Public Non Fiable (WAN / Internet)"]
+      U1["Navigateur PWA / SPA"]
+      U2["Application Mobile 4G/5G"]
+      U3["Serveur Partenaire Externe"]
+    end
+
+    subgraph Edge["FRONTIÈRE NORD-SUD — Périmètre de Bordure (DMZ / Edge)"]
+      GW["WAF + Reverse Proxy Nginx + API Gateway<br/>(TLS 1.3 Public, Anti-DDoS, Rate-Limit, Validation OAuth2 / Phantom Token)"]
+    end
+
+    subgraph SouthMesh["ZONE SUD — Cluster Interne : Trafic Latéral EST-OUEST (Zero-Trust + mTLS + Token Exchange)"]
+      direction LR
+      IdP["Authorization Server (IdP)<br/>OAuth 2.1 / OIDC / JWKS / RFC 8693"]
+      SvcA["Service Inscriptions (FastAPI)"]
+      SvcB["Service Paiement"]
+      SvcC["Service Certificats PDF"]
+      SvcA <-->|"Est-Ouest : mTLS + Token Exchange (act)"| SvcB
+      SvcA <-->|"Est-Ouest : mTLS + Token Exchange (act)"| SvcC
+      SvcA -.->|"Échange RFC 8693"| IdP
+    end
+
+    U1 ==>|"Flux NORD-SUD (HTTPS)"| GW
+    U2 ==>|"Flux NORD-SUD (HTTPS)"| GW
+    U3 ==>|"Flux NORD-SUD (HTTPS)"| GW
+    GW ==>|"Routage authentifié"| SvcA
+    GW -.->|"Clés publiques JWKS"| IdP</pre>
+        </div>
+
+        <div class="table-wrapper" style="margin-bottom: 14px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Critère d'Ingénierie</th>
+                <th style="width: 40%;">Communication <strong>Nord-Sud</strong> (Client &#8597; Passerelle)</th>
+                <th style="width: 40%;">Communication <strong>Est-Ouest</strong> (Service A &#8596; Service B)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Trajectoire</strong></td>
+                <td>Verticale : franchit la frontière entre le monde extérieur (Internet/WAN) et votre infrastructure.</td>
+                <td>Horizontale (latérale) : circule à l'intérieur du datacenter, du VPC Cloud ou du cluster Kubernetes.</td>
+              </tr>
+              <tr>
+                <td><strong>Volume de requêtes</strong></td>
+                <td>1 requête entrante de l'utilisateur (ex: « Valider mon inscription »).</td>
+                <td><strong>5 à 20 requêtes internes</strong> déclenchées en cascade (<em>Fan-Out</em> : vérifier profil, places, paiement, générer reçu, envoyer email) — représente <strong>75 à 85 % du trafic total</strong> !</td>
+              </tr>
+              <tr>
+                <td><strong>Profil réseau &amp; Format</strong></td>
+                <td>Latence variable (20 ms à 400 ms mobile), bandes passantes asymétriques &#8594; HTTP/2-3 + JSON compressé Gzip/Brotli + Cache <code>ETag</code>.</td>
+                <td>Latence ultra-basse exigée (&lt; 2 ms par saut pour éviter l'explosion du p99), connexions Keep-Alive / gRPC Protobuf / HTTP interne, Circuit Breakers.</td>
+              </tr>
+              <tr>
+                <td><strong>Transport TLS</strong></td>
+                <td>TLS unidirectionnel public (certificat X.509 signé par Let's Encrypt / DigiCert prouvant l'identité de <code>api.isgp.dz</code> au navigateur).</td>
+                <td><strong>mTLS (Mutual TLS)</strong> signé par une Autorité de Certification interne privée : les deux microservices vérifient mutuellement leur certificat machine (URI <strong>SPIFFE</strong>).</td>
+              </tr>
+              <tr>
+                <td><strong>Identité &amp; Autorisation</strong></td>
+                <td>Authentification de l'utilisateur humain (OIDC + MFA) et obtention d'un <strong>Access Token OAuth 2.0</strong> scopé en bordure.</td>
+                <td><strong>Opération Authentifiée Déléguée</strong> : comment le <code>Service-Inscriptions</code> prouve-t-il au <code>Service-Paiement</code> qu'il agit légalement <em>au nom d'Amine</em> pour <em>cette seule opération</em> ?</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #d97706; padding: 12px 14px; border-radius: 4px; font-size: 14px; line-height: 1.65; color: #78350f;">
+          <strong>Pourquoi l'Est-Ouest mène obligatoirement à OAuth 2.0 et aux Opérations Déléguées :</strong> Dans les années 2000 (modèle « <em>Château-Fort et Douves</em> »), une fois le pare-feu Nord-Sud franchi, tous les serveurs internes se faisaient aveuglément confiance sur le réseau privé <code>10.0.0.0/8</code>. Or, si un attaquant exploite une faille dans un petit service périphérique (ex: générateur d'aperçus d'images), un réseau interne « ouvert » lui permet d'appeler librement le <code>Service-Paiement</code> pour virer des fonds ! L'architecture <strong>Zero-Trust (« Ne jamais faire confiance à l'IP, toujours vérifier cryptographiquement »)</strong> impose que chaque requête Est-Ouest prouve <strong>(1) quel microservice parle</strong> ET <strong>(2) quel utilisateur humain lui a délégué quel droit précis</strong>. C'est la raison d'être exacte d'<strong>OAuth 2.0</strong>.
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 5 : OAUTH 2.0, OIDC & PKCE EXPLIQUÉS DE A À Z             -->
+      <!-- ================================================================== -->
+      <div id="arch-ch5" class="card" style="margin-bottom: 18px; border-left: 4px solid #059669;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 5 — OAuth 2.0 (<code>RFC 6749</code>), OpenID Connect (<code>OIDC</code>) &amp; PKCE (<code>RFC 7636</code>)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Les 4 rôles canoniques, la différence vitale entre Authentification (ID Token) et Autorisation (Access Token), et les flux OAuth 2.1
+            </p>
+          </div>
+          <span class="step-badge">Délégation d'Autorisation</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.72; color: #1e293b; margin-bottom: 12px;">
+          Avant <strong>OAuth 2.0</strong>, lorsqu'une application tierce (ex: un outil de comptabilité ou une application mobile) voulait lire vos factures ou vos contacts, elle vous demandait votre <strong>identifiant et votre mot de passe principal</strong>. C'était une catastrophe de sécurité : l'application tierce obtenait 100 % de vos droits (y compris supprimer votre compte), stockait votre mot de passe sur ses propres serveurs, et le seul moyen de révoquer son accès était de changer votre mot de passe partout.
+        </p>
+
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 4px solid #059669; padding: 12px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 14px; line-height: 1.65; color: #064e3b;">
+          <strong>L'Analogie Fondatrice — La Clé de Voiturier (<em>Valet Key</em>) :</strong> À l'hôtel, vous ne donnez jamais votre clé maîtresse permanente au voiturier : vous lui remettez une <strong>clé de voiturier</strong> qui autorise à démarrer le moteur et rouler à 30 km/h pendant 15 minutes (<code>scope: drive:parking</code>, <code>exp: +900s</code>), mais refuse mécaniquement d'ouvrir le coffre ou la boîte à gants. <strong>OAuth 2.0 est l'usine officielle de clés de voiturier numériques signées cryptographiquement.</strong>
+        </div>
+
+        <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #0f172a;">1. Les 4 Rôles Canoniques d'OAuth 2.0 &amp; la Frontière OAuth 2.0 vs OpenID Connect (OIDC)</h4>
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Acteur / Jeton</th>
+                <th style="width: 76%;">Rôle Exact dans la Chaîne de Confiance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Resource Owner</strong></td>
+                <td>L'entité (généralement l'utilisateur humain, ex: <em>Amine Benali</em>) propriétaire des données et seule habilitée à consentir à une délégation.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Client (Application)</strong></td>
+                <td>L'application qui souhaite agir au nom de l'utilisateur : soit <strong>Client Public</strong> (PWA navigateur, app iOS/Android — incapable de garder un secret caché), soit <strong>Client Confidentiel</strong> (serveur Backend protégé).</td>
+              </tr>
+              <tr>
+                <td><strong>3. Authorization Server (IdP)</strong></td>
+                <td>Le serveur d'identité centralisé (Keycloak, Auth0, Okta, Microsoft Entra ID, Google Identity) : il authentifie l'utilisateur (mot de passe, Passkey/WebAuthn, MFA), vérifie son consentement et signe les jetons avec sa clé privée RSA/Ed25519.</td>
+              </tr>
+              <tr>
+                <td><strong>4. Resource Server (Votre API)</strong></td>
+                <td>Votre serveur Python (<strong>FastAPI (ASGI Asynchrone & Pydantic v2)</strong>) qui héberge les ressources protégées (<code>/api/v2/inscriptions</code>). Il ne gère aucun mot de passe : il valide la signature du jeton via les clés publiques <code>JWKS</code> de l'IdP, puis contrôle <code>exp</code>, <code>aud</code> et <code>scope</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>OIDC <code>ID Token</code> (Authentification = QUI)</strong></td>
+                <td>Ajouté par la surcouche <strong>OpenID Connect (OIDC)</strong>. Destiné <strong>exclusivement au Client</strong> (<code>aud == client_id</code>) pour savoir qui vient de se connecter (nom, email, photo). <strong>Interdiction formelle d'envoyer un ID Token pour appeler une API !</strong></td>
+              </tr>
+              <tr>
+                <td><strong>OAuth2 <code>Access Token</code> (Autorisation = QUOI)</strong></td>
+                <td>La clé de voiturier envoyée dans <code>Authorization: Bearer &lt;token&gt;</code> au <strong>Resource Server</strong> (<code>aud == https://api.isgp.dz/service-inscriptions</code>). Porte les permissions déléguées (<code>scope: "formations:read inscriptions:write"</code>) et dure 5 à 15 minutes.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Flux de Référence Nord-Sud (OAuth 2.1) : Authorization Code + PKCE (RFC 7636) — Zéro Secret dans le Navigateur</span>
+            <span class="mermaid-badge">Diagramme de Séquence Complet</span>
+          </div>
+          <pre class="mermaid">sequenceDiagram
+    participant U as Resource Owner (Utilisateur)
+    participant C as Client Public (PWA / Mobile)
+    participant AS as Authorization Server (IdP)
+    participant RS as Resource Server (API FastAPI)
+
+    Note over C: 1. Génère code_verifier aléatoire (43-128 car.)<br/>et code_challenge = BASE64URL(SHA256(code_verifier))
+    C->>AS: 2. Redirection GET /authorize?response_type=code&client_id=pwa&scope=inscriptions:write&code_challenge=...&code_challenge_method=S256
+    AS->>U: 3. Écran de login sécurisé + MFA + Consentement (sur le domaine de l'IdP !)
+    U->>AS: 4. Saisit ses identifiants (le Client PWA ne voit JAMAIS le mot de passe)
+    AS-->>C: 5. Redirection 302 vers redirect_uri?code=AUTH_CODE_UNIQUE&state=xyz
+    C->>AS: 6. POST /token (code=AUTH_CODE_UNIQUE + code_verifier en clair)
+    Note over AS: 7. Vérifie SHA256(code_verifier) == code_challenge initial !<br/>Un pirate ayant intercepté le code à l'étape 5 échoue ici.
+    AS-->>C: 8. 200 OK : access_token (JWT scopé 15 min) + id_token (OIDC) + refresh_token
+    C->>RS: 9. POST /api/v2/inscriptions + Authorization: Bearer <access_token>
+    Note over RS: 10. Vérifie signature JWKS + exp + aud + scope ('inscriptions:write')
+    RS-->>C: 11. 201 Created (Opération déléguée exécutée avec succès)</pre>
+        </div>
+
+        <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #0f172a;">2. Quel Flux OAuth 2.0 / 2.1 (<em>Grant Type</em>) choisir selon l'Architecture ?</h4>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 26%;">Grant Type (Flux OAuth)</th>
+                <th style="width: 22%;">Acteurs Impliqués</th>
+                <th style="width: 52%;">Quand l'utiliser (et Statut dans le standard OAuth 2.1)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong><code>authorization_code</code> + PKCE (RFC 7636)</strong></td>
+                <td>Humain + SPA / Mobile / Backend Web</td>
+                <td><strong>Standard Universel Obligatoire (OAuth 2.1)</strong> pour toute application où un humain se connecte (Nord-Sud). Protège contre le vol de code d'autorisation.</td>
+              </tr>
+              <tr>
+                <td><strong><code>client_credentials</code></strong></td>
+                <td>Machine &#8594; Machine (Zéro humain)</td>
+                <td><strong>Démons Cron, Workers ETL, Microservices autonomes</strong> : le service s'authentifie en son propre nom (<code>private_key_jwt</code> ou <code>client_secret</code>) pour appeler une autre API.</td>
+              </tr>
+              <tr>
+                <td><strong><code>token-exchange</code> (RFC 8693)</strong></td>
+                <td>Humain &#8594; Service A &#8594; Service B</td>
+                <td><strong>Délégation Est-Ouest Zero-Trust (<em>On-Behalf-Of</em>)</strong> : le Service A échange le jeton utilisateur entrant contre un jeton restreint destiné exclusivement au Service B.</td>
+              </tr>
+              <tr>
+                <td><strong><code>device_code</code> (RFC 8628)</strong></td>
+                <td>Humain sur Terminal sans clavier Web</td>
+                <td>Outils CLI Linux (<code>gcloud auth login</code>, <code>gh auth login</code>), Smart TV, bornes IoT : affiche un code court à valider sur smartphone.</td>
+              </tr>
+              <tr>
+                <td><strong><s><code>implicit</code></s> &amp; <s><code>password (ROPC)</code></s></strong></td>
+                <td>Anciens flux hérités de 2012</td>
+                <td><strong style="color:#b91c1c;">SUPPRIMÉS DANS OAUTH 2.1 !</strong> <em>Implicit</em> exposait l'<code>access_token</code> dans l'URL du navigateur (historique/logs), et <em>Password Grant</em> redonnait le mot de passe au client.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 6 : DÉLÉGATION EST-OUEST (CONFUSED DEPUTY vs RFC 8693)    -->
+      <!-- ================================================================== -->
+      <div id="arch-ch6" class="card" style="margin-bottom: 18px; border-left: 4px solid #dc2626;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 6 — Opérations Authentifiées Déléguées en Est-Ouest : Du Piège du <em>Confused Deputy</em> au Token Exchange (<code>RFC 8693</code>)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Comment propager l'identité d'un utilisateur à travers 4 microservices internes sans jamais créer un « passe-partout » universel dangereux
+            </p>
+          </div>
+          <span class="step-badge">Zero-Trust &amp; Laboratoire Live</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.72; color: #1e293b; margin-bottom: 12px;">
+          Suivons une opération réelle de bout en bout : <strong>Amine</strong> clique sur « S'inscrire et payer » dans l'application Web (flux <strong>Nord-Sud</strong>). Le <code>Service-Inscriptions</code> reçoit la requête, mais pour finaliser le dossier, il doit appeler en interne (flux <strong>Est-Ouest</strong>) le <code>Service-Paiement</code> pour débiter les frais de formation. <strong>Quel jeton le <code>Service-Inscriptions</code> doit-il présenter au <code>Service-Paiement</code> ?</strong>
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; margin-bottom: 16px;">
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; padding: 14px; border-radius: 6px;">
+            <h4 style="margin: 0 0 6px 0; color: #991b1b; font-size: 14.5px;">L'Anti-Pattern Fatal : <em>Blind Token Passthrough</em> (Le <em>Confused Deputy</em>)</h4>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.62; color: #7f1d1d;">
+              Si vous émettez un jeton géant <code>aud: "*"</code> valable pour tout le SI et que chaque microservice transfère aveuglément l'en-tête <code>Authorization: Bearer</code> reçu au suivant : le jour où un microservice secondaire peu critique (ex: <code>Service-Statistiques</code> ou <code>Service-Avatar</code>) subit une faille, l'attaquant récupère les jetons des utilisateurs qui y passent et les rejoue directement contre le <code>Service-Paiement</code> ! Le <code>Service-Paiement</code> devient un <strong>Adjoint Confus (<em>Confused Deputy</em>)</strong> incapable de distinguer un appel légitime d'un rejeu latéral pirate.
+            </p>
+          </div>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; padding: 14px; border-radius: 6px;">
+            <h4 style="margin: 0 0 6px 0; color: #14532d; font-size: 14.5px;">L'Architecture Industrielle : Phantom Token + mTLS + RFC 8693</h4>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.62; color: #14532d;">
+              <strong>1. Bordure (<em>Phantom Token</em>) :</strong> Sur Internet, le client ne détient qu'un jeton opaque illisible ; l'API Gateway le convertit en JWT ciblant uniquement <code>aud: service-inscriptions</code>.<br/>
+              <strong>2. Transport Est-Ouest :</strong> Connexion <strong>mTLS</strong> prouvant cryptographiquement que la machine appelante est bien <code>spiffe://.../service-inscriptions</code>.<br/>
+              <strong>3. OAuth 2.0 Token Exchange (RFC 8693) :</strong> <code>Service-Inscriptions</code> échange le jeton entrant auprès de l'IdP contre un jeton neuf de <strong>120 secondes</strong> ciblant <code>aud: service-paiement</code>, un scope minimal <code>paiement:debit_inscription</code> et la claim <strong><code>act</code> (<em>Actor</em>)</strong> !
+            </p>
+          </div>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Chaîne Complète d'Opération Authentifiée Déléguée : Nord-Sud (Phantom Token) puis Est-Ouest (mTLS + Token Exchange RFC 8693)</span>
+            <span class="mermaid-badge">Séquence Zero-Trust bout-en-bout</span>
+          </div>
+          <pre class="mermaid">sequenceDiagram
+    participant PWA as Client Externe (Amine)
+    participant GW as API Gateway (Bordure Nord-Sud)
+    participant IdP as Authorization Server (RFC 8693)
+    participant SvcA as Service Inscriptions (FastAPI)
+    participant SvcB as Service Paiement (Interne)
+
+    PWA->>GW: 1. [NORD-SUD] POST /inscriptions + Bearer opq_94f1a... (Jeton Opaque)
+    GW->>IdP: 2. Introspection cache ultra-rapide du jeton opaque
+    IdP-->>GW: 3. JWT #1 signé (sub='amine', aud='service-inscriptions', scope='inscriptions:write')
+    GW->>SvcA: 4. Transmet requête + JWT #1 interne
+    Note over SvcA: 5. Valide aud == 'service-inscriptions'.<br/>Doit maintenant débiter les frais sur Service-Paiement !
+    SvcA->>IdP: 6. [EST-OUEST] POST /oauth2/token (grant_type=token-exchange,<br/>subject_token=JWT #1, audience=service-paiement, scope=paiement:debit_inscription) + Certificat mTLS
+    IdP-->>SvcA: 7. Émet JWT #2 court (120s) : sub='amine', aud='service-paiement', act={sub:'service-inscriptions'}
+    SvcA->>SvcB: 8. [EST-OUEST mTLS] POST /debit + Authorization: Bearer <JWT #2>
+    Note over SvcB: 9. Vérifie : (a) Certificat mTLS == act.sub,<br/>(b) aud == 'service-paiement', (c) Autorisation d'Amine (sub)
+    SvcB-->>SvcA: 10. 200 OK (Transaction auditée : Amine via Service-Inscriptions)
+    SvcA-->>PWA: 11. 201 Created (Inscription & Paiement confirmés)</pre>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #1e3a5f; padding: 12px 14px; border-radius: 4px; margin-bottom: 16px; font-size: 13.5px; line-height: 1.65; color: #1e293b;">
+          <strong>Implémentation spécifique FastAPI (ASGI Asynchrone & Pydantic v2) :</strong> Dans une architecture <strong>FastAPI / Uvicorn (ASGI)</strong>, OpenAPI 3.1 et OAuth 2.0 sont natifs au cœur du framework : l'injection de dépendances <code>Security(OAuth2AuthorizationCodeBearer(...), scopes=['inscriptions:write'])</code> vérifie automatiquement les scopes délégués ET ajoute le bouton cadenas <strong>Authorize</strong> dans <strong>Swagger UI (<code>/docs</code>)</strong> sans écrire une seule ligne YAML manuelle.
+        </div>
+
+        <!-- LABORATOIRE INTERACTIF #1 : SIMULATEUR DE JETONS OAUTH2 NORD-SUD / EST-OUEST -->
+        <div style="background: #ffffff; border: 2px solid #1e3a5f; border-radius: 8px; padding: 16px;">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <div>
+              <h4 style="margin: 0; font-size: 15.5px; color: #0f172a;">Laboratoire Interactif #1 — Inspecteur de Jetons OAuth 2.0 (Nord-Sud PKCE, Confused Deputy <code>403</code>, Token Exchange <code>RFC 8693</code> &amp; M2M)</h4>
+              <p class="muted-small" style="margin: 2px 0 0 0;">Cliquez sur chacun des 4 scénarios pour inspecter le JWT émis (<code>aud</code>, <code>scope</code>, <code>act</code>) et la décision du Resource Server :</p>
+            </div>
+          </div>
+
+          <div class="btn-group" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+            <button class="btn-secondary btn-sm arch-oauth-scenario-btn" data-scenario="pkce_north_south" onclick="runArchitectureOauthSim('pkce_north_south')">
+              1. Nord-Sud : Auth Code + PKCE (200 OK)
+            </button>
+            <button class="btn-secondary btn-sm arch-oauth-scenario-btn" data-scenario="confused_deputy_attack" onclick="runArchitectureOauthSim('confused_deputy_attack')">
+              2. Attaque Confused Deputy (Rejeu -&gt; 403 Bloqué !)
+            </button>
+            <button class="btn-secondary btn-sm arch-oauth-scenario-btn" data-scenario="token_exchange_east_west" onclick="runArchitectureOauthSim('token_exchange_east_west')">
+              3. Est-Ouest Délégué : RFC 8693 + act (200 OK)
+            </button>
+            <button class="btn-secondary btn-sm arch-oauth-scenario-btn" data-scenario="m2m_client_credentials" onclick="runArchitectureOauthSim('m2m_client_credentials')">
+              4. Est-Ouest M2M : Client Credentials (200 OK)
+            </button>
+          </div>
+
+          <div id="arch-oauth-sim-output"></div>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 7 : QU'EST-CE QUE SWAGGER ? (SWAGGER VS OPENAPI 3.1)      -->
+      <!-- ================================================================== -->
+      <div id="arch-ch7" class="card" style="margin-bottom: 18px; border-left: 4px solid #0f766e;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 7 — Qu'est-ce que Swagger ? (Histoire Complète &amp; Distinction Exacte entre Swagger et OpenAPI 3.1)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Lever définitivement la confusion la plus fréquente du monde des APIs : la Norme ouverte (OpenAPI) face aux Outils (Swagger)
+            </p>
+          </div>
+          <span class="step-badge">Partie III — OpenAPI &amp; Écosystème Swagger</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.72; color: #1e293b; margin-bottom: 12px;">
+          Au quotidien, beaucoup de développeurs disent « <em>Envoie-moi le fichier Swagger de ton API</em> » ou « <em>J'ai ouvert le Swagger</em> ». Pourquoi deux noms coexistent-ils (<strong>Swagger</strong> et <strong>OpenAPI</strong>), et que désigne chacun avec exactitude ? Tout s'explique par un tournant historique majeur survenu en <strong>novembre 2015</strong> :
+        </p>
+
+        <div class="table-wrapper" style="margin-bottom: 14px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 18%;">Période</th>
+                <th style="width: 26%;">Jalon Historique</th>
+                <th style="width: 56%;">Impact Technique pour les Architectes d'APIs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>2010 – 2014</strong></td>
+                <td>Création de <strong>Swagger 1.0 &#8594; 2.0</strong></td>
+                <td><strong>Tony Tam</strong> (chez Wordnik, puis Reverb et <strong>SmartBear Software</strong>) crée un format JSON/YAML simple pour décrire ses APIs REST et générer simultanément une interface Web de test et des SDKs clients. Jusqu'à la version <code>swagger: "2.0"</code>, le mot <em>Swagger</em> désigne à la fois le fichier de contrat ET les outils.</td>
+              </tr>
+              <tr>
+                <td><strong>Novembre 2015</strong></td>
+                <td>Don à la <strong>Linux Foundation</strong> (Naissance d'<strong>OpenAPI</strong>)</td>
+                <td>Pour que le standard devienne neutre et universel (comme Linux ou Kubernetes), SmartBear fait don de la spécification à l'<strong>OpenAPI Initiative (OAI)</strong> sous l'égide de la Linux Foundation (Google, Microsoft, IBM, PayPal...). <strong>La spécification est renommée OpenAPI Specification (OAS)</strong>, tandis que SmartBear conserve la marque commerciale <strong>Swagger</strong> pour sa suite d'outils !</td>
+              </tr>
+              <tr>
+                <td><strong>2017 – Aujourd'hui</strong></td>
+                <td><strong>OpenAPI 3.0</strong> puis <strong>OpenAPI 3.1</strong></td>
+                <td><code>openapi: 3.0.x</code> restructure les composants réutilisables, le multi-serveurs et les flux OAuth 2.0. En 2021, <strong><code>openapi: 3.1.0</code></strong> réalise l'alignement à <strong>100 % avec JSON Schema Draft 2020-12</strong> et supporte nativement la description des <code>webhooks</code> entrants/sortants.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-left: 4px solid #0f766e; padding: 12px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 14px; line-height: 1.65; color: #134e4a;">
+          <strong>La Règle Mnémotechnique Définitive :</strong> La différence entre <strong>OpenAPI</strong> et <strong>Swagger</strong> est exactement la même qu'entre <strong>HTML5</strong> (la norme standard ouverte du W3C) et <strong>Google Chrome / Firefox</strong> (les logiciels qui affichent une page HTML5) :<br/>
+          &#8226; <strong>OpenAPI (<code>OAS 3.1</code>)</strong> = <strong>LA SPÉCIFICATION (Le Contrat)</strong> : le fichier standard <code>openapi.yaml</code> ou <code>openapi.json</code> gouverné par la Linux Foundation.<br/>
+          &#8226; <strong>Swagger</strong> = <strong>LES OUTILS LOGICIELS</strong> (créés par SmartBear) qui exploitent un contrat OpenAPI :
+          <strong>Swagger Editor</strong> (éditeur YAML/JSON avec validation temps réel), <strong>Swagger UI</strong> (le célèbre portail HTML/JS interactif avec le bouton <em>« Try it out »</em> et le cadenas OAuth2 <em>« Authorize »</em>), et <strong>Swagger Codegen</strong> (générateur de code serveur et de SDKs clients).
+        </div>
+
+        <div class="mermaid-container">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Un Seul Contrat OpenAPI 3.1, Six Usages Automatisés dans l'Écosystème Industriel (Swagger &amp; Alternatives Open-Source)</span>
+            <span class="mermaid-badge">Pipeline Piloté par Contrat</span>
+          </div>
+          <pre class="mermaid">flowchart LR
+    Spec["SOURCE DE VÉRITÉ UNIQUE<br/>Contrat openapi.yaml / openapi.json<br/>(Standard OpenAPI 3.1 — Linux Foundation)"]
+
+    Spec --> T1["Portails Interactifs 'Try it out'<br/>Swagger UI, Scalar, Stoplight Elements"]
+    Spec --> T2["Documentation de Lecture<br/>ReDoc, Mintlify, Docusaurus"]
+    Spec --> T3["Génération de SDKs Typés<br/>OpenAPI Generator / Swagger Codegen<br/>(TypeScript, Kotlin, Swift, Python, Go)"]
+    Spec --> T4["Gouvernance &amp; Linting CI/CD<br/>Spectral + oasdiff (Anti-Breaking Change)"]
+    Spec --> T5["Tests Automatisés &amp; Fuzzing<br/>Schemathesis / Dredd (1000 cas limites)"]
+    Spec --> T6["Configuration API Gateway<br/>Validation de schéma dès la bordure Nord-Sud"]</pre>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 8 : ANATOMIE OPENAPI 3.1 & COMPARATIF DES 3 FRAMEWORKS    -->
+      <!-- ================================================================== -->
+      <div id="arch-ch8" class="card" style="margin-bottom: 18px; border-left: 4px solid #2563eb;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 8 — Anatomie d'un Contrat OpenAPI 3.1 &amp; Implémentation Comparée (Flask vs FastAPI vs Tornado)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Comment relier formellement schémas JSON, codes d'erreur et sécurité OAuth 2.0 dans un contrat industriel
+            </p>
+          </div>
+          <span class="step-badge">Laboratoire Live #2</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          Tout contrat <strong>OpenAPI 3.1</strong> s'articule autour de <strong>5 sections racines</strong> faciles à lire :
+          <code>openapi</code> (version de la norme, ex: <code>3.1.0</code>),
+          <code>info</code> (titre, version sémantique <code>2.1.0</code>, contact),
+          <code>servers</code> (URLs de production, pré-production et bac à sable),
+          <code>components</code> (bibliothèque réutilisable de modèles <code>schemas</code> et de mécanismes d'authentification <code>securitySchemes</code> comme OAuth 2.0 PKCE ou Bearer JWT), et enfin
+          <code>paths</code> / <code>webhooks</code> (liste des endpoints, paramètres, corps <code>requestBody</code> et réponses typées par code HTTP).
+        </p>
+
+        <!-- LABORATOIRE INTERACTIF #2 : CONTRAT OPENAPI 3.1 CÔTE À CÔTE AVEC FLASK / FASTAPI / TORNADO -->
+        <div style="background: #ffffff; border: 2px solid #2563eb; border-radius: 8px; padding: 16px;">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <h4 style="margin: 0; font-size: 15.5px; color: #0f172a;">Laboratoire Interactif #2 — Du Contrat OpenAPI 3.1 au Code Python Serveur &amp; Portail Swagger UI</h4>
+              <p class="muted-small" style="margin: 2px 0 0 0;">Comparez comment Flask, FastAPI et Tornado implémentent exactement le même contrat OpenAPI 3.1 sécurisé par OAuth 2.0 :</p>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <a href="/api/docs" target="_blank" class="btn-primary btn-sm" style="text-decoration:none;">
+                Ouvrir le vrai Swagger UI du Bootcamp (/api/docs)
+              </a>
+              <a href="/api/openapi.json" target="_blank" class="btn-secondary btn-sm" style="text-decoration:none;">
+                Voir le JSON OpenAPI brut (/api/openapi.json)
+              </a>
+            </div>
+          </div>
+
+          <div class="btn-group" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+            <button class="btn-secondary btn-sm arch-openapi-fw-btn" data-fw="flask" onclick="loadArchitectureOpenApiCompare('flask')">
+              Implémentation Flask (APIFlask / WSGI)
+            </button>
+            <button class="btn-secondary btn-sm arch-openapi-fw-btn" data-fw="fastapi" onclick="loadArchitectureOpenApiCompare('fastapi')">
+              Implémentation FastAPI (Pydantic v2 Natif / ASGI)
+            </button>
+            <button class="btn-secondary btn-sm arch-openapi-fw-btn" data-fw="tornado" onclick="loadArchitectureOpenApiCompare('tornado')">
+              Implémentation Tornado (Contract-First / IOLoop)
+            </button>
+          </div>
+
+          <div id="arch-openapi-fw-meta" style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px;"></div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;">
+            <div>
+              <div style="font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Contrat Normatif OpenAPI 3.1 (<code>openapi.yaml</code> — Indépendant du langage)</div>
+              <pre id="arch-openapi-yaml-code" class="code-block" style="margin: 0; max-height: 360px; overflow: auto; font-size: 12.4px;"></pre>
+            </div>
+            <div>
+              <div style="font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Code Python Serveur Correspondant (Validation <code>422</code> + Scope OAuth2)</div>
+              <pre id="arch-openapi-fw-code" class="code-block" style="margin: 0; max-height: 360px; overflow: auto; font-size: 12.4px;"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 9 : SYNTHÈSE ARCHITECTURALE & PASSAGE AU QUIZ MODULE 8    -->
+      <!-- ================================================================== -->
+      <div id="arch-ch9" class="card" style="margin-bottom: 18px; border-left: 4px solid #0f172a;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 9 — Synthèse de Référence : Les 7 Piliers d'une Architecture API d'Entreprise Irréprochable</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Comment toutes les briques de ce cours s'assemblent dans un système de production réel
+            </p>
+          </div>
+          <div class="btn-group">
+            <button class="btn-primary btn-sm" onclick="openDayQuiz(8)">
+              Passer le QCM Spécial Architecture, OAuth2 &amp; Swagger (9 Questions)
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 6%;">#</th>
+                <th style="width: 26%;">Couche Architecturale</th>
+                <th style="width: 68%;">Décision d'Ingénierie de Production</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1</strong></td>
+                <td><strong>Contrat &amp; Documentation</strong></td>
+                <td>Un contrat formel <strong>OpenAPI 3.1</strong> versionné et vérifié en CI (<em>Spectral</em> + <em>Schemathesis</em>) qui pilote automatiquement <strong>Swagger UI / ReDoc</strong>, les erreurs normalisées <strong>RFC 7807</strong> et les en-têtes de cycle de vie <strong>RFC 8594</strong> (<code>Deprecation</code> / <code>Sunset</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>2</strong></td>
+                <td><strong>Bordure Nord-Sud (Edge)</strong></td>
+                <td>Terminaison TLS 1.3 publique, bouclier de taille <code>client_max_body_size</code> (<code>413</code>), délestage binaire (<code>$request_body_file</code> / <code>X-Accel-Redirect</code>), Rate-Limiting (<code>429</code>) et conversion <strong>Phantom Token</strong> sur Nginx / API Gateway.</td>
+              </tr>
+              <tr>
+                <td><strong>3</strong></td>
+                <td><strong>Authentification &amp; Délégation Nord-Sud</strong></td>
+                <td><strong>OpenID Connect (OIDC)</strong> pour identifier l'humain côté Client (<code>ID Token</code>) + <strong>OAuth 2.1 Authorization Code avec PKCE (RFC 7636)</strong> pour émettre un <code>Access Token</code> à vie courte et <code>scope</code> minimal.</td>
+              </tr>
+              <tr>
+                <td><strong>4</strong></td>
+                <td><strong>Maillage Interne Est-Ouest</strong></td>
+                <td>Politique <strong>Zero-Trust</strong> : chiffrement et identité machine mutuelle par <strong>mTLS (SPIFFE)</strong> + <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong> verrouillant l'audience (<code>aud</code>) et la chaîne d'acteurs (<code>act</code>) — ou <code>client_credentials</code> pour les démons autonomes.</td>
+              </tr>
+              <tr>
+                <td><strong>5</strong></td>
+                <td><strong>Fiabilité Métier &amp; Cache HTTP</strong></td>
+                <td>Clé <code>Idempotency-Key</code> sur les <code>POST</code> critiques (zéro double débit), cache conditionnel <code>ETag</code> / <code>If-None-Match</code> (<code>304</code>) et verrouillage optimiste <code>If-Match</code> (<code>412</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>6</strong></td>
+                <td><strong>Moteur Python &amp; Persistance</strong></td>
+                <td>Choix éclairé du modèle d'exécution (<strong>Flask WSGI</strong>, <strong>FastAPI ASGI</strong> ou <strong>Tornado IOLoop</strong>), requêtes SQL 100 % paramétrées anti-SQLi, mode <code>WAL</code> sur SQLite embarqué ou pool de connexions PostgreSQL en cluster.</td>
+              </tr>
+              <tr>
+                <td><strong>7</strong></td>
+                <td><strong>Observabilité &amp; Gouvernance SRE</strong></td>
+                <td>Propagation bout-en-bout d'un identifiant de corrélation <code>X-Request-ID</code> / W3C <code>traceparent</code> à travers Nord-Sud et Est-Ouest, journaux JSON structurés et suivi continu des <strong>SLI / SLO / SLA</strong>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- ONGLET 5 : ÉVALUATIONS PAR MODULE -->
     <section id="tab-quiz" class="tab-section">
       <div class="section-intro">
@@ -3222,6 +4073,6 @@ async def modifier_avec_verrou_optimiste(
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=38"></script>
+  <script src="/static/app.js?v=39"></script>
 </body>
 </html>

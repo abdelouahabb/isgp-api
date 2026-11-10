@@ -135,6 +135,9 @@ function switchTab(tabName) {
   if (tabName === "realtime") {
     loadAdvancedRealtimeTab();
   }
+  if (tabName === "architecture") {
+    loadArchitectureTab();
+  }
   const activeSec = document.getElementById(`tab-${tabName}`);
   if (activeSec) {
     setTimeout(() => renderMermaidDiagrams(activeSec), 20);
@@ -1232,9 +1235,10 @@ function renderQuizSelector() {
     4: "Module Jour 4",
     5: "Module Jour 5",
     6: "Spécial SQLite & Sécurité SQL",
-    7: "Spécial Temps Réel, Upload & Cache"
+    7: "Spécial Temps Réel, Upload & Cache",
+    8: "Spécial Architecture, Contrats, OAuth2 & Swagger"
   };
-  sel.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7]
+  sel.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     .filter((d) => COURSE_DATA.quizzes && COURSE_DATA.quizzes[d])
     .map(
       (d) => `
@@ -2473,5 +2477,113 @@ async function runAdvancedStandaloneServer() {
     }
   } catch (err) {
     out.textContent = "Erreur réseau : " + err.message;
+  }
+}
+
+// ============================================================================
+// 13. ONGLET ARCHITECTURE, CONTRATS API, NORD-SUD / EST-OUEST, OAUTH2 & SWAGGER
+// ============================================================================
+let _architectureTabInitialized = false;
+
+async function loadArchitectureTab() {
+  if (!_architectureTabInitialized) {
+    _architectureTabInitialized = true;
+    await Promise.all([
+      runArchitectureOauthSim("pkce_north_south", true),
+      loadArchitectureOpenApiCompare(getActiveFramework(), true)
+    ]);
+  }
+}
+
+async function runArchitectureOauthSim(scenario, silent = false) {
+  const fw = getActiveFramework();
+  const out = document.getElementById("arch-oauth-sim-output");
+  if (!out) return;
+
+  document.querySelectorAll(".arch-oauth-scenario-btn").forEach((btn) => {
+    const active = btn.dataset.scenario === scenario;
+    btn.classList.toggle("btn-primary", active);
+    btn.style.background = active ? "#1e3a5f" : "";
+    btn.style.color = active ? "#fff" : "";
+    btn.style.borderColor = active ? "#1e3a5f" : "";
+  });
+
+  try {
+    const res = await fetch(`/api/architecture-lab/oauth-flow?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ scenario })
+    });
+    const data = await res.json();
+    const isOk = data.http_status >= 200 && data.http_status < 300;
+    const badgeColor = isOk ? "#15803d" : "#b91c1c";
+    const badgeBg = isOk ? "#f0fdf4" : "#fef2f2";
+    const checksHtml = (data.security_checks || [])
+      .map((c) => `<li style="margin-bottom:5px; line-height:1.5;">${escapeHtml(c)}</li>`)
+      .join("");
+
+    out.innerHTML = `
+      <div style="background:${badgeBg}; border:1px solid ${badgeColor}; border-left:5px solid ${badgeColor}; padding:12px 14px; border-radius:6px; margin-bottom:12px;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+          <strong style="color:${badgeColor}; font-size:14.5px;">HTTP ${data.http_status} — ${escapeHtml(data.verdict || "")}</strong>
+          <span class="badge-pill" style="background:${badgeColor}; color:#fff; border:none;">${escapeHtml(data.grant_type || "")}</span>
+        </div>
+        <div style="font-size:13px; color:#1e293b;"><strong>Flux réseau inspecté :</strong> ${escapeHtml(data.direction || "")}</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:12px;">
+        <div>
+          <div style="font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">Jeton JWT décodé (Header + Claims OAuth2 / RFC 8693)</div>
+          <pre class="code-block-mini" style="margin:0; max-height:280px; overflow:auto;">// Header JWS\n${escapeHtml(JSON.stringify(data.jwt_header || {}, null, 2))}\n\n// Payload (Claims)\n${escapeHtml(JSON.stringify(data.jwt_payload || {}, null, 2))}</pre>
+        </div>
+        <div>
+          <div style="font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">Chaîne de contrôle Zero-Trust côté Resource Server</div>
+          <ul style="margin:0; padding:12px 16px 12px 28px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; color:#1e293b;">
+            ${checksHtml}
+          </ul>
+        </div>
+      </div>
+    `;
+    if (!silent) {
+      showToast(`Simulation OAuth2 (${scenario}) -> HTTP ${data.http_status}`);
+    }
+  } catch (err) {
+    out.innerHTML = `<div style="color:#b91c1c;">Erreur lors de la simulation OAuth2 : ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadArchitectureOpenApiCompare(targetFw, silent = false) {
+  const fw = getActiveFramework();
+  const chosen = (targetFw || fw || "flask").toLowerCase();
+  const yamlBox = document.getElementById("arch-openapi-yaml-code");
+  const metaBox = document.getElementById("arch-openapi-fw-meta");
+  const codeBox = document.getElementById("arch-openapi-fw-code");
+  if (!yamlBox || !metaBox || !codeBox) return;
+
+  document.querySelectorAll(".arch-openapi-fw-btn").forEach((btn) => {
+    const active = btn.dataset.fw === chosen;
+    btn.classList.toggle("btn-primary", active);
+    btn.style.background = active ? "#1e3a5f" : "";
+    btn.style.color = active ? "#fff" : "";
+    btn.style.borderColor = active ? "#1e3a5f" : "";
+  });
+
+  try {
+    const res = await fetch(
+      `/api/architecture-lab/openapi-compare?target_fw=${encodeURIComponent(chosen)}&framework=${encodeURIComponent(fw)}`,
+      { headers: { "X-Active-Framework": fw } }
+    );
+    const data = await res.json();
+    yamlBox.textContent = data.openapi_yaml || "";
+    const detail = data.framework_detail || {};
+    metaBox.innerHTML = `
+      <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">${escapeHtml(detail.approach || "")}</div>
+      <div style="font-size:13px; color:#334155; line-height:1.55;">${escapeHtml(detail.philosophy || "")}</div>
+    `;
+    codeBox.textContent = detail.code || "";
+    if (!silent) {
+      showToast(`Comparatif OpenAPI 3.1 -> ${chosen.toUpperCase()}`);
+    }
+  } catch (err) {
+    codeBox.textContent = "Erreur de chargement : " + err.message;
   }
 }

@@ -3437,6 +3437,246 @@ def api_advanced_lab_sse_demo():
     )
 
 
+# ==============================================================================
+# LABORATOIRE ARCHITECTURE : NORD-SUD vs EST-OUEST, OAUTH 2.0 / RFC 8693 & SWAGGER
+# ==============================================================================
+def _build_architecture_oauth_scenarios(fw: str) -> dict:
+    now_ts = int(time.time())
+    fw_label = {"flask": "Flask WSGI", "fastapi": "FastAPI ASGI", "tornado": "Tornado IOLoop"}.get(fw, fw)
+    return {
+        "pkce_north_south": {
+            "http_status": 200,
+            "direction": "NORD-SUD (Client Externe SPA/Mobile -> API Gateway -> Service Inscriptions)",
+            "grant_type": "authorization_code + PKCE (RFC 7636)",
+            "verdict": f"AUTORISÉ (200 OK) — Jeton d'accès OAuth 2.0 scopé vérifié par {fw_label}.",
+            "jwt_header": {"alg": "RS256", "typ": "at+jwt", "kid": "isgp-idp-2026-key1"},
+            "jwt_payload": {
+                "iss": "https://auth.isgp.dz",
+                "sub": "user:amine.benali",
+                "aud": "https://api.isgp.dz/service-inscriptions",
+                "client_id": "isgp-pwa-portal",
+                "scope": "formations:read inscriptions:write",
+                "iat": now_ts,
+                "exp": now_ts + 900,
+            },
+            "security_checks": [
+                "1. PKCE vérifié sur l'Authorization Server : SHA256(code_verifier) == code_challenge (aucun client_secret stocké dans le navigateur).",
+                "2. Signature asymétrique RS256 validée via la clé publique JWKS de https://auth.isgp.dz (aucun secret partagé).",
+                "3. Audience stricte vérifiée : aud == 'https://api.isgp.dz/service-inscriptions'.",
+                "4. Périmètre délégué vérifié : 'inscriptions:write' présent dans scope (l'application n'a jamais vu le mot de passe d'Amine).",
+            ],
+        },
+        "confused_deputy_attack": {
+            "http_status": 403,
+            "direction": "EST-OUEST ILLÉGITIME (Rejeu direct du jeton Nord-Sud vers Service Paiement)",
+            "grant_type": "Anti-Pattern : Blind Token Passthrough (Attaque du Confused Deputy)",
+            "verdict": "BLOQUÉ (HTTP 403 Forbidden — Invalid Audience) ! Le jeton destiné au Service Inscriptions est refusé par le Service Paiement.",
+            "jwt_header": {"alg": "RS256", "typ": "at+jwt", "kid": "isgp-idp-2026-key1"},
+            "jwt_payload": {
+                "iss": "https://auth.isgp.dz",
+                "sub": "user:amine.benali",
+                "aud": "https://api.isgp.dz/service-inscriptions",
+                "scope": "formations:read inscriptions:write",
+                "exp": now_ts + 900,
+            },
+            "security_checks": [
+                "1. Le Service Inscriptions (ou un service tiers compromis) tente de réutiliser tel quel le jeton Nord-Sud auprès du Service Paiement.",
+                "2. Le Service Paiement inspecte la revendication 'aud' : attendue = 'service-paiement', reçue = 'service-inscriptions' !",
+                "3. Rejet immédiat HTTP 403 : sans contrôle d'audience ni Token Exchange, n'importe quel microservice interne pourrait débiter l'utilisateur !",
+            ],
+        },
+        "token_exchange_east_west": {
+            "http_status": 200,
+            "direction": "EST-OUEST DÉLÉGUÉ ZERO-TRUST (Service Inscriptions -> IdP RFC 8693 -> Service Paiement + mTLS)",
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange (RFC 8693 On-Behalf-Of)",
+            "verdict": "AUTORISÉ (200 OK) — Délégation traçable : Service Paiement sait QUI est l'utilisateur (sub) ET QUEL microservice agit en son nom (act).",
+            "jwt_header": {"alg": "EdDSA", "typ": "at+jwt", "kid": "isgp-mesh-ed25519"},
+            "jwt_payload": {
+                "iss": "https://auth.isgp.dz",
+                "sub": "user:amine.benali",
+                "aud": "https://internal.isgp.mesh/service-paiement",
+                "scope": "paiement:debit_inscription",
+                "act": {
+                    "sub": "spiffe://isgp.mesh/ns/prod/sa/service-inscriptions"
+                },
+                "iat": now_ts,
+                "exp": now_ts + 120,
+            },
+            "security_checks": [
+                "1. Transport mTLS vérifié : certificat X.509 client prouve l'identité machine 'service-inscriptions'.",
+                "2. Token Exchange RFC 8693 : le jeton a une durée de vie ultra-courte (120 s), une audience dédiée ('service-paiement') et un scope réduit ('paiement:debit_inscription').",
+                "3. Traçabilité d'audit double : sub='user:amine.benali' (bénéficiaire) + act.sub='service-inscriptions' (acteur délégué).",
+            ],
+        },
+        "m2m_client_credentials": {
+            "http_status": 200,
+            "direction": "EST-OUEST MACHINE-TO-MACHINE PUR (Daemon Nocturne de Facturation -> Service Comptabilité)",
+            "grant_type": "client_credentials (RFC 6749 §4.4 — Sans utilisateur humain)",
+            "verdict": "AUTORISÉ (200 OK) — Authentification directe de service autonome (sub == client_id).",
+            "jwt_header": {"alg": "RS256", "typ": "at+jwt", "kid": "isgp-idp-2026-key1"},
+            "jwt_payload": {
+                "iss": "https://auth.isgp.dz",
+                "sub": "service-account:cron-cloture-comptable",
+                "aud": "https://internal.isgp.mesh/service-comptabilite",
+                "client_id": "cron-cloture-comptable",
+                "scope": "rapports:consolider ecritures:exporter",
+                "iat": now_ts,
+                "exp": now_ts + 300,
+            },
+            "security_checks": [
+                "1. Aucun humain connecté : le démon s'authentifie auprès de l'Authorization Server par clé privée asymétrique (private_key_jwt) ou client_secret.",
+                "2. sub identifie directement le compte de service ('service-account:cron-cloture-comptable').",
+                "3. Moindre privilège appliqué via scope='rapports:consolider ecritures:exporter' et aud='service-comptabilite'.",
+            ],
+        },
+    }
+
+
+def _build_openapi_framework_comparison() -> dict:
+    openapi_contract = (
+        "openapi: 3.1.0\n"
+        "info:\n"
+        "  title: API Gestion des Formations ISGP\n"
+        "  version: 2.1.0\n"
+        "components:\n"
+        "  securitySchemes:\n"
+        "    OAuth2PKCE:\n"
+        "      type: oauth2\n"
+        "      flows:\n"
+        "        authorizationCode:\n"
+        "          authorizationUrl: https://auth.isgp.dz/oauth2/authorize\n"
+        "          tokenUrl: https://auth.isgp.dz/oauth2/token\n"
+        "          scopes:\n"
+        "            inscriptions:write: Créer une inscription déléguée\n"
+        "  schemas:\n"
+        "    InscriptionCreate:\n"
+        "      type: object\n"
+        "      required: [formation_id, stagiaire_email]\n"
+        "      properties:\n"
+        "        formation_id: { type: integer, minimum: 1 }\n"
+        "        stagiaire_email: { type: string, format: email }\n"
+        "paths:\n"
+        "  /api/v2/inscriptions:\n"
+        "    post:\n"
+        "      summary: Inscrire un stagiaire (Contrat strict OAS 3.1)\n"
+        "      security:\n"
+        "        - OAuth2PKCE: [inscriptions:write]\n"
+        "      requestBody:\n"
+        "        required: true\n"
+        "        content:\n"
+        "          application/json:\n"
+        "            schema: { $ref: '#/components/schemas/InscriptionCreate' }\n"
+        "      responses:\n"
+        "        '201': { description: Inscription créée }\n"
+        "        '401': { description: Jeton OAuth2 manquant ou expiré }\n"
+        "        '403': { description: Scope inscriptions:write absent }\n"
+        "        '422': { description: Violation du contrat JSON Schema }"
+    )
+    return {
+        "openapi_yaml": openapi_contract,
+        "frameworks": {
+            "flask": {
+                "approach": "Flask — Approche Explicite / Modulaire (flask-smorest, APIFlask ou Contrat YAML servi par Swagger UI)",
+                "philosophy": (
+                    "Flask ne génère pas d'OpenAPI par magie implicite dans son noyau minimaliste : en entreprise, "
+                    "on utilise soit APIFlask / flask-smorest (décorateurs Marshmallow/Pydantic -> OpenAPI + Swagger UI), "
+                    "soit l'approche Contract-First pure où le fichier openapi.yaml validé en CI pilote la route /api/docs."
+                ),
+                "code": (
+                    "from apiflask import APIFlask, Schema\n"
+                    "from apiflask.fields import Email, Integer\n"
+                    "from apiflask.validators import Range\n\n"
+                    "app = APIFlask(__name__, title='API ISGP', version='2.1.0')  # Génère /openapi.json et /docs (Swagger UI) !\n\n"
+                    "class InscriptionIn(Schema):\n"
+                    "    formation_id = Integer(required=True, validate=Range(min=1))\n"
+                    "    stagiaire_email = Email(required=True)\n\n"
+                    "@app.post('/api/v2/inscriptions')\n"
+                    "@app.input(InscriptionIn)  # Valide le contrat -> 422 auto + documente Swagger UI\n"
+                    "@app.doc(security=[{'OAuth2PKCE': ['inscriptions:write']}])\n"
+                    "def creer_inscription(json_data):\n"
+                    "    return {'statut': 'CONFIRMEE', **json_data}, 201"
+                ),
+            },
+            "fastapi": {
+                "approach": "FastAPI — Approche Code-First Native (Annotations Python + Pydantic v2 -> OAS 3.1 & Swagger UI intégrés)",
+                "philosophy": (
+                    "FastAPI a été bâti directement autour du standard OpenAPI 3.1 : vos modèles Pydantic v2 et vos dépendances "
+                    "Security(OAuth2AuthorizationCodeBearer, scopes=...) compilent automatiquement /openapi.json, Swagger UI (/docs) et ReDoc (/redoc) !"
+                ),
+                "code": (
+                    "from fastapi import FastAPI, Security\n"
+                    "from fastapi.security import OAuth2AuthorizationCodeBearer, SecurityScopes\n"
+                    "from pydantic import BaseModel, EmailStr, Field\n\n"
+                    "app = FastAPI(title='API ISGP', version='2.1.0')  # /openapi.json, /docs (Swagger) & /redoc natifs !\n"
+                    "oauth2_scheme = OAuth2AuthorizationCodeBearer(\n"
+                    "    authorizationUrl='https://auth.isgp.dz/oauth2/authorize',\n"
+                    "    tokenUrl='https://auth.isgp.dz/oauth2/token',\n"
+                    "    scopes={'inscriptions:write': 'Créer une inscription déléguée'},\n"
+                    ")\n\n"
+                    "class InscriptionCreate(BaseModel):\n"
+                    "    formation_id: int = Field(..., ge=1)\n"
+                    "    stagiaire_email: EmailStr\n\n"
+                    "@app.post('/api/v2/inscriptions', status_code=201)\n"
+                    "async def creer_inscription(\n"
+                    "    payload: InscriptionCreate,\n"
+                    "    token: str = Security(oauth2_scheme, scopes=['inscriptions:write']),\n"
+                    "):\n"
+                    "    return {'statut': 'CONFIRMEE', **payload.model_dump()}"
+                ),
+            },
+            "tornado": {
+                "approach": "Tornado — Approche Contract-First Haute Performance (openapi.yaml versionné + RequestHandler sans réflexion lourde)",
+                "philosophy": (
+                    "Sur l'IOLoop Tornado orientée très faible latence, les équipes privilégient souvent le Contract-First : "
+                    "le contrat openapi.yaml est rédigé et validé dans Git en premier, servi tel quel sur /openapi.json pour Swagger UI, "
+                    "et vérifié à vitesse maximale dans RequestHandler (ou généré hors-boucle via apispec)."
+                ),
+                "code": (
+                    "import json, tornado.web\n\n"
+                    "class OpenAPISpecHandler(tornado.web.RequestHandler):\n"
+                    "    def get(self):\n"
+                    "        # Sert le contrat de référence validé en CI/CD pour Swagger UI (/api/docs)\n"
+                    "        self.set_header('Content-Type', 'application/json')\n"
+                    "        self.write(CONTRAT_OPENAPI_3_1_DICT)\n\n"
+                    "class InscriptionsV2Handler(tornado.web.RequestHandler):\n"
+                    "    async def post(self):\n"
+                    "        claims = verifier_jeton_oauth2(self.request.headers, required_scope='inscriptions:write')\n"
+                    "        corps = json.loads(self.request.body)\n"
+                    "        if int(corps.get('formation_id', 0)) < 1 or '@' not in str(corps.get('stagiaire_email', '')):\n"
+                    "            self.set_status(422)\n"
+                    "            return self.write({'title': 'Violation du contrat InscriptionCreate', 'status': 422})\n"
+                    "        self.set_status(201)\n"
+                    "        self.write({'statut': 'CONFIRMEE', 'operateur': claims['sub'], **corps})"
+                ),
+            },
+        },
+    }
+
+
+@app.route("/api/architecture-lab/oauth-flow", methods=["POST"])
+def api_architecture_oauth_flow():
+    fw = _resolve_active_framework()
+    data = request.get_json(silent=True) or {}
+    scenario = data.get("scenario", "pkce_north_south")
+    all_scenarios = _build_architecture_oauth_scenarios(fw)
+    chosen = all_scenarios.get(scenario, all_scenarios["pkce_north_south"])
+    return jsonify({"scenario": scenario, "framework": fw, **chosen}), 200
+
+
+@app.route("/api/architecture-lab/openapi-compare", methods=["GET"])
+def api_architecture_openapi_compare():
+    fw = _resolve_active_framework()
+    spec_bundle = _build_openapi_framework_comparison()
+    selected_fw = request.args.get("target_fw", fw).strip().lower()
+    if selected_fw not in ("flask", "fastapi", "tornado"):
+        selected_fw = fw
+    return jsonify({
+        "selected_framework": selected_fw,
+        "openapi_yaml": spec_bundle["openapi_yaml"],
+        "framework_detail": spec_bundle["frameworks"][selected_fw],
+    }), 200
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)

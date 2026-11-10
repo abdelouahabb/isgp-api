@@ -50,14 +50,16 @@ code {
 
 /* ================= SLIM DOCUMENTATION TOPBAR ================= */
 .doc-topbar {
-  height: 44px;
+  min-height: 44px;
+  height: auto;
   background: #ffffff;
   border-bottom: 1px solid var(--border);
-  padding: 0 16px;
+  padding: 5px 16px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   position: sticky;
   top: 0;
   z-index: 40;

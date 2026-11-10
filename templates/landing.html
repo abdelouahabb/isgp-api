@@ -191,7 +191,11 @@
       <p>
         Ce portail unifié regroupe <strong>trois cursus complets, symétriques et 100 % autonomes</strong> couvrant les trois grands paradigmes industriels de création d'APIs et de services Web en Python :
         <strong>Flask (WSGI Synchrone &amp; Explicite)</strong>, <strong>FastAPI (ASGI Asynchrone &amp; Validation Déclarative Pydantic)</strong> et <strong>Tornado (Event-Loop Natif Non-Bloquant &amp; Architecture Orientée Objet <code>RequestHandler</code>)</strong>.
-        Chaque édition comprend <strong>30 chapitres progressifs</strong> + <strong>2 Manuels de Référence complets de 9 chapitres chacun</strong> (<em>Persistance SQLite3, Curseurs &amp; APSW</em> et <em>Temps Réel SSE/WebSockets, Streaming Multipart, Tâches 202 &amp; Cache ETag 304/412</em>), un <strong>bac à sable HTTP/curl/Jinja2</strong>, un <strong>simulateur de cluster Nginx à 4 nœuds</strong>, <strong>57 fiches de référentiel</strong> et <strong>53 questions d'évaluation</strong>.
+        Chaque édition comprend <strong>30 chapitres progressifs</strong> + <strong>3 Manuels de Référence complets de 9 chapitres chacun (27 chapitres transversaux)</strong> :
+        <em>(1) Architecture API, Contrats, Nord-Sud vs Est-Ouest, OAuth 2.0 / OIDC / RFC 8693 &amp; Swagger vs OpenAPI 3.1</em>,
+        <em>(2) Persistance SQLite3, Curseurs &amp; APSW</em> et
+        <em>(3) Temps Réel SSE/WebSockets, Streaming Multipart, Tâches 202 &amp; Cache ETag 304/412</em>,
+        ainsi qu'un <strong>bac à sable HTTP/curl/Jinja2</strong>, un <strong>simulateur de cluster Nginx à 4 nœuds</strong>, <strong>69 fiches de référentiel</strong> et <strong>62 questions d'évaluation</strong>.
       </p>
     </section>
 
@@ -216,9 +220,9 @@
         </div>
         <div>
           <div class="fw-stats">
-            <span class="fw-stat-pill">30 Chapitres + 18 Réf.</span>
-            <span class="fw-stat-pill">SQLite/APSW &amp; Temps Réel</span>
-            <span class="fw-stat-pill">57 Fiches &amp; 53 Quiz</span>
+            <span class="fw-stat-pill">30 Chapitres + 27 Réf.</span>
+            <span class="fw-stat-pill">OAuth2, Swagger, SQLite &amp; Temps Réel</span>
+            <span class="fw-stat-pill">69 Fiches &amp; 62 Quiz</span>
             <span class="fw-stat-pill">Dossier : flask-version/</span>
           </div>
           <a href="/cours/flask" class="fw-btn">Ouvrir le Cours &amp; Laboratoire Flask &rarr;</a>
@@ -243,9 +247,9 @@
         </div>
         <div>
           <div class="fw-stats">
-            <span class="fw-stat-pill">30 Chapitres + 18 Réf.</span>
-            <span class="fw-stat-pill">SQLite/APSW &amp; Temps Réel</span>
-            <span class="fw-stat-pill">57 Fiches &amp; 53 Quiz</span>
+            <span class="fw-stat-pill">30 Chapitres + 27 Réf.</span>
+            <span class="fw-stat-pill">OAuth2, Swagger, SQLite &amp; Temps Réel</span>
+            <span class="fw-stat-pill">69 Fiches &amp; 62 Quiz</span>
             <span class="fw-stat-pill">Dossier : fastapi-version/</span>
           </div>
           <a href="/cours/fastapi" class="fw-btn">Ouvrir le Cours &amp; Laboratoire FastAPI &rarr;</a>
@@ -270,9 +274,9 @@
         </div>
         <div>
           <div class="fw-stats">
-            <span class="fw-stat-pill">30 Chapitres + 18 Réf.</span>
-            <span class="fw-stat-pill">SQLite/APSW &amp; Temps Réel</span>
-            <span class="fw-stat-pill">57 Fiches &amp; 53 Quiz</span>
+            <span class="fw-stat-pill">30 Chapitres + 27 Réf.</span>
+            <span class="fw-stat-pill">OAuth2, Swagger, SQLite &amp; Temps Réel</span>
+            <span class="fw-stat-pill">69 Fiches &amp; 62 Quiz</span>
             <span class="fw-stat-pill">Dossier : tornado-version/</span>
           </div>
           <a href="/cours/tornado" class="fw-btn">Ouvrir le Cours &amp; Laboratoire Tornado &rarr;</a>
@@ -375,6 +379,12 @@
               <td>SSE <code>stream_with_context</code><br><code>FileStorage.stream</code> + <code>ThreadPoolExecutor</code></td>
               <td><code>StreamingResponse</code> &amp; <code>@app.websocket</code><br><code>UploadFile</code> + <code>BackgroundTasks</code></td>
               <td><code>WebSocketHandler</code> C10K &amp; <code>self.flush()</code><br><code>@stream_request_body</code> + <code>spawn_callback</code></td>
+            </tr>
+            <tr>
+              <td><strong>Contrats OpenAPI 3.1, Swagger UI &amp; OAuth 2.0</strong></td>
+              <td>Explicite via <code>APIFlask</code> / <code>flask-smorest</code><br>Décorateur JWT / <code>Authlib</code> WSGI</td>
+              <td>Génération <em>Code-First</em> native Pydantic v2<br><code>Security(OAuth2AuthorizationCodeBearer)</code></td>
+              <td>Approche <em>Contract-First</em> <code>openapi.yaml</code><br><code>AsyncHTTPClient</code> (JWKS &amp; RFC 8693 non-bloquant)</td>
             </tr>
           </tbody>
         </table>

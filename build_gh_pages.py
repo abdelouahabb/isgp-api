@@ -54,7 +54,7 @@ def rewrite_html_for_static_depth(html: str, rel_root: str) -> str:
     # Injection du drapeau GitHub Pages et du shim avant static/app.js (ou avant </head> si pas d'app.js)
     shim_tag = (
         f'<script>window.ISGP_GH_PAGES = true; window.ISGP_REL_ROOT = "{rel_root}";</script>\n'
-        f'  <script src="{prefix}/static/gh-pages-shim.js?v=38"></script>'
+        f'  <script src="{prefix}/static/gh-pages-shim.js?v=39"></script>'
     )
     if "/static/app.js" in html:
         html = re.sub(
@@ -166,6 +166,15 @@ document.addEventListener("DOMContentLoaded", () => {
         ):
             payload = client.get(endpoint).get_json()
             (data_dir / out_name).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        # Données pré-calculées pour le laboratoire Architecture, OAuth2 & OpenAPI/Swagger
+        arch_bundle = {
+            "oauth_scenarios": unified_app._build_architecture_oauth_scenarios(fw),
+            "openapi_bundle": unified_app._build_openapi_framework_comparison(),
+        }
+        (data_dir / "architecture-lab.json").write_text(
+            json.dumps(arch_bundle, ensure_ascii=False), encoding="utf-8"
+        )
 
         # Scripts Python des Jours 0..5 + scripts de référence transversaux
         fw_src = ROOT / f"{fw}-version"
