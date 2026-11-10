@@ -2677,6 +2677,270 @@ def sandbox_cookies_logout():
     return resp
 
 
+# ==============================================================================
+# LABORATOIRE INTERACTIF SQLITE3, REQUÊTES PRÉPARÉES (? vs %s) & SÉCURITÉ SQL
+# ==============================================================================
+def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
+    if fw == "fastapi":
+        if mode == "insert":
+            return (
+                '@app.post("/api/sqlite/formations", status_code=201)\n'
+                'def creer_formation(payload: FormationCreate, db: sqlite3.Connection = Depends(get_db)):\n'
+                '    with db:  # Transaction ACID automatique (COMMIT ou ROLLBACK)\n'
+                '        cur = db.execute(\n'
+                '            "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
+                '            "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
+                '            payload.model_dump(),\n'
+                '        )\n'
+                '    row = db.execute("SELECT * FROM formations WHERE id = ?", (cur.lastrowid,)).fetchone()\n'
+                '    return dict(row)'
+            )
+        return (
+            '@app.get("/api/sqlite/formations")\n'
+            'def lister_formations(\n'
+            '    salle: str = Query(default="Salle A"),\n'
+            '    tri: str = Query(default="id"),\n'
+            '    db: sqlite3.Connection = Depends(get_db),\n'
+            '):\n'
+            '    colonne_sure = {"id": "id", "duree_jours": "duree_jours", "titre": "titre"}.get(tri, "id")\n'
+            '    sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = ? ORDER BY {colonne_sure} ASC"\n'
+            '    rows = db.execute(sql, (salle,)).fetchall()\n'
+            '    return [dict(r) for r in rows]'
+        )
+    if fw == "tornado":
+        if mode == "insert":
+            return (
+                'class FormationsSqliteHandler(tornado.web.RequestHandler):\n'
+                '    async def post(self):\n'
+                '        corps = tornado.escape.json_decode(self.request.body)\n'
+                '        def _insert_sync():\n'
+                '            conn = ouvrir_connexion_sqlite()\n'
+                '            try:\n'
+                '                with conn:\n'
+                '                    cur = conn.execute(\n'
+                '                        "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
+                '                        "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
+                '                        corps,\n'
+                '                    )\n'
+                '                return dict(conn.execute("SELECT * FROM formations WHERE id = ?", (cur.lastrowid,)).fetchone())\n'
+                '            finally:\n'
+                '                conn.close()\n'
+                '        cree = await tornado.ioloop.IOLoop.current().run_in_executor(None, _insert_sync)\n'
+                '        self.set_status(201); self.write(cree)'
+            )
+        return (
+            'class FormationsSqliteHandler(tornado.web.RequestHandler):\n'
+            '    async def get(self):\n'
+            '        salle = self.get_query_argument("salle", default="Salle A")\n'
+            '        tri = self.get_query_argument("tri", default="id")\n'
+            '        colonne_sure = {"id": "id", "duree_jours": "duree_jours", "titre": "titre"}.get(tri, "id")\n'
+            '        sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = ? ORDER BY {colonne_sure} ASC"\n'
+            '        def _select_sync():\n'
+            '            conn = ouvrir_connexion_sqlite()\n'
+            '            try:\n'
+            '                return [dict(r) for r in conn.execute(sql, (salle,)).fetchall()]\n'
+            '            finally:\n'
+            '                conn.close()\n'
+            '        rows = await tornado.ioloop.IOLoop.current().run_in_executor(None, _select_sync)\n'
+            '        self.write({"data": rows})'
+        )
+    # Flask default
+    if mode == "insert":
+        return (
+            '@app.route("/api/sqlite/formations", methods=["POST"])\n'
+            'def creer_formation():\n'
+            '    corps = request.get_json() or {}\n'
+            '    db = get_db()  # Connexion stockée dans flask.g et fermée par @app.teardown_appcontext\n'
+            '    with db:       # Transaction ACID automatique (COMMIT ou ROLLBACK)\n'
+            '        cur = db.execute(\n'
+            '            "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
+            '            "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
+            '            corps,\n'
+            '        )\n'
+            '    row = db.execute("SELECT * FROM formations WHERE id = ?", (cur.lastrowid,)).fetchone()\n'
+            '    return jsonify(dict(row)), 201'
+        )
+    return (
+        '@app.route("/api/sqlite/formations", methods=["GET"])\n'
+        'def lister_formations():\n'
+        '    salle = request.args.get("salle", "Salle A")\n'
+        '    tri = request.args.get("tri", "id")\n'
+        '    colonne_sure = {"id": "id", "duree_jours": "duree_jours", "titre": "titre"}.get(tri, "id")\n'
+        '    db = get_db()\n'
+        '    sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = ? ORDER BY {colonne_sure} ASC"\n'
+        '    rows = db.execute(sql, (salle,)).fetchall()\n'
+        '    return jsonify([dict(r) for r in rows]), 200'
+    )
+
+
+@app.route("/api/sqlite-lab/state", methods=["GET"])
+def api_sqlite_lab_state():
+    fw = _resolve_active_framework()
+    script_rel = f"{fw}-version/sqlite_api_lab.py"
+    script_abs = os.path.join(ROOT_DIR, script_rel)
+    script_code = ""
+    if os.path.isfile(script_abs):
+        with open(script_abs, encoding="utf-8") as f:
+            script_code = f.read()
+
+    conn = get_db()
+    rows = [dict(r) for r in conn.execute("SELECT id, titre, formateur, duree_jours, salle FROM formations ORDER BY id ASC").fetchall()]
+    schema_row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='formations'").fetchone()
+    journal_mode = conn.execute("PRAGMA journal_mode;").fetchone()[0]
+    fk_mode = conn.execute("PRAGMA foreign_keys;").fetchone()[0]
+    conn.close()
+
+    return jsonify({
+        "framework": fw,
+        "sqlite_version": sqlite3.sqlite_version,
+        "paramstyle": sqlite3.paramstyle,
+        "journal_mode": journal_mode,
+        "foreign_keys": fk_mode,
+        "schema_sql": schema_row["sql"] if schema_row else "",
+        "rows": rows,
+        "script_path": script_rel,
+        "script_code": script_code,
+        "handler_snippet": _get_sqlite_lab_handler_snippet(fw, "select"),
+    }), 200
+
+
+@app.route("/api/sqlite-lab/execute", methods=["POST"])
+def api_sqlite_lab_execute():
+    fw = _resolve_active_framework()
+    data = request.get_json(silent=True) or {}
+    action = data.get("action", "select_compare")
+
+    conn = get_db()
+    all_rows = [dict(r) for r in conn.execute("SELECT id, titre, formateur, duree_jours, salle FROM formations ORDER BY id ASC").fetchall()]
+
+    if action == "insert_named":
+        titre = str(data.get("titre", "Audit SQL & Requêtes Préparées")).strip() or "Audit SQL & Requêtes Préparées"
+        formateur = str(data.get("formateur", "Équipe Pédagogique ISGP")).strip() or "Équipe Pédagogique ISGP"
+        salle = str(data.get("salle", "Salle A")).strip() or "Salle A"
+        try:
+            duree_jours = max(1, min(30, int(data.get("duree_jours", 4))))
+        except (TypeError, ValueError):
+            duree_jours = 4
+
+        params_dict = {
+            "titre": titre,
+            "formateur": formateur,
+            "duree_jours": duree_jours,
+            "salle": salle,
+        }
+        sql_named = (
+            "INSERT INTO formations (titre, formateur, duree_jours, salle) "
+            "VALUES (:titre, :formateur, :duree_jours, :salle)"
+        )
+        with conn:
+            cur = conn.execute(sql_named, params_dict)
+            new_id = cur.lastrowid
+        updated_rows = [dict(r) for r in conn.execute("SELECT id, titre, formateur, duree_jours, salle FROM formations ORDER BY id ASC").fetchall()]
+        conn.close()
+        broadcast_classroom_state()
+        return jsonify({
+            "action": "insert_named",
+            "framework": fw,
+            "sql_executed": sql_named,
+            "bound_params": params_dict,
+            "lastrowid": new_id,
+            "handler_snippet": _get_sqlite_lab_handler_snippet(fw, "insert"),
+            "explanation": (
+                f"Transaction COMMIT réussie : SQLite a lié le dictionnaire nommé (:titre, :formateur, :duree_jours, :salle) "
+                f"et généré la clé primaire auto-incrémentée cursor.lastrowid = {new_id}."
+            ),
+            "rows": updated_rows,
+        }), 201
+
+    if action == "rollback_demo":
+        # Démonstration d'atomicité sur une copie en mémoire pour montrer le ROLLBACK automatique
+        mem = sqlite3.connect(":memory:")
+        mem.row_factory = sqlite3.Row
+        mem.execute(
+            "CREATE TABLE formations (id INTEGER PRIMARY KEY, titre TEXT NOT NULL UNIQUE, duree_jours INTEGER NOT NULL CHECK(duree_jours > 0))"
+        )
+        mem.execute("INSERT INTO formations (id, titre, duree_jours) VALUES (1, 'Architecture API REST', 5)")
+        mem.commit()
+
+        before_count = mem.execute("SELECT COUNT(*) FROM formations").fetchone()[0]
+        err_captured = None
+        try:
+            with mem:
+                # 1re opération valide dans la transaction
+                mem.execute("INSERT INTO formations (id, titre, duree_jours) VALUES (?, ?, ?)", (2, "Nouvelle Formation Temporaire", 3))
+                # 2e opération invalide (violation de la contrainte UNIQUE sur id=1)
+                mem.execute("INSERT INTO formations (id, titre, duree_jours) VALUES (?, ?, ?)", (1, "Conflit Clé Primaire", 4))
+        except sqlite3.IntegrityError as exc:
+            err_captured = str(exc)
+
+        after_count = mem.execute("SELECT COUNT(*) FROM formations").fetchone()[0]
+        mem.close()
+        conn.close()
+        return jsonify({
+            "action": "rollback_demo",
+            "framework": fw,
+            "sql_executed": (
+                "BEGIN TRANSACTION;\n"
+                "  INSERT INTO formations (id, titre, duree_jours) VALUES (?, ?, ?)  -- (2, 'Nouvelle Formation Temporaire', 3) [OK]\n"
+                "  INSERT INTO formations (id, titre, duree_jours) VALUES (?, ?, ?)  -- (1, 'Conflit Clé Primaire', 4) [ERREUR UNIQUE!]\n"
+                "ROLLBACK; -- Déclenché automatiquement par la sortie du bloc `with conn:`"
+            ),
+            "bound_params": {"avant_transaction": before_count, "apres_rollback": after_count, "sqlite_error": err_captured},
+            "handler_snippet": _get_sqlite_lab_handler_snippet(fw, "insert"),
+            "explanation": (
+                f"Atomicité ACID prouvée : la 2e requête a levé sqlite3.IntegrityError ({err_captured}). "
+                f"Le gestionnaire de contexte `with conn:` a immédiatement exécuté ROLLBACK : la 1re insertion (id=2) a été annulée "
+                f"(nombre de lignes avant = {before_count}, après ROLLBACK = {after_count})."
+            ),
+            "rows": all_rows,
+        }), 200
+
+    # Action par défaut : select_compare (Comparaison Requête Préparée `?` vs Concaténation f-string vulnérable)
+    salle_input = str(data.get("salle", "Salle A"))
+    tri_input = str(data.get("tri", "id"))
+    colonne_sure = {"id": "id", "duree_jours": "duree_jours", "titre": "titre"}.get(tri_input, "id")
+
+    # 1. Exécution SÉCURISÉE via marqueur `?` sur la vraie base
+    safe_sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = ? ORDER BY {colonne_sure} ASC"
+    safe_params = [salle_input]
+    safe_rows = [dict(r) for r in conn.execute(safe_sql, (salle_input,)).fetchall()]
+    conn.close()
+
+    # 2. Simulation ISOLÉE en mémoire (:memory:) de ce qu'aurait provoqué une f-string vulnérable
+    mem = sqlite3.connect(":memory:")
+    mem.row_factory = sqlite3.Row
+    mem.execute("CREATE TABLE formations (id INTEGER, titre TEXT, formateur TEXT, duree_jours INTEGER, salle TEXT)")
+    for r in all_rows:
+        mem.execute(
+            "INSERT INTO formations VALUES (?, ?, ?, ?, ?)",
+            (r["id"], r["titre"], r["formateur"], r["duree_jours"], r["salle"]),
+        )
+    unsafe_sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = '{salle_input}' ORDER BY {colonne_sure} ASC"
+    try:
+        unsafe_rows = [dict(r) for r in mem.execute(unsafe_sql).fetchall()]
+        unsafe_error = None
+    except Exception as exc:
+        unsafe_rows = []
+        unsafe_error = str(exc)
+    mem.close()
+
+    injection_detected = len(unsafe_rows) != len(safe_rows) or ("'" in salle_input)
+    return jsonify({
+        "action": "select_compare",
+        "framework": fw,
+        "input_salle": salle_input,
+        "safe_sql": safe_sql,
+        "safe_params": safe_params,
+        "safe_rows": safe_rows,
+        "unsafe_sql": unsafe_sql,
+        "unsafe_rows": unsafe_rows,
+        "unsafe_error": unsafe_error,
+        "injection_detected": injection_detected,
+        "handler_snippet": _get_sqlite_lab_handler_snippet(fw, "select"),
+        "rows": all_rows,
+    }), 200
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)

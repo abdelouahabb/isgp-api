@@ -35,6 +35,9 @@
       <button class="tab-btn" data-tab="runner" onclick="switchTab('runner')">
         Atelier Python
       </button>
+      <button class="tab-btn" data-tab="sqlite" onclick="switchTab('sqlite')">
+        Persistance SQLite &amp; Sécurité SQL
+      </button>
       <button class="tab-btn" data-tab="nginx" onclick="switchTab('nginx')">
         Déploiement &amp; Load Balancing
       </button>
@@ -1409,6 +1412,349 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
       </div>
     </section>
 
+    <!-- ONGLET DÉDIÉ : PERSISTANCE SQLITE & SÉCURITÉ SQL (? vs %s & MULTI-SGBD) -->
+    <section id="tab-sqlite" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Persistance SQLite3 &amp; Sécurité SQL sous FastAPI (ASGI, <code>Depends(get_db)</code> &amp; Pydantic v2)</h2>
+          <p>Tutoriel complet et laboratoire interactif : intégrer SQLite3 (bibliothèque standard Python, zéro serveur externe) dans une API FastAPI, maîtriser l'injection de dépendance <code>yield</code>, les requêtes préparées (<code>?</code> et <code>:nom</code>) et la stratégie multi-SGBD (PostgreSQL / MySQL).</p>
+        </div>
+        <div id="sqlite-engine-meta" style="display:flex; flex-wrap:wrap; gap:10px; font-size:12.5px; background:#f8fafc; padding:8px 12px; border:1px solid #cbd5e1; border-radius:4px; color:#1e293b;">
+          <span>Chargement des métadonnées du moteur SQLite...</span>
+        </div>
+      </div>
+
+      <!-- SECTION 1 : ARCHITECTURE & CYCLE DE VIE PROPRE AU FRAMEWORK -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>1. Architecture &amp; Cycle de Vie d'une Connexion SQLite3 dans FastAPI (<code>Depends(get_db)</code> + <code>check_same_thread=False</code>)</h3>
+          <span class="step-badge">Zéro Serveur Externe • Standard Library <code>sqlite3</code></span>
+        </div>
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 14px 0;">
+          Dans un serveur ASGI asynchrone comme <strong>FastAPI / Uvicorn</strong>, le pilote standard <code>sqlite3</code> est synchrone. FastAPI exécute automatiquement toute route déclarée avec <code>def</code> (et toute dépendance <code>def get_db()</code>) dans un <strong>pool de threads AnyIO</strong> pour ne jamais bloquer la boucle d'événements principale. Comme le thread qui crée la connexion dans <code>get_db()</code> peut différer du thread qui exécute la route, l'option <code>check_same_thread=False</code> est obligatoire :
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; margin-bottom: 14px;">
+          <div class="mermaid-container" style="margin: 0;">
+            <div class="mermaid-title">Cycle d'Exécution d'une Requête SQLite Paramétrée</div>
+            <pre class="mermaid">sequenceDiagram
+    participant C as Client HTTP
+    participant U as FastAPI / Pool AnyIO
+    participant P as Validation Pydantic v2
+    participant S as Moteur C SQLite3 (Fichier .db + .db-wal)
+    C->>U: 1. Requête HTTP (GET ou POST /api/sqlite/formations)
+    U->>P: 2. Validation stricte des types et contraintes (BaseModel / Query)
+    U->>S: 3. Depends(get_db) -> sqlite3.connect(check_same_thread=False) + yield conn
+    U->>S: 4. sqlite3_prepare_v2(SQL avec ? ou :nom) + sqlite3_bind_*(payload.model_dump())
+    S-->>U: 5. Lignes sqlite3.Row converties en list[dict]
+    U-->>C: 6. Sérialisation JSON ASGI (200 OK / 201 Created)
+    Note over U,S: 7. Bloc finally de get_db() : conn.close() exécuté après l'envoi de la réponse !</pre>
+          </div>
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <span class="muted-small"><strong>Patron d'implémentation recommandé (FASTAPI) :</strong></span>
+              <button class="btn-xs" onclick="copyTextById('sqlite-pattern-code')">Copier le patron</button>
+            </div>
+            <pre id="sqlite-pattern-code" class="code-block" style="margin: 0; font-size: 12.6px; max-height: 290px; overflow-y: auto;">import sqlite3
+from fastapi import Depends, FastAPI
+from pydantic import BaseModel, Field
+
+app = FastAPI()
+DB_PATH = "isgp_catalogue.db"
+
+def get_db():
+    """Dépendance FastAPI avec yield : ouverture avant la route, fermeture dans finally."""
+    conn = sqlite3.connect(DB_PATH, timeout=5.0, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    try:
+        yield conn
+    finally:
+        conn.close()</pre>
+          </div>
+        </div>
+
+        <ul style="margin: 0; padding-left: 20px; font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+          <li style="margin-bottom: 6px;"><strong>1. Injection <code>Depends(get_db)</code> avec <code>yield</code> :</strong> Tout le code placé avant <code>yield conn</code> s'exécute avant la route ; le bloc <code>finally: conn.close()</code> s'exécute systématiquement après la route (même si une <code>HTTPException</code> est levée).</li>
+<li style="margin-bottom: 6px;"><strong>2. Paramètre <code>check_same_thread=False</code> :</strong> Par défaut, le module C <code>sqlite3</code> interdit d'utiliser une connexion dans un thread différent de celui qui l'a créée. Avec le pool de threads AnyIO de FastAPI, chaque requête ayant sa propre connexion isolée via <code>Depends(get_db)</code>, <code>check_same_thread=False</code> est sûr et indispensable.</li>
+<li style="margin-bottom: 6px;"><strong>3. Routes <code>def</code> (Threadpool) vs <code>async def</code> :</strong> Avec le module standard <code>sqlite3</code>, déclarez vos routes avec <code>def</code> pour que FastAPI les déporte dans son pool de threads sans figer la boucle ASGI.</li>
+<li style="margin-bottom: 6px;"><strong>4. Couplage Pydantic v2 + Marqueurs nommés <code>:nom</code> :</strong> La méthode <code>payload.model_dump()</code> produit directement un dictionnaire validé <code>{"titre": ..., "duree_jours": ...}</code> que <code>db.execute("INSERT ... VALUES (:titre, :duree_jours)", payload.model_dump())</code> lie sans aucune manipulation manuelle.</li>
+        </ul>
+      </div>
+
+      <!-- SECTION 2 : LABORATOIRE INTERACTIF EN DIRECT (BASE EN ACTION & ANTI-INJECTION SQL) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>2. La Base SQLite en Action : Comparateur Requête Préparée (<code>?</code>) vs Injection SQL (<code>f-string</code>) &amp; Transactions ACID</h3>
+          <span class="step-badge step-server">Exécution Réelle sur SQLite3</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px;">
+          <!-- Colonne Gauche : Simulateur d'Injection SQL vs Paramétrage `?` -->
+          <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; background: #ffffff;">
+            <h4 style="margin: 0 0 8px 0; font-size: 15.5px; color: #0f172a;">
+              A. Testeur Interactif de Filtrage &amp; Démonstration d'Injection SQL (<code>WHERE salle = ?</code>)
+            </h4>
+            <p style="font-size: 13.5px; color: #475569; margin: 0 0 10px 0;">
+              Saisissez un filtre de salle normal ou cliquez sur un vecteur d'attaque SQLi pour observer comment le moteur C SQLite réagit lorsque l'on utilise un marqueur <code>?</code> par rapport à une concaténation de chaînes :
+            </p>
+
+            <div class="preset-buttons" style="margin-bottom: 10px;">
+              <span class="muted-small">Scénarios :</span>
+              <button class="btn-chip" onclick="setSqliteFilterPreset('Salle A')">Filtre légitime : <code>Salle A</code></button>
+              <button class="btn-chip" onclick="setSqliteFilterPreset('Salle B')">Filtre légitime : <code>Salle B</code></button>
+              <button class="btn-chip" style="border-color:#dc2626; color:#991b1b; background:#fef2f2;" onclick="setSqliteFilterPreset(&quot;Salle A' OR '1'='1&quot;)">Attaque Tautologie : <code>Salle A' OR '1'='1</code></button>
+              <button class="btn-chip" style="border-color:#dc2626; color:#991b1b; background:#fef2f2;" onclick="setSqliteFilterPreset(&quot;' UNION SELECT 999, sqlite_version(), 'Exfiltration Système', 0, 'Pirate' --&quot;)">Attaque UNION : <code>UNION SELECT sqlite_version()</code></button>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <input type="text" id="sqlite-filter-salle" class="input-full" value="Salle A" placeholder="Valeur du paramètre ?salle=..." />
+              <select id="sqlite-filter-tri" class="select-input" style="width: 190px;" onchange="runSqliteLabCompare()">
+                <option value="id">ORDER BY id (Allowlist)</option>
+                <option value="duree_jours">ORDER BY duree_jours</option>
+                <option value="titre">ORDER BY titre</option>
+                <option value="DROP TABLE formations">Tentative injection ORDER BY</option>
+              </select>
+              <button class="btn-primary" onclick="runSqliteLabCompare()">Tester sur SQLite</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div style="border: 1px solid #86efac; background: #f0fdf4; border-radius: 6px; padding: 10px;">
+                <div style="font-weight: 700; font-size: 13px; color: #166534; margin-bottom: 6px;">
+                  [SÉCURISÉ] Requête Préparée (<code>WHERE salle = ?</code>)
+                </div>
+                <div id="sqlite-safe-result"></div>
+              </div>
+              <div style="border: 1px solid #fca5a5; background: #fef2f2; border-radius: 6px; padding: 10px;">
+                <div style="font-weight: 700; font-size: 13px; color: #991b1b; margin-bottom: 6px;">
+                  [VULNÉRABLE — INTERDIT] Concaténation (<code>f-string</code>)
+                </div>
+                <div id="sqlite-unsafe-result"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Colonne Droite : Insertion nommée (:nom), Transaction ACID & Table Live -->
+          <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; background: #ffffff; display: flex; flex-direction: column; gap: 10px;">
+            <h4 style="margin: 0; font-size: 15.5px; color: #0f172a;">
+              B. Insertion avec Marqueurs Nommés (<code>:nom</code>) &amp; Atomicité Transactionnelle (<code>with conn:</code>)
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <input type="text" id="sqlite-insert-titre" class="input-full" value="Audit SQL &amp; Requêtes Préparées" placeholder="Titre (:titre)" />
+              <input type="text" id="sqlite-insert-formateur" class="input-full" value="Équipe ISGP" placeholder="Formateur (:formateur)" />
+              <input type="text" id="sqlite-insert-salle" class="input-full" value="Salle A" placeholder="Salle (:salle)" />
+              <input type="number" id="sqlite-insert-duree" class="input-full" value="4" min="1" max="30" placeholder="Durée (:duree_jours)" />
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <button class="btn-primary btn-sm" onclick="runSqliteLabInsert()">
+                Insérer via <code>VALUES (:titre, :formateur, :duree_jours, :salle)</code>
+              </button>
+              <button class="btn-secondary btn-sm" onclick="runSqliteLabRollback()">
+                Simuler Conflit &amp; <code>ROLLBACK</code> Automatique
+              </button>
+            </div>
+            <pre id="sqlite-tx-output" class="code-block-mini" style="margin: 0; font-size: 12px; max-height: 105px; overflow-y: auto;">Cliquez sur « Insérer » ou « Simuler Conflit &amp; ROLLBACK » pour inspecter la transaction SQLite.</pre>
+
+            <div>
+              <div class="label-row" style="margin-bottom: 4px;">
+                <span class="muted-small"><strong>Code du Handler FASTAPI correspondant :</strong></span>
+              </div>
+              <pre id="sqlite-lab-handler-code" class="code-block" style="margin: 0; font-size: 12px; max-height: 150px; overflow-y: auto;"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- État en temps réel de la table SQLite formations -->
+        <div style="margin-top: 14px;">
+          <div class="label-row" style="margin-bottom: 6px;">
+            <h4 style="margin: 0; font-size: 15px;">État en direct de la table SQLite <code>formations</code> (persistée dans <code>sandbox_isgp.db</code>)</h4>
+            <button class="btn-xs" onclick="loadSqliteLabTab()">Actualiser la table</button>
+          </div>
+          <div class="table-wrapper" style="max-height: 210px; overflow-y: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 70px;">ID (PK)</th>
+                  <th>Titre de la formation</th>
+                  <th>Formateur</th>
+                  <th style="width: 90px;">Durée</th>
+                  <th style="width: 130px;">Salle</th>
+                </tr>
+              </thead>
+              <tbody id="sqlite-live-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 : SÉCURITÉ SQL APPROFONDIE : `?` (SQLITE) VS `%s` (POSTGRESQL / MYSQL) & STRATÉGIE MULTI-SGBD -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>3. Sécurité SQL &amp; Portabilité : Pourquoi <code>?</code> dans SQLite vs <code>%s</code> dans PostgreSQL / MySQL (Norme PEP 249 / DB-API 2.0)</h3>
+          <span class="step-badge">Architecture &amp; Sécurité Multi-SGBD</span>
+        </div>
+
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 12px 0;">
+          En Python, tous les pilotes relationnels (<code>sqlite3</code>, <code>psycopg</code> pour PostgreSQL, <code>PyMySQL</code> / <code>mysql-connector</code> pour MySQL, <code>oracledb</code>, <code>pyodbc</code>) respectent la spécification officielle <strong>PEP 249 (Python Database API Specification v2.0)</strong>. Le principe fondamental de sécurité est identique partout : <strong>séparer la compilation syntaxique de la requête (le code SQL) de la transmission des données (les paramètres)</strong>. En revanche, la <strong>syntaxe du marqueur de paramètre (<code>paramstyle</code>)</strong> change selon le moteur de base de données :
+        </p>
+
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 18%;">Moteur SGBD &amp; Pilote Python</th>
+                <th style="width: 15%;">Style PEP 249 (<code>paramstyle</code>)</th>
+                <th style="width: 33%;">Syntaxe Positionnelle (Tuple en 2e argument)</th>
+                <th style="width: 34%;">Syntaxe Nommée (Dictionnaire en 2e argument)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>SQLite 3</strong><br/><span class="muted-small"><code>sqlite3</code> (Inclus dans Python, utilisé dans ce laboratoire)</span></td>
+                <td><code>qmark</code> (<code>?</code>) &amp;<br/><code>named</code> (<code>:nom</code>)</td>
+                <td>
+                  <code>cur.execute("SELECT * FROM formations WHERE salle = ? AND duree_jours &gt;= ?", (salle, min_j))</code><br/>
+                  <span class="muted-small">Piège d'1 seul paramètre : écrire <code>(id,)</code> avec une virgule finale, jamais <code>(id)</code> !</span>
+                </td>
+                <td>
+                  <code>cur.execute("SELECT * FROM formations WHERE salle = :salle AND duree_jours &gt;= :min_j", {"salle": salle, "min_j": min_j})</code><br/>
+                  <span class="muted-small">Idéal dès que la requête comporte plus de 3 paramètres.</span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>PostgreSQL</strong><br/><span class="muted-small"><code>psycopg2</code> / <code>psycopg 3</code></span></td>
+                <td><code>format</code> (<code>%s</code>) &amp;<br/><code>pyformat</code> (<code>%(nom)s</code>)</td>
+                <td>
+                  <code>cur.execute("SELECT * FROM formations WHERE salle = %s AND duree_jours &gt;= %s", (salle, min_j))</code><br/>
+                  <span class="muted-small">Utilise <code>%s</code> quel que soit le type (<code>int</code>, <code>str</code>, <code>date</code>, <code>bool</code>).</span>
+                </td>
+                <td>
+                  <code>cur.execute("SELECT * FROM formations WHERE salle = %(salle)s", {"salle": salle})</code>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>MySQL / MariaDB</strong><br/><span class="muted-small"><code>PyMySQL</code> / <code>mysql-connector</code></span></td>
+                <td><code>format</code> (<code>%s</code>) &amp;<br/><code>pyformat</code> (<code>%(nom)s</code>)</td>
+                <td>
+                  <code>cur.execute("SELECT * FROM formations WHERE salle = %s AND duree_jours &gt;= %s", (salle, min_j))</code>
+                </td>
+                <td>
+                  <code>cur.execute("SELECT * FROM formations WHERE salle = %(salle)s", {"salle": salle})</code>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Oracle Database</strong><br/><span class="muted-small"><code>oracledb</code></span></td>
+                <td><code>named</code> (<code>:nom</code>) / <code>numeric</code> (<code>:1</code>)</td>
+                <td><code>cur.execute("SELECT * FROM formations WHERE salle = :1", [salle])</code></td>
+                <td><code>cur.execute("SELECT * FROM formations WHERE salle = :salle", {"salle": salle})</code></td>
+              </tr>
+              <tr>
+                <td><strong>Microsoft SQL Server</strong><br/><span class="muted-small"><code>pyodbc</code></span></td>
+                <td><code>qmark</code> (<code>?</code>)</td>
+                <td><code>cur.execute("SELECT * FROM formations WHERE salle = ?", (salle,))</code></td>
+                <td><em>(Non supporté nativement par ODBC ; utiliser <code>?</code> ou SQLAlchemy)</em></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div style="border-left: 4px solid #dc2626; background: #fef2f2; padding: 12px 14px; border-radius: 4px;">
+            <h4 style="margin: 0 0 6px 0; color: #991b1b; font-size: 15px;">
+              Piège Critique sur PostgreSQL / MySQL : Ne JAMAIS confondre la virgule <code>,</code> et l'opérateur Python <code>%</code> !
+            </h4>
+            <p style="font-size: 13.8px; color: #7f1d1d; line-height: 1.55; margin: 0 0 8px 0;">
+              Sur MySQL et PostgreSQL, le marqueur s'écrit <code>%s</code>. De nombreux développeurs débutants commettent l'erreur mortelle d'utiliser l'opérateur de formatage Python <code>%</code> au lieu de passer un second argument à <code>execute()</code> :
+            </p>
+            <pre class="code-block-mini" style="margin: 0; font-size: 12.2px;"># VULNÉRABILITÉ CRITIQUE D'INJECTION SQL (Opérateur % de Python) :
+cur.execute("SELECT * FROM users WHERE email = '%s'" % email)  # INTERDIT !
+
+# SÉCURISÉ (Virgule : le tuple est passé en 2e argument au pilote) :
+cur.execute("SELECT * FROM users WHERE email = %s", (email,))  # CORRECT (PostgreSQL/MySQL)
+cur.execute("SELECT * FROM users WHERE email = ?", (email,))   # CORRECT (SQLite)</pre>
+          </div>
+
+          <div style="border-left: 4px solid #2563eb; background: #eff6ff; padding: 12px 14px; border-radius: 4px;">
+            <h4 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 15px;">
+              Ce que ni <code>?</code> ni <code>%s</code> ne peuvent paramétrer : Les Identifiants SQL (<code>ORDER BY</code>, Colonnes, Tables)
+            </h4>
+            <p style="font-size: 13.8px; color: #1e40af; line-height: 1.55; margin: 0 0 8px 0;">
+              Un marqueur de requête préparée (<code>?</code> ou <code>%s</code>) ne peut lier qu'une <strong>valeur littérale</strong>. Si vous écrivez <code>ORDER BY ?</code>, SQLite trie sur une constante texte et non sur la colonne ! Pour dynamiser un tri ou un nom de colonne, utilisez <strong>obligatoirement une Liste Blanche (Allowlist)</strong> :
+            </p>
+            <pre class="code-block-mini" style="margin: 0; font-size: 12.2px;"># Liste blanche stricte côté serveur (valable sur SQLite, PostgreSQL et MySQL) :
+COLONNES_AUTORISEES = {"id": "id", "duree": "duree_jours", "titre": "titre"}
+colonne_sure = COLONNES_AUTORISEES.get(param_utilisateur, "id")
+direction_sure = "DESC" if ordre_utilisateur == "desc" else "ASC"
+
+# Seuls les identifiants validés par dictionnaire sont interpolés ; les valeurs restent en `?` :
+sql = f"SELECT * FROM formations WHERE salle = ? ORDER BY {colonne_sure} {direction_sure}"
+cur.execute(sql, (salle,))</pre>
+          </div>
+        </div>
+
+        <h4 style="margin: 0 0 8px 0; font-size: 15.5px; color: #0f172a;">
+          Quelle stratégie adopter pour développer avec SQLite en Laboratoire puis déployer sur PostgreSQL ou MySQL en Production ?
+        </h4>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Stratégie Architecturale</th>
+                <th style="width: 38%;">Principe de Mise en Œuvre</th>
+                <th style="width: 38%;">Quand l'adopter ?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Stratégie 1 — Pattern <em>Repository</em> (Couche d'Accès aux Données isolée)</strong></td>
+                <td>Interdire toute requête SQL directement dans les routes HTTP (<code>Flask</code>, <code>FastAPI</code>, <code>Tornado</code>). Regrouper toutes les requêtes dans une classe <code>FormationRepository</code>. Les routes appellent uniquement <code>repo.lister(salle="Salle A")</code>.</td>
+                <td>Projets utilisant du SQL natif haute performance : le jour où vous passez de SQLite (<code>?</code>) à PostgreSQL (<code>%s</code>), seul le fichier <code>repository.py</code> est adapté, aucune route API ne change.</td>
+              </tr>
+              <tr>
+                <td><strong>Stratégie 2 — SQLAlchemy Core (<code>text(":nom")</code>) ou ORM</strong></td>
+                <td>Écrire des marqueurs nommés universels <code>:nom</code> via <code>sqlalchemy.text("SELECT * FROM formations WHERE salle = :salle")</code>. SQLAlchemy les compile automatiquement en <code>?</code> pour SQLite et en <code>%s</code> / <code>$1</code> pour PostgreSQL et MySQL selon la variable d'environnement <code>DATABASE_URL</code>.</td>
+                <td>Applications d'entreprise devant tourner sur <code>sqlite:///lab.db</code> en développement local / tests CI, et sur <code>postgresql+psycopg://...</code> ou <code>mysql+pymysql://...</code> en production.</td>
+              </tr>
+              <tr>
+                <td><strong>Stratégie 3 — Gestion du Pool de Connexions &amp; des Verrous</strong></td>
+                <td><strong>SQLite :</strong> Fichier local unique, activer <code>PRAGMA journal_mode = WAL;</code> et ouvrir/fermer une connexion courte par requête.<br/><strong>PostgreSQL / MySQL :</strong> Connexions TCP coûteuses à établir &rarr; utiliser obligatoirement un <strong>Pool de Connexions</strong> (<code>QueuePool</code>, <code>psycopg_pool</code>, <code>PgBouncer</code>).</td>
+                <td>Systématiquement dès qu'une API dépasse un seul serveur (cluster de plusieurs machines derrière Nginx où un fichier SQLite local ne peut plus être partagé sur le réseau).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 4 : SCRIPT AUTONOME COMPLET EXÉCUTABLE EN DIRECT (sqlite_api_lab.py) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>4. Script Serveur SQLite Autonome (<code>fastapi-version/sqlite_api_lab.py</code>) — Exécutable en Direct ou dans VS Code</h3>
+          <div class="btn-group">
+            <button class="btn-primary btn-sm" onclick="runSqliteStandaloneServer()">
+              Démarrer le Serveur SQLite (FASTAPI) en Direct
+            </button>
+            <button class="btn-secondary btn-sm" onclick="copyText(document.getElementById('sqlite-standalone-code').value)">
+              Copier le script complet
+            </button>
+          </div>
+        </div>
+        <p style="font-size: 14.5px; color: #334155; margin: 0 0 10px 0;">
+          Ce script autonome se trouve dans <code>fastapi-version/sqlite_api_lab.py</code>. Cliquez sur <strong>Démarrer le Serveur SQLite en Direct</strong> ci-dessus pour lancer sa boucle d'événements et sonder la route <code>GET /api/sqlite/formations</code>, ou exécutez <code>.venv/bin/python fastapi-version/sqlite_api_lab.py</code> dans votre terminal VS Code / Antigravity :
+        </p>
+        <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px;">
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:4px;">Code source complet (<code>fastapi-version/sqlite_api_lab.py</code>) :</label>
+            <textarea id="sqlite-standalone-code" rows="18" class="code-textarea" style="font-size: 12.4px;"></textarea>
+          </div>
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:4px;">Console d'exécution &amp; Sondes HTTP en direct :</label>
+            <pre id="sqlite-standalone-output" class="code-block" style="min-height: 360px; max-height: 420px; overflow-y: auto; margin: 0;">Cliquez sur « Démarrer le Serveur SQLite en Direct » pour exécuter les auto-tests SQLite (SELECT ?, anti-injection SQLi, INSERT :nom) et garder la boucle ouverte.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ONGLET 5 : ÉVALUATIONS PAR MODULE -->
     <section id="tab-quiz" class="tab-section">
       <div class="section-intro">
@@ -1426,6 +1772,6 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=32"></script>
+  <script src="/static/app.js?v=34"></script>
 </body>
 </html>

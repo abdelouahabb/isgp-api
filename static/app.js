@@ -129,6 +129,9 @@ function switchTab(tabName) {
   if (tabName === "nginx") {
     loadNginxClusterTab();
   }
+  if (tabName === "sqlite") {
+    loadSqliteLabTab();
+  }
   const activeSec = document.getElementById(`tab-${tabName}`);
   if (activeSec) {
     setTimeout(() => renderMermaidDiagrams(activeSec), 20);
@@ -1841,5 +1844,217 @@ function copyTextById(elementId) {
   const el = document.getElementById(elementId);
   if (el) {
     copyText(el.textContent);
+  }
+}
+
+// ============================================================================
+// 11. LABORATOIRE INTERACTIF SQLITE3, REQUÊTES PRÉPARÉES (? vs %s) & SÉCURITÉ
+// ============================================================================
+async function loadSqliteLabTab() {
+  try {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/sqlite-lab/state?framework=${encodeURIComponent(fw)}`, {
+      headers: { "X-Active-Framework": fw }
+    });
+    const data = await res.json();
+
+    const metaEl = document.getElementById("sqlite-engine-meta");
+    if (metaEl) {
+      metaEl.innerHTML = `
+        <span><strong>Moteur C embarqué :</strong> SQLite <code>v${escapeHtml(data.sqlite_version)}</code></span>
+        <span>|</span>
+        <span><strong>DB-API 2.0 paramstyle :</strong> <code>${escapeHtml(data.paramstyle)}</code> (<code>?</code> positionnel &amp; <code>:nom</code> nommé)</span>
+        <span>|</span>
+        <span><strong>PRAGMA journal_mode :</strong> <code>${escapeHtml(String(data.journal_mode).toUpperCase())}</code></span>
+        <span>|</span>
+        <span><strong>Fichier autonome :</strong> <code>${escapeHtml(data.script_path)}</code></span>
+      `;
+    }
+
+    const handlerEl = document.getElementById("sqlite-lab-handler-code");
+    if (handlerEl && data.handler_snippet) {
+      handlerEl.textContent = data.handler_snippet;
+    }
+
+    const scriptEl = document.getElementById("sqlite-standalone-code");
+    if (scriptEl && data.script_code) {
+      scriptEl.value = data.script_code;
+    }
+
+    renderSqliteLabRows(data.rows || []);
+    await runSqliteLabCompare();
+  } catch (err) {
+    console.error("Erreur chargement laboratoire SQLite :", err);
+  }
+}
+
+function renderSqliteLabRows(rows) {
+  const tbody = document.getElementById("sqlite-live-table-body");
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted-small">Aucune ligne présente dans la table formations.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r) => `
+    <tr>
+      <td><code>#${r.id}</code></td>
+      <td><strong>${escapeHtml(r.titre)}</strong></td>
+      <td>${escapeHtml(r.formateur)}</td>
+      <td><code>${r.duree_jours} j</code></td>
+      <td><span class="status-pill status-neutral">${escapeHtml(r.salle)}</span></td>
+    </tr>
+  `).join("");
+}
+
+function setSqliteFilterPreset(salleVal) {
+  const input = document.getElementById("sqlite-filter-salle");
+  if (input) {
+    input.value = salleVal;
+    runSqliteLabCompare();
+  }
+}
+
+async function runSqliteLabCompare() {
+  const salle = document.getElementById("sqlite-filter-salle")?.value ?? "Salle A";
+  const tri = document.getElementById("sqlite-filter-tri")?.value ?? "id";
+  const fw = getActiveFramework();
+  try {
+    const res = await fetch(`/api/sqlite-lab/execute?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ action: "select_compare", salle, tri })
+    });
+    const data = await res.json();
+
+    const safeBox = document.getElementById("sqlite-safe-result");
+    if (safeBox) {
+      safeBox.innerHTML = `
+        <div style="font-size:12.5px; margin-bottom:6px; color:#065f46;">
+          <strong>Requête compilée (AST figé) :</strong><br/>
+          <code>${escapeHtml(data.safe_sql)}</code>
+        </div>
+        <div style="font-size:12.5px; margin-bottom:8px; color:#065f46;">
+          <strong>Tuple lié (<code>sqlite3_bind_text</code>) :</strong>
+          <code>${escapeHtml(JSON.stringify(data.safe_params))}</code>
+        </div>
+        <div style="font-size:12.5px; font-weight:700; color:#047857; margin-bottom:4px;">
+          Résultat : ${data.safe_rows.length} ligne(s) retournée(s)
+          ${data.injection_detected ? " — Attaque SQLi neutralisée (traitée comme littéral) !" : ""}
+        </div>
+        <pre class="code-block-mini" style="margin:0; max-height:140px; overflow-y:auto;">${escapeHtml(JSON.stringify(data.safe_rows, null, 2))}</pre>
+      `;
+    }
+
+    const unsafeBox = document.getElementById("sqlite-unsafe-result");
+    if (unsafeBox) {
+      unsafeBox.innerHTML = `
+        <div style="font-size:12.5px; margin-bottom:6px; color:#991b1b;">
+          <strong>Chaîne concaténée (f-string vulnérable) :</strong><br/>
+          <code>${escapeHtml(data.unsafe_sql)}</code>
+        </div>
+        <div style="font-size:12.5px; font-weight:700; color:#b91c1c; margin-bottom:4px;">
+          ${data.unsafe_error
+            ? `Erreur syntaxique SQL provoquée : ${escapeHtml(data.unsafe_error)}`
+            : `Résultat : ${data.unsafe_rows.length} ligne(s) retournée(s) ${data.injection_detected ? "(FUITE DE TOUTE LA TABLE PAR INJECTION SQL !)" : ""}`
+          }
+        </div>
+        <pre class="code-block-mini" style="margin:0; max-height:140px; overflow-y:auto;">${escapeHtml(JSON.stringify(data.unsafe_rows, null, 2))}</pre>
+      `;
+    }
+
+    const handlerEl = document.getElementById("sqlite-lab-handler-code");
+    if (handlerEl && data.handler_snippet) {
+      handlerEl.textContent = data.handler_snippet;
+    }
+    if (data.rows) {
+      renderSqliteLabRows(data.rows);
+    }
+  } catch (err) {
+    showToast("Erreur lors du test SQLite : " + err.message);
+  }
+}
+
+async function runSqliteLabInsert() {
+  const titre = document.getElementById("sqlite-insert-titre")?.value || "Sécurité SQLite & Requêtes Préparées";
+  const formateur = document.getElementById("sqlite-insert-formateur")?.value || "Intervenant ISGP";
+  const salle = document.getElementById("sqlite-insert-salle")?.value || "Salle A";
+  const duree = parseInt(document.getElementById("sqlite-insert-duree")?.value || "4", 10);
+  const fw = getActiveFramework();
+
+  try {
+    const res = await fetch(`/api/sqlite-lab/execute?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({
+        action: "insert_named",
+        titre,
+        formateur,
+        salle,
+        duree_jours: duree
+      })
+    });
+    const data = await res.json();
+    const txOut = document.getElementById("sqlite-tx-output");
+    if (txOut) {
+      txOut.textContent = `${data.explanation}\n\nSQL : ${data.sql_executed}\nParamètres : ${JSON.stringify(data.bound_params)}`;
+    }
+    const handlerEl = document.getElementById("sqlite-lab-handler-code");
+    if (handlerEl && data.handler_snippet) {
+      handlerEl.textContent = data.handler_snippet;
+    }
+    if (data.rows) {
+      renderSqliteLabRows(data.rows);
+    }
+    showToast(`Ligne #${data.lastrowid} insérée dans SQLite avec COMMIT.`);
+  } catch (err) {
+    showToast("Erreur lors de l'insertion SQLite : " + err.message);
+  }
+}
+
+async function runSqliteLabRollback() {
+  const fw = getActiveFramework();
+  try {
+    const res = await fetch(`/api/sqlite-lab/execute?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ action: "rollback_demo" })
+    });
+    const data = await res.json();
+    const txOut = document.getElementById("sqlite-tx-output");
+    if (txOut) {
+      txOut.textContent = `${data.explanation}\n\nTrace Transactionnelle :\n${data.sql_executed}`;
+    }
+    showToast("Démonstration ROLLBACK ACID exécutée.");
+  } catch (err) {
+    showToast("Erreur lors du test ROLLBACK : " + err.message);
+  }
+}
+
+async function runSqliteStandaloneServer() {
+  const textarea = document.getElementById("sqlite-standalone-code");
+  const out = document.getElementById("sqlite-standalone-output");
+  if (!textarea || !out) return;
+  out.textContent = "Démarrage du serveur SQLite autonome et exécution des auto-tests...";
+  try {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/python/run?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ code: textarea.value })
+    });
+    const data = await res.json();
+    if (data.running) {
+      out.textContent = data.output || "(Boucle serveur SQLite démarrée)";
+      _renderLiveServerBar("sqlite-standalone-output", data);
+      _startLivePythonPolling("sqlite-standalone-output");
+    } else if (data.error) {
+      _clearLiveServerBar("sqlite-standalone-output");
+      out.textContent = `[Erreur d'exécution — Code ${data.exit_code}]\n${data.error}`;
+    } else {
+      _clearLiveServerBar("sqlite-standalone-output");
+      out.textContent = data.output || "(Aucune sortie console)";
+    }
+  } catch (err) {
+    out.textContent = "Erreur réseau : " + err.message;
   }
 }
