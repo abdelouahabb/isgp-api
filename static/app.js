@@ -19,6 +19,7 @@ let STATE = {
 };
 
 window.addEventListener("DOMContentLoaded", async () => {
+  initMermaidEngine();
   registerServiceWorker();
   setupPwaInstallPrompt();
   await loadCourseData();
@@ -26,6 +27,49 @@ window.addEventListener("DOMContentLoaded", async () => {
   updateCurlPreview();
   refreshLiveTables();
 });
+
+function initMermaidEngine() {
+  if (typeof mermaid !== "undefined") {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "base",
+      securityLevel: "loose",
+      themeVariables: {
+        primaryColor: "#eff6ff",
+        primaryTextColor: "#0f172a",
+        primaryBorderColor: "#1e3a5f",
+        lineColor: "#334155",
+        secondaryColor: "#f8fafc",
+        tertiaryColor: "#f1f5f9",
+        fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+        fontSize: "14px"
+      }
+    });
+  }
+}
+
+async function renderMermaidDiagrams(rootEl) {
+  if (typeof mermaid === "undefined") return;
+  const scope = rootEl || document;
+  const blocks = Array.from(scope.querySelectorAll("pre.mermaid"));
+  if (!blocks.length) return;
+
+  blocks.forEach((el) => {
+    if (!el.getAttribute("data-mermaid-src")) {
+      el.setAttribute("data-mermaid-src", el.textContent.trim());
+    }
+    if (el.getAttribute("data-processed")) {
+      el.removeAttribute("data-processed");
+      el.textContent = el.getAttribute("data-mermaid-src");
+    }
+  });
+
+  try {
+    await mermaid.run({ nodes: blocks });
+  } catch (err) {
+    console.warn("Avertissement rendu Mermaid :", err);
+  }
+}
 
 // ============================================================================
 // 1. CHARGEMENT DES DONNÉES DU COURS
@@ -76,6 +120,13 @@ function switchTab(tabName) {
   }
   if (tabName === "curl") {
     renderCurlCheatsheet();
+  }
+  if (tabName === "nginx") {
+    loadNginxClusterTab();
+  }
+  const activeSec = document.getElementById(`tab-${tabName}`);
+  if (activeSec) {
+    setTimeout(() => renderMermaidDiagrams(activeSec), 20);
   }
 }
 
@@ -201,6 +252,16 @@ function renderActiveLesson() {
     .map((item) => `<div class="explanation-item">${formatRichText(item)}</div>`)
     .join("");
 
+  const mermaidHtml =
+    lesson.mermaid_diagram && lesson.mermaid_diagram.code
+      ? `
+      <div class="mermaid-container">
+        <div class="mermaid-title">Diagramme d'Architecture &amp; Séquence — ${escapeHtml(lesson.mermaid_diagram.title)}</div>
+        <pre class="mermaid">${escapeHtml(lesson.mermaid_diagram.code)}</pre>
+      </div>
+    `
+      : "";
+
   const archDiagramHtml = lesson.architecture_diagram
     ? `
       <div class="arch-diagram-box">
@@ -325,15 +386,28 @@ function renderActiveLesson() {
     }
     if ((p.method === "POST" || p.method === "PUT" || p.method === "PATCH") && p.body) {
       const compactBody = p.body.replace(/\s*\n\s*/g, " ").trim();
-      lessonCurl += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${compactBody}'`;
+      const isJsonBody = compactBody.startsWith("{") || compactBody.startsWith("[");
+      if (isJsonBody) {
+        lessonCurl += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${compactBody}'`;
+      } else {
+        lessonCurl += ` \\\n  -H "Content-Type: application/x-www-form-urlencoded" \\\n  -d "${compactBody}"`;
+      }
     }
     const lessonCurlEscaped = JSON.stringify(lessonCurl);
+
+    const extraLiveLinkHtml =
+      lesson.id === "d2-l5"
+        ? `<a href="/sandbox/formulaire-jinja" target="_blank" class="btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center;">Ouvrir le Formulaire Jinja2 Live</a>`
+        : lesson.id === "d5-l4"
+        ? `<a href="/api/docs" target="_blank" class="btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center;">Ouvrir Swagger UI Live</a>`
+        : "";
 
     sandboxPresetHtml = `
       <div class="interactive-try-box">
         <div class="label-row">
           <h4>Test de l'Endpoint (<code>curl</code>, Postman &amp; Client HTTP)</h4>
           <div class="btn-group">
+            ${extraLiveLinkHtml}
             <button class="btn-secondary btn-sm" onclick='launchCurlLabFromLesson(${lessonCurlEscaped})'>
               Exécuter avec curl
             </button>
@@ -400,7 +474,7 @@ function renderActiveLesson() {
         ${explanationsHtml}
       </div>
 
-      ${archDiagramHtml}
+      ${mermaidHtml || archDiagramHtml}
       ${refTableHtml}
       ${pitfallsHtml}
 
@@ -442,6 +516,7 @@ function renderActiveLesson() {
       </div>
     </article>
   `;
+  renderMermaidDiagrams(detailContainer);
 }
 
 function getAdjacentLessons(dayNum, lessonId) {
@@ -608,7 +683,12 @@ function updateCurlPreview() {
     cmd += ` \\\n  -H "X-API-Key: ${apiKey}"`;
   }
   if ((method === "POST" || method === "PUT" || method === "PATCH") && body) {
-    cmd += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${body.replace(/\n/g, " ")}'`;
+    const isJsonBody = body.startsWith("{") || body.startsWith("[");
+    if (isJsonBody) {
+      cmd += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${body.replace(/\n/g, " ")}'`;
+    } else {
+      cmd += ` \\\n  -H "Content-Type: application/x-www-form-urlencoded" \\\n  -d "${body.replace(/\n/g, " ")}"`;
+    }
   }
 
   const previewEl = document.getElementById("http-curl-preview");
@@ -633,14 +713,20 @@ async function sendSandboxRequest() {
 
   const fetchOptions = { method, headers };
   if (method === "POST" || method === "PUT" || method === "PATCH") {
-    headers["Content-Type"] = "application/json";
-    if (bodyText) {
-      try {
-        JSON.parse(bodyText);
-      } catch (e) {
-        showToast("Attention : le corps JSON transmis est mal formé.");
-      }
+    const isFormEncoded = bodyText && !bodyText.startsWith("{") && !bodyText.startsWith("[") && bodyText.includes("=");
+    if (isFormEncoded) {
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
       fetchOptions.body = bodyText;
+    } else {
+      headers["Content-Type"] = "application/json";
+      if (bodyText) {
+        try {
+          JSON.parse(bodyText);
+        } catch (e) {
+          showToast("Attention : le corps JSON transmis est mal formé.");
+        }
+        fetchOptions.body = bodyText;
+      }
     }
   }
 
@@ -1422,5 +1508,170 @@ function runCheatsheetItem(idx) {
     input.value = item.cmd;
     window.scrollTo({ top: 0, behavior: "smooth" });
     executeLiveCurlCommand();
+  }
+}
+
+// ============================================================================
+// 10. LABORATOIRE NGINX LOAD BALANCER & 4 INSTANCES FLASK
+// ============================================================================
+async function loadNginxClusterTab() {
+  try {
+    const res = await fetch("/api/nginx-cluster/state");
+    const data = await res.json();
+    if (data.files) {
+      const confEl = document.getElementById("code-nginx-conf");
+      const pyEl = document.getElementById("code-nginx-flask");
+      const shEl = document.getElementById("code-nginx-sh");
+      const dcEl = document.getElementById("code-nginx-compose");
+      if (confEl && !confEl.textContent) confEl.textContent = data.files.nginx_conf;
+      if (pyEl && !pyEl.textContent) pyEl.textContent = data.files.instance_py;
+      if (shEl && !shEl.textContent) shEl.textContent = data.files.start_sh;
+      if (dcEl && !dcEl.textContent) dcEl.textContent = data.files.docker_compose;
+    }
+    if (data.state) {
+      renderNginxClusterUI(data.state);
+    }
+  } catch (err) {
+    console.error("Erreur lors du chargement du cluster Nginx :", err);
+  }
+}
+
+function renderNginxClusterUI(state) {
+  const summaryEl = document.getElementById("nginx-summary-banner");
+  const gridEl = document.getElementById("nginx-nodes-grid");
+  const logsEl = document.getElementById("nginx-live-logs");
+  const algoEl = document.getElementById("nginx-algo-select");
+
+  if (algoEl && state.algorithm) {
+    algoEl.value = state.algorithm;
+  }
+
+  const totalDynamic = state.dynamic_requests_proxied || 0;
+  const totalStatic = state.static_requests_served || 0;
+  const upCount = state.nodes.filter((n) => n.status === "UP").length;
+
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #1e3a5f; padding: 12px 14px; border-radius: 4px;">
+          <div style="font-size: 12.5px; color: #1e3a5f; font-weight: 700; text-transform: uppercase;">Fichiers Statiques (/static/)</div>
+          <div style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 4px 0;">${totalStatic} servis par Nginx</div>
+          <div style="font-size: 13px; color: #334155;">0% CPU Python sollicité (<code>sendfile on</code>)</div>
+        </div>
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #15803d; padding: 12px 14px; border-radius: 4px;">
+          <div style="font-size: 12.5px; color: #14532d; font-weight: 700; text-transform: uppercase;">Requêtes API Dynamiques (/api/)</div>
+          <div style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 4px 0;">${totalDynamic} réparties</div>
+          <div style="font-size: 13px; color: #14532d;">Instances actives : <strong>${upCount} / 4 UP</strong></div>
+        </div>
+        <div style="background: ${state.errors_502 > 0 ? '#fef2f2' : '#f8fafc'}; border: 1px solid ${state.errors_502 > 0 ? '#fecaca' : '#e2e8f0'}; border-left: 4px solid ${state.errors_502 > 0 ? '#b91c1c' : '#64748b'}; padding: 12px 14px; border-radius: 4px;">
+          <div style="font-size: 12.5px; color: #334155; font-weight: 700; text-transform: uppercase;">Tolérance aux Pannes (Failover)</div>
+          <div style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 4px 0;">${state.errors_502} erreur(s) 502</div>
+          <div style="font-size: 13px; color: #475569;">502 uniquement si les 4 instances tombent simultanément</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (gridEl) {
+    gridEl.innerHTML = state.nodes
+      .map((n) => {
+        const isUp = n.status === "UP";
+        const pct = totalDynamic > 0 ? Math.round((n.requests / totalDynamic) * 100) : 0;
+        const borderColor = isUp ? "#15803d" : "#b91c1c";
+        const bgBadge = isUp ? "#dcfce7" : "#fee2e2";
+        const colorBadge = isUp ? "#14532d" : "#7f1d1d";
+        return `
+          <div style="background: #ffffff; border: 1px solid #cbd5e1; border-top: 4px solid ${borderColor}; border-radius: 4px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="font-size: 15.5px; color: #0f172a;">${escapeHtml(n.id)}</strong>
+              <span style="background: ${bgBadge}; color: ${colorBadge}; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 4px;">
+                ${isUp ? "UP (Actif)" : "DOWN (En Panne)"}
+              </span>
+            </div>
+            <div style="font-family: monospace; font-size: 13px; color: #334155; margin-bottom: 8px;">
+              <div>Adresse : <strong>${escapeHtml(n.addr)}</strong></div>
+              <div>Processus : <code>PID ${n.pid}</code> | Poids : <code>weight=${n.weight}</code></div>
+            </div>
+            <div style="margin: 10px 0;">
+              <div style="display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 600; margin-bottom: 4px;">
+                <span>Requêtes traitées : ${n.requests}</span>
+                <span>${pct}%</span>
+              </div>
+              <div style="height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                <div style="width: ${pct}%; height: 100%; background: ${isUp ? '#1e3a5f' : '#94a3b8'};"></div>
+              </div>
+            </div>
+            <button
+              class="${isUp ? 'btn-secondary' : 'btn-primary'} btn-sm"
+              style="width: 100%; margin-top: 6px;"
+              onclick="toggleNginxNode(${n.port})"
+            >
+              ${isUp ? "Simuler Panne (Arrêter :" + n.port + ")" : "Redémarrer l'Instance (:" + n.port + ")"}
+            </button>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  if (logsEl) {
+    logsEl.textContent = (state.logs || []).join("\n");
+  }
+}
+
+async function simulateNginxTraffic(type, count) {
+  const algo = document.getElementById("nginx-algo-select")?.value || "round_robin";
+  const clientIp = document.getElementById("nginx-client-ip")?.value || "197.204.12.88";
+  if (count === 0) {
+    return;
+  }
+  try {
+    const res = await fetch("/api/nginx-cluster/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, count, algorithm: algo, client_ip: clientIp })
+    });
+    const data = await res.json();
+    if (data.state) {
+      renderNginxClusterUI(data.state);
+    }
+  } catch (err) {
+    showToast("Erreur lors de la simulation Nginx : " + err.message);
+  }
+}
+
+async function toggleNginxNode(port) {
+  try {
+    const res = await fetch("/api/nginx-cluster/toggle-node", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ port })
+    });
+    const data = await res.json();
+    if (data.state) {
+      renderNginxClusterUI(data.state);
+    }
+  } catch (err) {
+    showToast("Erreur lors du changement d'état du nœud : " + err.message);
+  }
+}
+
+async function resetNginxCluster() {
+  try {
+    const res = await fetch("/api/nginx-cluster/reset", { method: "POST" });
+    const data = await res.json();
+    if (data.state) {
+      renderNginxClusterUI(data.state);
+      showToast("Cluster Nginx et compteurs des 4 instances réinitialisés.");
+    }
+  } catch (err) {
+    showToast("Erreur lors de la réinitialisation : " + err.message);
+  }
+}
+
+function copyTextById(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    copyText(el.textContent);
   }
 }

@@ -145,10 +145,10 @@ print("Total commandes en base :", len(base_commandes))'''
             ],
             "code": _read("02_api_crud_sqlite.py"),
             "line_explanations": [
-                {"lines": "10-21", "text": "Initialisation du schéma SQLite avec clé primaire auto-incrémentée (`INTEGER PRIMARY KEY AUTOINCREMENT`)."},
-                {"lines": "37", "text": "Requête `SELECT` paramétrée avec `?` et le tuple `(id,)`."},
-                {"lines": "44-45", "text": "Requête `UPDATE` paramétrée `(titre, salle, id)` suivie de la validation transactionnelle `conn.commit()`."},
-                {"lines": "51-54", "text": "`cur.rowcount` indique combien de lignes ont été effectivement supprimées par `DELETE` (si `0`, la ressource n'existait pas -> `404`)."}
+                {"lines": "24-40", "text": "Initialisation du schéma SQLite avec clé primaire auto-incrémentée (`INTEGER PRIMARY KEY AUTOINCREMENT`)."},
+                {"lines": "47-72", "text": "Route Web Jinja2 `/formations-sqlite` : traite le formulaire HTML (`request.form`) par requête `INSERT` paramétrée `?` et rend `day_3/templates/catalogue_sqlite.html`."},
+                {"lines": "84-101", "text": "Route API `POST /api/formations` hybride (`request.get_json()` ou `request.form`) avec requête paramétrée `?` et retour `201 Created`."},
+                {"lines": "105-131", "text": "Routes `PUT` et `DELETE` paramétrées avec `?` et vérification de `cur.rowcount`."}
             ],
             "sandbox_preset": {
                 "label": "Tester PUT /api/sandbox/formations/1 sur la base SQLite",

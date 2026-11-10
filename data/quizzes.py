@@ -175,6 +175,30 @@ QUIZZES = {
                 ],
                 "correct_index": 0,
                 "explanation": "Le `X-Request-ID` (ou *Correlation ID*) permet à l'équipe d'exploitation de retrouver instantanément la trace exacte d'une requête dans des millions de lignes de logs."
+            },
+            {
+                "id": "q2-5",
+                "question": "Quelle est la différence exacte entre `<id>`, `:id` et `{id}` lorsqu'on définit un paramètre dynamique de chemin ?",
+                "options": [
+                    "<id> (ou <int:id>) est la syntaxe de routage serveur de Flask/Django, :id est la syntaxe de Postman et Express.js, et {id} est la syntaxe d'OpenAPI 3.0 / Swagger et FastAPI",
+                    ":id est obligatoire dans @app.route() en Flask",
+                    "{id} est la seule syntaxe reconnue par Werkzeug dans Flask",
+                    "On doit écrire littéralement <id> dans la commande curl"
+                ],
+                "correct_index": 0,
+                "explanation": "En Flask, écrire `@app.route('/api/formations/:id')` est une erreur classique (Flask chercherait le texte littéral `':id'`). Flask utilise exclusivement les chevrons `<int:id>`."
+            },
+            {
+                "id": "q2-6",
+                "question": "Lorsqu'un utilisateur soumet un formulaire HTML `<form method=\"POST\" action=\"/formations\">`, pourquoi `request.get_json()` renvoie-t-il `None` dans Flask et comment doit-on lire les données ?",
+                "options": [
+                    "Parce qu'un formulaire HTML envoie ses données en application/x-www-form-urlencoded (et non en JSON) : il faut lire les champs avec request.form.get('champ') (et request.files pour multipart/form-data)",
+                    "Parce que Flask ne supporte pas la méthode POST avec les formulaires HTML",
+                    "Parce qu'il faut utiliser request.args.get() pour lire un corps POST",
+                    "Parce que Jinja2 bloque la méthode POST"
+                ],
+                "correct_index": 0,
+                "explanation": "Un `<form method='POST'>` encode les champs `<input name='...'>` en `application/x-www-form-urlencoded`, que Flask place dans `request.form` (et `request.files` si `enctype='multipart/form-data'`)."
             }
         ]
     },
@@ -229,6 +253,18 @@ QUIZZES = {
                 ],
                 "correct_index": 0,
                 "explanation": "Concaténer une variable dans du SQL avec `f\"...\"` permet à un attaquant d'injecter des commandes SQL (`' OR '1'='1`). Les requêtes paramétrées `?` rendent l'injection SQL impossible."
+            },
+            {
+                "id": "q3-5",
+                "question": "Quel type MIME normalisé par l'IETF (RFC 7807) désigne un objet JSON d'erreur standardisé, et quel code HTTP retourne-t-on si le client envoie un `Content-Type` non supporté par la route ?",
+                "options": [
+                    "Type MIME application/problem+json pour les erreurs RFC 7807, et code HTTP 415 Unsupported Media Type si le Content-Type entrant n'est pas supporté",
+                    "Type MIME text/error et code HTTP 200 OK",
+                    "Type MIME image/png et code HTTP 302 Found",
+                    "Type MIME multipart/form-data et code HTTP 500"
+                ],
+                "correct_index": 0,
+                "explanation": "La RFC 7807 définit le type MIME `application/problem+json` (`type`, `title`, `status`, `detail`), et le code `415 Unsupported Media Type` indique que le format MIME envoyé par le client est refusé."
             }
         ]
     },
@@ -361,6 +397,54 @@ QUIZZES = {
                 ],
                 "correct_index": 0,
                 "explanation": "`app.test_client()` permet d'automatiser la vérification de tous les cas nominaux (`200`, `201`) et de tous les cas d'erreur (`401`, `403`, `422`, `429`) à chaque modification du code."
+            },
+            {
+                "id": "q5-5",
+                "question": "Quelle est la différence exacte entre la spécification `OpenAPI 3.0` (`/api/openapi.json`) et `Swagger UI` (`/api/docs`) ?",
+                "options": [
+                    "OpenAPI 3.0 est le contrat formel normalisé (JSON/YAML) décrivant les routes, schémas et sécurités de l'API, tandis que Swagger UI est le portail Web interactif qui lit ce contrat pour offrir les boutons 'Authorize' et 'Try it out'",
+                    "OpenAPI est un serveur de base de données SQL et Swagger UI est un pare-feu Linux",
+                    "Swagger UI ne fonctionne qu'avec le langage Java",
+                    "OpenAPI 3.0 interdit l'utilisation des jetons Bearer JWT"
+                ],
+                "correct_index": 0,
+                "explanation": "Le document `openapi.json` est la source de vérité machine-lisible (utilisable par Swagger UI, Postman et les générateurs de code), et Swagger UI en est la visualisation interactive dans le navigateur."
+            },
+            {
+                "id": "q5-6",
+                "question": "Lorsqu'on déploie 4 instances Flask/Gunicorn (`127.0.0.1:8001` à `8004`) derrière un répartiteur de charge Nginx, comment Nginx traite-t-il les fichiers `/static/` et pourquoi configure-t-on `ProxyFix` dans Flask ?",
+                "options": [
+                    "Nginx sert directement /static/ depuis le disque via le noyau Linux (sendfile on) sans solliciter Python, et ProxyFix permet à Flask de lire la vraie IP du client dans X-Forwarded-For au lieu de 127.0.0.1",
+                    "Nginx envoie chaque fichier CSS aux 4 instances Flask simultanément pour les fusionner",
+                    "ProxyFix sert à compiler les fichiers CSS en Python",
+                    "Nginx ne peut répartir la charge qu'entre 2 instances maximum"
+                ],
+                "correct_index": 0,
+                "explanation": "Grâce à `location /static/ { alias ...; sendfile on; }`, Nginx décharge à 100 % Python des fichiers statiques. Et pour les routes dynamiques (`proxy_pass http://isgp_flask_cluster`), `ProxyFix` restitue la vraie IP cliente (`X-Forwarded-For`) et le protocole (`X-Forwarded-Proto`)."
+            },
+            {
+                "id": "q5-7",
+                "question": "Pourquoi voit-on presque toujours `/api/v1` pendant des années dans les grandes APIs mondiales, et dans quel cas précis doit-on créer `/api/v2` ?",
+                "options": [
+                    "Parce que 90 % des évolutions (ajouter un champ JSON optionnel ou une nouvelle route) sont rétrocompatibles (Non-Breaking) et restent dans /api/v1 ; on ne crée /api/v2 qu'en cas de Rupture de Contrat (Breaking Change : suppression/renommage de clé ou changement de type)",
+                    "Parce que le protocole HTTP interdit d'utiliser des chiffres supérieurs à 1 dans une URL",
+                    "Parce qu'il faut créer une nouvelle version (/api/v2, /api/v3...) chaque fois que l'on corrige un bug SQL",
+                    "Parce que Flask ne peut enregistrer qu'un seul Blueprint à la fois"
+                ],
+                "correct_index": 0,
+                "explanation": "Selon la Loi de Postel (*Tolerant Reader*), les clients existants ignorent les nouveaux champs JSON qu'ils ne connaissent pas (`v1` évolue donc sans casser). En revanche, changer `duree: 5` en `duree: {'valeur': 5}` est un *Breaking Change* qui impose de monter un second Blueprint `/api/v2`."
+            },
+            {
+                "id": "q5-8",
+                "question": "Lorsqu'on déploie `/api/v2/formations` en production, comment gère-t-on `/api/v1/formations` selon la norme IETF RFC 8594 ?",
+                "options": [
+                    "On maintient /api/v1 et /api/v2 en parallèle pendant une période de transition, en injectant sur /api/v1 les en-têtes HTTP 'Deprecation: true', 'Sunset: <Date>' et 'Link: rel=\"successor-version\"' avant de renvoyer '410 Gone' après la date Sunset",
+                    "On supprime immédiatement /api/v1 le jour même de la sortie de /api/v2 sans prévenir les clients",
+                    "On redirige toutes les requêtes /api/v1 avec un code 500 Internal Server Error",
+                    "On renomme la base de données SQLite en v2.db"
+                ],
+                "correct_index": 0,
+                "explanation": "La coexistence de deux Blueprints (`bp_v1` et `bp_v2`) accompagnée des en-têtes `Deprecation` et `Sunset` (RFC 8594) laisse aux applications mobiles et partenaires le temps de migrer vers `v2` sans interruption de service."
             }
         ]
     }

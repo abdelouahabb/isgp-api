@@ -1231,11 +1231,13 @@ def run_curl_command():
             i += 1
         elif tok in (
             "-X", "--request", "-H", "--header", "-d", "--data", "--data-raw",
-            "--data-urlencode", "--json", "-w", "--write-out", "-A", "--user-agent",
+            "--data-urlencode", "--json", "-F", "--form", "-w", "--write-out", "-A", "--user-agent",
             "-u", "--user", "-m", "--max-time", "--connect-timeout"
         ):
             if i + 1 >= len(tokens):
                 return jsonify({"output": "", "error": f"Argument manquant après '{tok}'."}), 400
+            if tok in ("-F", "--form") and "@" in tokens[i + 1]:
+                return jsonify({"output": "", "error": "Lecture de fichier local (@fichier) désactivée dans le bac à sable web."}), 400
             safe_args.extend([tok, tokens[i + 1]])
             i += 2
         elif tok.startswith("http://127.0.0.1:5000") or tok.startswith("http://localhost:5000") or tok.startswith("/api/"):
@@ -1452,6 +1454,698 @@ GET {{baseUrl}}/api/sandbox/ratelimit-demo
         mimetype="text/plain; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=isgp_api_bootcamp.http"}
     )
+
+
+def build_sandbox_openapi_spec():
+    """Construit la spécification officielle OpenAPI 3.0.3 de toutes les routes du laboratoire ISGP."""
+    return {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "ISGP — API Laboratoire Bootcamp (REST, AuthN/AuthZ, SQLite & Rate Limit)",
+            "version": "1.0.0",
+            "description": (
+                "Spécification officielle **OpenAPI 3.0.3** des routes d'entraînement du Bootcamp ISGP. "
+                "Utilisez le bouton **Authorize** ci-dessous pour configurer votre jeton `Bearer` "
+                "(obtenu via `POST /api/sandbox/auth/token`) ou la clé `X-API-Key: isgp-secret-2026`, "
+                "puis cliquez sur **Try it out** sur n'importe quelle route."
+            ),
+            "contact": {"name": "ISGP — Développement d'APIs et services web"},
+        },
+        "servers": [
+            {"url": "http://127.0.0.1:5000", "description": "Serveur Laboratoire Local"}
+        ],
+        "tags": [
+            {"name": "1. Diagnostic & Calculs", "description": "Routes de test et paramètres Query String"},
+            {"name": "2. Catalogue Formations (CRUD SQLite)", "description": "Opérations GET, POST, PUT, PATCH, DELETE avec Pagination et Idempotence"},
+            {"name": "3. Authentification (AuthN — 401)", "description": "Émission et vérification de Bearer Tokens signés et X-API-Key"},
+            {"name": "4. Autorisation (AuthZ — 403, RBAC, Scopes, BOLA)", "description": "Contrôle des rôles, scopes OAuth2 et propriété d'objet"},
+            {"name": "5. Résilience & Quotas (429)", "description": "Limitation de débit (Rate Limiting) par fenêtre glissante"},
+        ],
+        "components": {
+            "securitySchemes": {
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT / TimedSerializer",
+                    "description": "Collez ici le jeton `access_token` obtenu depuis `POST /api/sandbox/auth/token`.",
+                },
+                "ApiKeyAuth": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-API-Key",
+                    "description": "Clé d'API machine-à-machine. Valeur de démonstration : `isgp-secret-2026`",
+                },
+            },
+            "schemas": {
+                "Formation": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer", "example": 1},
+                        "titre": {"type": "string", "example": "Architecture API REST & Flask"},
+                        "formateur": {"type": "string", "example": "Équipe Pédagogique ISGP"},
+                        "duree_jours": {"type": "integer", "example": 5},
+                        "salle": {"type": "string", "example": "Salle A"},
+                    },
+                },
+                "FormationCreateInput": {
+                    "type": "object",
+                    "required": ["titre", "duree_jours"],
+                    "properties": {
+                        "titre": {"type": "string", "minLength": 3, "example": "Sécurité des APIs & OpenAPI 3.0"},
+                        "formateur": {"type": "string", "example": "Intervenant ISGP"},
+                        "duree_jours": {"type": "integer", "minimum": 1, "maximum": 30, "example": 5},
+                        "salle": {"type": "string", "example": "Salle B"},
+                    },
+                },
+                "LoginInput": {
+                    "type": "object",
+                    "required": ["identifiant", "mot_de_passe"],
+                    "properties": {
+                        "identifiant": {
+                            "type": "string",
+                            "enum": ["stagiaire", "formateur", "directeur"],
+                            "example": "stagiaire",
+                            "description": "Comptes disponibles : stagiaire (rôle stagiaire), formateur (rôle formateur), directeur (rôle admin)",
+                        },
+                        "mot_de_passe": {"type": "string", "example": "isgp2026"},
+                    },
+                },
+            },
+        },
+        "paths": {
+            "/api/sandbox/bonjour": {
+                "get": {
+                    "tags": ["1. Diagnostic & Calculs"],
+                    "summary": "Vérifier la disponibilité du serveur (Healthcheck simple)",
+                    "responses": {"200": {"description": "Service opérationnel"}},
+                }
+            },
+            "/api/sandbox/calcul-tva": {
+                "get": {
+                    "tags": ["1. Diagnostic & Calculs"],
+                    "summary": "Calculer un montant TTC via Query Parameters (?ht=...&taux=...)",
+                    "parameters": [
+                        {"name": "ht", "in": "query", "schema": {"type": "number", "default": 2500}, "description": "Montant Hors Taxes"},
+                        {"name": "taux", "in": "query", "schema": {"type": "number", "default": 19}, "description": "Taux de TVA (%)"},
+                    ],
+                    "responses": {"200": {"description": "Détail du calcul HT, TVA et TTC"}},
+                }
+            },
+            "/api/sandbox/formations": {
+                "get": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Lister les formations (avec Pagination, Filtrage et Tri)",
+                    "parameters": [
+                        {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+                        {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+                        {"name": "salle", "in": "query", "schema": {"type": "string"}, "description": "Filtrer par salle (ex: Salle A)"},
+                        {"name": "min_jours", "in": "query", "schema": {"type": "integer"}, "description": "Durée minimale en jours"},
+                        {"name": "tri", "in": "query", "schema": {"type": "string", "enum": ["id", "duree_jours", "titre"], "default": "id"}},
+                        {"name": "ordre", "in": "query", "schema": {"type": "string", "enum": ["asc", "desc"], "default": "asc"}},
+                    ],
+                    "responses": {"200": {"description": "Enveloppe paginée {meta, data}"}},
+                },
+                "post": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Créer une nouvelle formation (Validation RFC 7807 + Idempotency-Key)",
+                    "parameters": [
+                        {
+                            "name": "Idempotency-Key",
+                            "in": "header",
+                            "required": False,
+                            "schema": {"type": "string"},
+                            "description": "Clé UUID optionnelle évitant les doublons en cas de réessai réseau",
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FormationCreateInput"}}},
+                    },
+                    "responses": {
+                        "201": {"description": "Formation créée en base SQLite"},
+                        "422": {"description": "Erreur de validation métier (Format RFC 7807)"},
+                    },
+                },
+            },
+            "/api/sandbox/formations/{formation_id}": {
+                "get": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Consulter une formation par son ID",
+                    "parameters": [{"name": "formation_id", "in": "path", "required": True, "schema": {"type": "integer", "default": 1}}],
+                    "responses": {"200": {"description": "Formation trouvée"}, "404": {"description": "Formation introuvable"}},
+                },
+                "put": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Remplacer ou modifier une formation existante",
+                    "parameters": [{"name": "formation_id", "in": "path", "required": True, "schema": {"type": "integer", "default": 1}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FormationCreateInput"}}},
+                    },
+                    "responses": {"200": {"description": "Formation mise à jour"}, "404": {"description": "Formation introuvable"}},
+                },
+                "patch": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Modifier partiellement certains champs d'une formation",
+                    "parameters": [{"name": "formation_id", "in": "path", "required": True, "schema": {"type": "integer", "default": 1}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object", "example": {"salle": "Salle Conférence"}}}},
+                    },
+                    "responses": {"200": {"description": "Modification partielle appliquée"}, "404": {"description": "Formation introuvable"}},
+                },
+                "delete": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Supprimer une formation par son ID",
+                    "parameters": [{"name": "formation_id", "in": "path", "required": True, "schema": {"type": "integer", "default": 1}}],
+                    "responses": {"200": {"description": "Formation supprimée"}, "404": {"description": "Formation introuvable"}},
+                },
+            },
+            "/api/sandbox/auth/token": {
+                "post": {
+                    "tags": ["3. Authentification (AuthN — 401)"],
+                    "summary": "Émettre un Bearer Token signé (stagiaire, formateur ou directeur)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LoginInput"}}},
+                    },
+                    "responses": {
+                        "200": {"description": "Jeton signé émis avec rôle et scopes OAuth2"},
+                        "401": {"description": "Identifiants invalides"},
+                    },
+                }
+            },
+            "/api/sandbox/auth/profil": {
+                "get": {
+                    "tags": ["3. Authentification (AuthN — 401)"],
+                    "summary": "Consulter le profil décodé depuis le Bearer Token",
+                    "security": [{"BearerAuth": []}],
+                    "responses": {
+                        "200": {"description": "Identité vérifiée avec succès"},
+                        "401": {"description": "Jeton manquant, expiré ou signature invalide"},
+                    },
+                }
+            },
+            "/api/sandbox/admin-stats": {
+                "get": {
+                    "tags": ["3. Authentification (AuthN — 401)"],
+                    "summary": "Consulter les statistiques partenaires (Protégé par X-API-Key)",
+                    "security": [{"ApiKeyAuth": []}],
+                    "responses": {
+                        "200": {"description": "Clé X-API-Key valide (comparaison hmac.compare_digest)"},
+                        "401": {"description": "Clé X-API-Key absente ou invalide"},
+                    },
+                }
+            },
+            "/api/sandbox/authz-demo": {
+                "get": {
+                    "tags": ["4. Autorisation (AuthZ — 403, RBAC, Scopes, BOLA)"],
+                    "summary": "Démonstration complète : 401 (AuthN) vs 403 (AuthZ : RBAC, Scopes & Anti-BOLA)",
+                    "security": [{"BearerAuth": []}],
+                    "parameters": [
+                        {
+                            "name": "dossier_cible",
+                            "in": "query",
+                            "schema": {"type": "string", "enum": ["stagiaire", "formateur"]},
+                            "description": "Tester l'accès à un dossier pour observer la protection Anti-BOLA (OWASP #1)",
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "AuthN réussie ET AuthZ réussie (rôle admin ou propriétaire légitime)"},
+                        "401": {"description": "Échec AuthN : Appelant non authentifié"},
+                        "403": {"description": "Échec AuthZ : Identité connue mais rôle/scope insuffisant ou tentative BOLA bloquée"},
+                    },
+                }
+            },
+            "/api/sandbox/formulaire-formation": {
+                "post": {
+                    "tags": ["2. Catalogue Formations (CRUD SQLite)"],
+                    "summary": "Créer une formation via Formulaire HTML (request.form) ou JSON (Hybride)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/x-www-form-urlencoded": {
+                                "schema": {"$ref": "#/components/schemas/FormationCreateInput"}
+                            },
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/FormationCreateInput"}
+                            },
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Formation créée (via request.form ou request.get_json)"},
+                        "422": {"description": "Champ obligatoire manquant"},
+                    },
+                }
+            },
+            "/api/sandbox/ratelimit-demo": {
+                "get": {
+                    "tags": ["5. Résilience & Quotas (429)"],
+                    "summary": "Tester le limiteur de débit (Max 3 requêtes / 20 secondes)",
+                    "responses": {
+                        "200": {"description": "Requête acceptée (voir en-tête X-RateLimit-Remaining)"},
+                        "429": {"description": "Quota dépassé (Too Many Requests + en-tête Retry-After)"},
+                    },
+                }
+            },
+        },
+    }
+
+
+@app.route("/api/openapi.json", methods=["GET"])
+def api_openapi_json():
+    """Expose le contrat OpenAPI 3.0.3 en direct."""
+    handler_code = (
+        '@app.route("/api/openapi.json", methods=["GET"])\n'
+        "def api_openapi_json():\n"
+        "    return jsonify(build_sandbox_openapi_spec()), 200"
+    )
+    steps = [
+        "1. Génération du contrat normalisé OpenAPI 3.0.3 (info, servers, paths, components).",
+        "2. Exposition des schémas de sécurité BearerAuth (JWT) et ApiKeyAuth (X-API-Key).",
+        "3. Envoi du document JSON consommé par Swagger UI (/api/docs) et Postman (200 OK).",
+    ]
+    return make_traced_response(build_sandbox_openapi_spec(), 200, handler_code, steps)
+
+
+@app.route("/api/download/openapi-spec", methods=["GET"])
+def download_openapi_spec():
+    """Télécharge le contrat OpenAPI 3.0.3 sous forme de fichier .json."""
+    return Response(
+        json.dumps(build_sandbox_openapi_spec(), indent=2, ensure_ascii=False),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=isgp_api_bootcamp.openapi.json"},
+    )
+
+
+@app.route("/api/docs", methods=["GET"])
+def swagger_ui_portal():
+    """Portail interactif Swagger UI rendu via le template Jinja2 templates/swagger_ui.html."""
+    return render_template(
+        "swagger_ui.html",
+        page_title="Swagger UI — ISGP API Bootcamp (OpenAPI 3.0.3)",
+        header_title="ISGP — Portail Interactif Swagger UI (OpenAPI 3.0.3)",
+        openapi_url="/api/openapi.json",
+        demo_api_key="isgp-secret-2026",
+    )
+
+
+@app.route("/sandbox/formulaire-jinja", methods=["GET", "POST"])
+def sandbox_formulaire_jinja():
+    """Atelier interactif illustrant le traitement d'un formulaire HTML (request.form) et le rendu Jinja2."""
+    erreurs = []
+    message_succes = None
+    raw_form_payload = None
+    valeurs_saisies = {}
+
+    if request.method == "POST":
+        raw_form_payload = request.get_data(as_text=True)
+        titre = request.form.get("titre", "").strip()
+        formateur = request.form.get("formateur", "Intervenant ISGP").strip() or "Intervenant ISGP"
+        salle = request.form.get("salle", "Salle A").strip() or "Salle A"
+        duree_str = request.form.get("duree_jours", "")
+        valeurs_saisies = {
+            "titre": titre,
+            "formateur": formateur,
+            "duree_jours": duree_str,
+            "salle": salle,
+        }
+
+        try:
+            duree_jours = int(duree_str)
+        except (TypeError, ValueError):
+            duree_jours = 0
+
+        if len(titre) < 3:
+            erreurs.append("L'intitulé de la formation ('titre') doit comporter au moins 3 caractères.")
+        if not (1 <= duree_jours <= 30):
+            erreurs.append("La durée ('duree_jours') doit être un entier compris entre 1 et 30 jours.")
+
+        if not erreurs:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO formations (titre, formateur, duree_jours, salle) VALUES (?, ?, ?, ?)",
+                (titre, formateur, duree_jours, salle),
+            )
+            conn.commit()
+            new_id = cur.lastrowid
+            conn.close()
+            message_succes = f"La formation « {titre} » a été ajoutée en base SQLite (ID #{new_id}) via request.form !"
+            valeurs_saisies = {}
+
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM formations ORDER BY id DESC").fetchall()
+    conn.close()
+    formations = [dict(r) for r in rows]
+
+    status_code = 422 if erreurs else (201 if message_succes else 200)
+    return render_template(
+        "demo_formulaire_jinja.html",
+        formations=formations,
+        erreurs=erreurs,
+        message_succes=message_succes,
+        raw_form_payload=raw_form_payload,
+        valeurs_saisies=valeurs_saisies,
+    ), status_code
+
+
+@app.route("/api/sandbox/formulaire-formation", methods=["POST"])
+def api_sandbox_formulaire_formation():
+    """Endpoint démontrant la lecture de données de formulaire (request.form) vs JSON."""
+    content_type = request.headers.get("Content-Type", "")
+    if request.is_json:
+        source = request.get_json(silent=True) or {}
+        mode_detecte = "Payload JSON (request.get_json)"
+    else:
+        source = request.form
+        mode_detecte = "Formulaire HTML (request.form — application/x-www-form-urlencoded)"
+
+    titre = str(source.get("titre", "")).strip()
+    formateur = str(source.get("formateur", "Intervenant ISGP")).strip() or "Intervenant ISGP"
+    salle = str(source.get("salle", "Salle A")).strip() or "Salle A"
+    try:
+        duree_jours = int(source.get("duree_jours", 5))
+    except (TypeError, ValueError):
+        duree_jours = 5
+
+    handler_code = (
+        '@app.route("/api/sandbox/formulaire-formation", methods=["POST"])\n'
+        "def traiter_formulaire():\n"
+        '    # Lecture via request.form (ou request.get_json en mode hybride)\n'
+        '    titre = request.form.get("titre", "").strip()\n'
+        '    duree_jours = request.form.get("duree_jours", default=5, type=int)\n'
+        '    salle = request.form.get("salle", "Salle A").strip()'
+    )
+
+    if len(titre) < 3:
+        steps = [
+            f"1. Réception d'un formulaire HTTP ({content_type or 'application/x-www-form-urlencoded'}).",
+            "2. Lecture de request.form.get('titre') : titre absent ou trop court (< 3 caractères).",
+            "3. Rejet avec le statut 422 Unprocessable Entity.",
+        ]
+        return make_traced_response(
+            {
+                "erreur": "Champ de formulaire 'titre' manquant ou trop court dans request.form.",
+                "astuce_curl": 'curl -i -X POST http://127.0.0.1:5000/api/sandbox/formulaire-formation -d "titre=Flask+Jinja2&duree_jours=4&salle=Salle+B"',
+                "champs_recus_dans_request_form": dict(request.form),
+            },
+            422,
+            handler_code,
+            steps,
+        )
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO formations (titre, formateur, duree_jours, salle) VALUES (?, ?, ?, ?)",
+        (titre, formateur, duree_jours, salle),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+
+    steps = [
+        f"1. Décodage du corps ({mode_detecte}).",
+        f"2. Extraction de titre='{titre}', duree_jours={duree_jours}, salle='{salle}'.",
+        f"3. Insertion SQL paramétrée réussie (ID #{new_id}) et retour 201 Created.",
+    ]
+    return make_traced_response(
+        {
+            "message": "Formulaire HTML traité avec succès via request.form",
+            "mode_detecte": mode_detecte,
+            "content_type_recu": content_type,
+            "donnees_extraites_de_request_form": {
+                "id": new_id,
+                "titre": titre,
+                "formateur": formateur,
+                "duree_jours": duree_jours,
+                "salle": salle,
+            },
+        },
+        201,
+        handler_code,
+        steps,
+    )
+
+
+# ==============================================================================
+# 10. LABORATOIRE NGINX LOAD BALANCER (4 INSTANCES FLASK + FICHIERS STATIQUES)
+# ==============================================================================
+NGINX_CLUSTER_STATE = {
+    "algorithm": "round_robin",
+    "rr_index": 0,
+    "static_requests_served": 0,
+    "dynamic_requests_proxied": 0,
+    "errors_502": 0,
+    "nodes": [
+        {"id": "flask-node-1", "port": 8001, "addr": "127.0.0.1:8001", "pid": 24101, "weight": 3, "status": "UP", "requests": 0, "active_conns": 1},
+        {"id": "flask-node-2", "port": 8002, "addr": "127.0.0.1:8002", "pid": 24102, "weight": 1, "status": "UP", "requests": 0, "active_conns": 2},
+        {"id": "flask-node-3", "port": 8003, "addr": "127.0.0.1:8003", "pid": 24103, "weight": 1, "status": "UP", "requests": 0, "active_conns": 0},
+        {"id": "flask-node-4", "port": 8004, "addr": "127.0.0.1:8004", "pid": 24104, "weight": 1, "status": "UP", "requests": 0, "active_conns": 1},
+    ],
+    "logs": [
+        '[INIT] Nginx Master Process démarré sur 0.0.0.0:80 -> upstream isgp_flask_cluster (127.0.0.1:8001..8004) + alias /static/'
+    ],
+}
+
+
+def _read_cluster_file(filename):
+    path = os.path.join(os.path.dirname(__file__), "deploy_nginx_cluster", filename)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    return ""
+
+
+@app.route("/api/nginx-cluster/state", methods=["GET"])
+def get_nginx_cluster_state():
+    return jsonify({
+        "state": NGINX_CLUSTER_STATE,
+        "files": {
+            "nginx_conf": _read_cluster_file("nginx_isgp_cluster.conf"),
+            "instance_py": _read_cluster_file("instance_flask.py"),
+            "start_sh": _read_cluster_file("start_4_instances.sh"),
+            "docker_compose": _read_cluster_file("docker-compose.yml"),
+        },
+    }), 200
+
+
+@app.route("/api/nginx-cluster/toggle-node", methods=["POST"])
+def toggle_nginx_cluster_node():
+    data = request.get_json(silent=True) or {}
+    port = int(data.get("port", 0))
+    now_str = datetime.now().strftime("%H:%M:%S")
+    for n in NGINX_CLUSTER_STATE["nodes"]:
+        if n["port"] == port:
+            n["status"] = "DOWN" if n["status"] == "UP" else "UP"
+            etat_txt = (
+                f"[{now_str}] [NGINX HEALTHCHECK] Instance {n['id']} ({n['addr']}) marquée {n['status']} "
+                + ("(max_fails=3 atteint -> trafic basculé sur les instances restantes)" if n["status"] == "DOWN" else "(réintégrée dans le pool upstream)")
+            )
+            NGINX_CLUSTER_STATE["logs"].insert(0, etat_txt)
+            NGINX_CLUSTER_STATE["logs"] = NGINX_CLUSTER_STATE["logs"][:35]
+            break
+    return jsonify({"state": NGINX_CLUSTER_STATE}), 200
+
+
+@app.route("/api/nginx-cluster/reset", methods=["POST"])
+def reset_nginx_cluster_state():
+    NGINX_CLUSTER_STATE["rr_index"] = 0
+    NGINX_CLUSTER_STATE["static_requests_served"] = 0
+    NGINX_CLUSTER_STATE["dynamic_requests_proxied"] = 0
+    NGINX_CLUSTER_STATE["errors_502"] = 0
+    for idx, n in enumerate(NGINX_CLUSTER_STATE["nodes"]):
+        n["status"] = "UP"
+        n["requests"] = 0
+        n["active_conns"] = idx % 2
+    NGINX_CLUSTER_STATE["logs"] = [
+        f"[{datetime.now().strftime('%H:%M:%S')}] [RESET] Compteurs remis à zéro et les 4 instances Flask (8001..8004) sont UP."
+    ]
+    return jsonify({"state": NGINX_CLUSTER_STATE}), 200
+
+
+@app.route("/api/nginx-cluster/simulate", methods=["POST"])
+def simulate_nginx_cluster_requests():
+    data = request.get_json(silent=True) or {}
+    req_type = data.get("type", "dynamic")  # "dynamic" (/api/v1/formations) ou "static" (/static/styles.css)
+    count = min(20, max(1, int(data.get("count", 1))))
+    algorithm = data.get("algorithm", NGINX_CLUSTER_STATE["algorithm"])
+    client_ip = data.get("client_ip", "197.204.12.88").strip() or "197.204.12.88"
+    NGINX_CLUSTER_STATE["algorithm"] = algorithm
+
+    last_decision = None
+    now_str = datetime.now().strftime("%H:%M:%S")
+
+    for i in range(count):
+        if req_type == "static":
+            path = "/static/styles.css" if i % 2 == 0 else "/static/app.js"
+            NGINX_CLUSTER_STATE["static_requests_served"] += 1
+            log_line = (
+                f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
+                f'served_by=Nginx-Direct-Static-Sendfile (0 instance Flask sollicitée) total_time=0.0004s'
+            )
+            NGINX_CLUSTER_STATE["logs"].insert(0, log_line)
+            last_decision = {
+                "type": "static",
+                "path": path,
+                "status": 200,
+                "handled_by": "Nginx (location /static/ -> sendfile on)",
+                "flask_called": False,
+                "latency_ms": 0.4,
+            }
+        else:
+            path = "/api/v1/formations"
+            up_nodes = [n for n in NGINX_CLUSTER_STATE["nodes"] if n["status"] == "UP"]
+            if not up_nodes:
+                NGINX_CLUSTER_STATE["errors_502"] += 1
+                log_line = (
+                    f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=502 '
+                    f'error="no live upstreams while connecting to upstream isgp_flask_cluster"'
+                )
+                NGINX_CLUSTER_STATE["logs"].insert(0, log_line)
+                last_decision = {
+                    "type": "dynamic",
+                    "path": path,
+                    "status": 502,
+                    "handled_by": "Erreur 502 Bad Gateway (Les 4 instances Flask sont DOWN !)",
+                    "flask_called": False,
+                    "latency_ms": 1.2,
+                }
+                continue
+
+            if algorithm == "least_conn":
+                chosen = min(up_nodes, key=lambda n: (n["active_conns"], n["requests"]))
+                chosen["active_conns"] = (chosen["active_conns"] + 1) % 4
+            elif algorithm == "ip_hash":
+                hash_val = sum(ord(c) for c in client_ip)
+                chosen = up_nodes[hash_val % len(up_nodes)]
+            elif algorithm == "weighted":
+                weighted_pool = []
+                for n in up_nodes:
+                    weighted_pool.extend([n] * n.get("weight", 1))
+                idx = NGINX_CLUSTER_STATE["rr_index"] % len(weighted_pool)
+                chosen = weighted_pool[idx]
+                NGINX_CLUSTER_STATE["rr_index"] += 1
+            else:
+                # round_robin
+                idx = NGINX_CLUSTER_STATE["rr_index"] % len(up_nodes)
+                chosen = up_nodes[idx]
+                NGINX_CLUSTER_STATE["rr_index"] += 1
+
+            chosen["requests"] += 1
+            NGINX_CLUSTER_STATE["dynamic_requests_proxied"] += 1
+            log_line = (
+                f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
+                f'upstream_node={chosen["addr"]} ({chosen["id"]}, PID {chosen["pid"]}) upstream_time=0.008s'
+            )
+            NGINX_CLUSTER_STATE["logs"].insert(0, log_line)
+            last_decision = {
+                "type": "dynamic",
+                "path": path,
+                "status": 200,
+                "handled_by": f'{chosen["id"]} ({chosen["addr"]}, PID {chosen["pid"]})',
+                "node_port": chosen["port"],
+                "flask_called": True,
+                "latency_ms": 8.2,
+            }
+
+    NGINX_CLUSTER_STATE["logs"] = NGINX_CLUSTER_STATE["logs"][:35]
+    return jsonify({"state": NGINX_CLUSTER_STATE, "last_decision": last_decision}), 200
+
+
+# ==============================================================================
+# LABORATOIRE DE VERSIONING D'API : /api/v1 (Dépréciée RFC 8594) vs /api/v2
+# ==============================================================================
+
+@app.route("/api/v1/sandbox/formations", methods=["GET"])
+def sandbox_formations_v1_deprecated():
+    """
+    Contrat historique v1 (En phase de dépréciation selon IETF RFC 8594) :
+    - Schéma plat : "intitule" (str) et "duree" (int)
+    - En-têtes HTTP RFC 8594 : Deprecation, Sunset et Link (successor-version)
+    """
+    db = get_db()
+    rows = db.execute("SELECT id, titre, duree_jours, salle FROM formations ORDER BY id ASC").fetchall()
+    items_v1 = [
+        {
+            "id": r["id"],
+            "intitule": r["titre"],       # Ancien nom du champ en v1
+            "duree": r["duree_jours"],    # Entier simple en v1 (ex: 5)
+            "salle": r["salle"],
+        }
+        for r in rows
+    ]
+    resp = jsonify({
+        "version": "v1",
+        "statut_version": "DEPRECATED (Transition vers /api/v2/sandbox/formations)",
+        "avertissement_migration": (
+            "Cette version v1 reste opérationnelle pour ne pas casser les clients existants, "
+            "mais sera éteinte (410 Gone) après la date Sunset. Migrez vers /api/v2/sandbox/formations."
+        ),
+        "items": items_v1,
+    })
+    resp.headers["X-API-Version"] = "1.0"
+    resp.headers["Deprecation"] = "true"
+    resp.headers["Sunset"] = "Thu, 31 Dec 2026 23:59:59 GMT"
+    resp.headers["Link"] = '</api/v2/sandbox/formations>; rel="successor-version"'
+    return resp, 200
+
+
+@app.route("/api/v2/sandbox/formations", methods=["GET"])
+def sandbox_formations_v2_current():
+    """
+    Nouveau contrat v2 introduit suite à des Ruptures de Contrat (Breaking Changes) :
+    1. 'intitule' est renommé en 'titre'
+    2. 'duree' passe d'un entier (5) à un objet structuré {'valeur': 5, 'unite': 'jours', 'heures': 35}
+    3. Ajout d'une enveloppe normalisée {'meta': ..., 'data': ..., 'links': ...} avec pagination
+    """
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = min(50, max(1, request.args.get("per_page", 10, type=int)))
+    offset = (page - 1) * per_page
+
+    db = get_db()
+    total = db.execute("SELECT COUNT(*) AS c FROM formations").fetchone()["c"]
+    rows = db.execute(
+        "SELECT id, titre, duree_jours, salle FROM formations ORDER BY id ASC LIMIT ? OFFSET ?",
+        (per_page, offset),
+    ).fetchall()
+
+    data_v2 = [
+        {
+            "id": r["id"],
+            "titre": r["titre"],
+            "duree": {
+                "valeur": r["duree_jours"],
+                "unite": "jours",
+                "heures_pedagogiques": r["duree_jours"] * 7,
+            },
+            "localisation": {"salle": r["salle"], "campus": "ISGP Alger"},
+            "links": {"self": f"/api/sandbox/formations/{r['id']}"},
+        }
+        for r in rows
+    ]
+    resp = jsonify({
+        "meta": {
+            "version": "v2",
+            "page": page,
+            "per_page": per_page,
+            "total_items": total,
+            "breaking_changes_depuis_v1": [
+                "Champ 'intitule' renommé en 'titre'",
+                "Champ 'duree' transformé d'un int (5) en objet {'valeur', 'unite', 'heures_pedagogiques'}",
+                "Champ 'salle' déplacé dans l'objet 'localisation.salle'",
+                "Racine enveloppée dans {'meta', 'data', 'links'}",
+            ],
+        },
+        "data": data_v2,
+        "links": {
+            "self": f"/api/v2/sandbox/formations?page={page}&per_page={per_page}",
+            "predecessor_version": "/api/v1/sandbox/formations",
+        },
+    })
+    resp.headers["X-API-Version"] = "2.0"
+    return resp, 200
 
 
 if __name__ == "__main__":

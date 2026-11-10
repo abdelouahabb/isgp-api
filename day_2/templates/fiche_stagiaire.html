@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fiche Stagiaire #{{ stagiaire.id }} — ISGP</title>
+</head>
+<body>
+  <article class="fiche-stagiaire">
+    <h1>Stagiaire #{{ stagiaire.id }} : {{ stagiaire.prenom }} {{ stagiaire.nom }}</h1>
+    <p>Spécialité : <strong>{{ stagiaire.specialite }}</strong></p>
+    <p>Paramètre de chemin capturé par Flask : <code>&lt;int:stagiaire_id&gt; = {{ stagiaire.id }}</code></p>
+  </article>
+</body>
+</html>

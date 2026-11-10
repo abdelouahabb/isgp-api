@@ -14,6 +14,7 @@ from day_5.lesson_data import DAY_5_DATA
 from data.enrichment_d0_d1 import ENRICHMENT_D0_D1
 from data.enrichment_d2_d3 import ENRICHMENT_D2_D3
 from data.enrichment_d4_d5 import ENRICHMENT_D4_D5
+from data.mermaid_diagrams import MERMAID_DIAGRAMS
 
 ALL_ENRICHMENTS = {}
 ALL_ENRICHMENTS.update(ENRICHMENT_D0_D1)
@@ -31,10 +32,13 @@ DAYS_CURRICULUM = [
 
 for _day in DAYS_CURRICULUM:
     for _lesson in _day.get("lessons", []):
-        _enrichment = ALL_ENRICHMENTS.get(_lesson.get("id"))
+        _lid = _lesson.get("id")
+        _enrichment = ALL_ENRICHMENTS.get(_lid)
         if _enrichment:
             for _key, _val in _enrichment.items():
                 _lesson[_key] = _val
+        if _lid in MERMAID_DIAGRAMS:
+            _lesson["mermaid_diagram"] = MERMAID_DIAGRAMS[_lid]
 
 STARTER_FILES_CONTENT = {
     d["day_number"]: d["lessons"][-1]["code"] for d in DAYS_CURRICULUM

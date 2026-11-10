@@ -155,8 +155,106 @@ GLOSSARY_TERMS = [
     },
 
     # =========================================================================
+    # ADDENDUM 3 : TYPES MIME (CONTENT-TYPE / ACCEPT) & IMPLÉMENTATION FLASK
+    # =========================================================================
+    {
+        "id": "mime_content_type_accept_415",
+        "term": "Types MIME (Content-Type vs Accept), request.mimetype & Code 415",
+        "category": "Types MIME & Flask",
+        "level": "Fondamental",
+        "short": "Identifiant normalisé IANA (type/sous-type) décrivant le format exact d'un flux d'octets HTTP et pilotant la négociation de contenu dans Flask.",
+        "analogy": "L'étiquette réglementaire collée sur un conteneur maritime : 'Liquide', 'Poudre' ou 'Gaz'. Sans cette étiquette (Content-Type), le destinataire ne sait pas avec quel outil ouvrir le conteneur.",
+        "explanation": "- **`Content-Type`** : Indique le type MIME du corps actuellement transporté (ex: `application/json; charset=utf-8`). Dans Flask, `request.mimetype` renvoie le type pur (`'application/json'`) sans les paramètres (`charset`, `boundary`).\n- **`Accept`** : Envoyé par le client pour indiquer les formats de réponse qu'il accepte (`request.accept_mimetypes.best_match(['application/json', 'text/html'])`).\n- **Code `415 Unsupported Media Type`** : Code HTTP officiel à retourner lorsqu'un client envoie un `Content-Type` que votre route ne supporte pas.",
+        "code_example": '# Inspecter le type MIME entrant et rejeter proprement en 415 :\nif request.mimetype not in ("application/json", "application/x-www-form-urlencoded"):\n    return jsonify({"erreur": f"Type MIME {request.mimetype} non supporté"}), 415'
+    },
+    {
+        "id": "mime_json_vs_form_vs_multipart",
+        "term": "Types MIME d'Entrée (POST) : application/json vs x-www-form-urlencoded vs multipart/form-data",
+        "category": "Types MIME & Flask",
+        "level": "Cœur d'API",
+        "short": "Les trois grands types MIME utilisés pour envoyer des données à un serveur Flask lors d'une requête POST ou PUT.",
+        "analogy": "Trois façons de transmettre un dossier à l'administration : un fichier informatique structuré (`application/json`), un coupon-réponse papier (`application/x-www-form-urlencoded`), ou une pochette cartonnée contenant à la fois le coupon papier et des pièces jointes PDF (`multipart/form-data`).",
+        "explanation": "- **`application/json`** : Envoyé par `fetch()`, Axios, Mobile ou `curl -H 'Content-Type: application/json'`. Lu dans Flask via **`request.get_json(silent=True)`**.\n- **`application/x-www-form-urlencoded`** : Format par défaut d'un `<form method='POST'>` HTML ou de `curl -d 'a=1&b=2'`. Lu dans Flask via **`request.form.get('champ')`**.\n- **`multipart/form-data`** : Format d'un `<form method='POST' enctype='multipart/form-data'>` ou de `curl -F`. Texte dans **`request.form`**, fichiers binaires dans **`request.files`**.",
+        "code_example": 'if request.mimetype == "application/json":\n    data = request.get_json(silent=True) or {}\nelif request.mimetype in ("application/x-www-form-urlencoded", "multipart/form-data"):\n    data = request.form\n    fichier = request.files.get("document_pdf")'
+    },
+    {
+        "id": "mime_response_csv_xml_sse",
+        "term": "Émettre des Types MIME Personnalisés (Response : CSV, XML, Problem+JSON, SSE)",
+        "category": "Types MIME & Flask",
+        "level": "Cœur d'API",
+        "short": "Utilisation de l'objet Response(corps, status=..., mimetype=...) dans Flask pour retourner tout format autre que HTML ou JSON standard.",
+        "analogy": "Si `render_template()` est l'imprimante de brochures HTML et `jsonify()` l'emballeur de colis JSON, `Response(..., mimetype=...)` est l'atelier sur mesure capable d'expédier des feuilles Excel CSV, des actes XML ou un flux continu.",
+        "explanation": "- **`text/csv`** : Export de données tabulaires (combiné avec `Content-Disposition: attachment; filename=\"export.csv\"`).\n- **`application/problem+json`** : Réponses d'erreur normalisées selon le standard **RFC 7807**.\n- **`application/xml`** : Enveloppes SOAP ou flux XML.\n- **`text/event-stream`** : Flux temps réel **Server-Sent Events (SSE)** à partir d'un générateur Python (`yield f\"data: ...\\n\\n\"`).",
+        "code_example": 'from flask import Response\n\n@app.route("/api/export.csv")\ndef exporter_csv():\n    csv_data = "id,titre,duree\\n1,API REST,5\\n"\n    return Response(\n        csv_data,\n        mimetype="text/csv; charset=utf-8",\n        headers={"Content-Disposition": "attachment; filename=formations.csv"}\n    )'
+    },
+    {
+        "id": "mime_send_file_disposition_nosniff",
+        "term": "Fichiers Binaires (send_file : application/pdf, image/png) & X-Content-Type-Options: nosniff",
+        "category": "Types MIME & Flask",
+        "level": "Intermédiaire",
+        "short": "Transmission de fichiers binaires avec send_file(), contrôle de l'ouverture navigateur (inline vs attachment) et protection contre le MIME Sniffing.",
+        "analogy": "Envoyer un document PDF soit sous verre pour être lu sur place dans le navigateur (`inline`), soit dans une enveloppe scellée que le navigateur enregistre directement dans le dossier Téléchargements (`attachment`).",
+        "explanation": "- **`send_file(chemin_ou_bytesio, mimetype='application/pdf', as_attachment=...)`** :\n  - `as_attachment=False` (`Content-Disposition: inline`) : Le navigateur affiche le PDF ou l'image (`image/png`, `image/svg+xml`) directement dans l'onglet.\n  - `as_attachment=True, download_name='facture.pdf'` (`Content-Disposition: attachment`) : Force le téléchargement du fichier.\n- **Sécurité `X-Content-Type-Options: nosniff`** : Empêche un navigateur d'interpréter un fichier texte ou image uploadé par un utilisateur comme du code HTML/JavaScript exécutable.",
+        "code_example": 'import io\nfrom flask import send_file\n\n@app.route("/api/facture.pdf")\ndef facture_pdf():\n    buffer = io.BytesIO(b"%PDF-1.4 ...")\n    return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name="facture.pdf")'
+    },
+
+    # =========================================================================
+    # ADDENDUM 4 : CYCLE DE VIE D'API, VERSIONING (/api/v1 vs /api/v2) & RFC 8594
+    # =========================================================================
+    {
+        "id": "api_versioning_v1_vs_v2",
+        "term": "Pourquoi voit-on toujours /api/v1 et rarement /api/v2 ? (Loi de Postel & Assurance-Vie)",
+        "category": "Architecture Web",
+        "level": "Cœur d'API",
+        "short": "Explication architecturale de la longévité de /api/v1 (ajouts rétrocompatibles) et de l'obligation de préfixer par /v1 dès le premier jour.",
+        "analogy": "Construire une maison avec un compteur électrique prévu pour un 2e étage (/api/v1) : tant qu'on ajoute des meubles dans les pièces existantes (nouveaux champs JSON optionnels), on reste au 1er étage pendant 10 ans. Mais le jour où l'on doit refaire les fondations (Breaking Change), la réservation du 2e étage (/api/v2) évite de démolir le 1er pendant qu'il est habité.",
+        "explanation": "- **Pourquoi `v1` dure 5 à 10 ans (Loi de Postel / *Tolerant Reader*)** : Ajouter un champ JSON dans une réponse, ajouter une route ou un paramètre optionnel ne casse aucun client existant. 90 % des évolutions d'une API se font donc à l'intérieur de `/api/v1`.\n- **Pourquoi mettre `/api/v1` dès le Jour 1** : Si vous publiez `/api/formations` sans `/v1` dans 50 000 applications mobiles compilées, le jour où un changement incompatible survient, vous ne pouvez plus créer de nouvelle version sans casser l'URL existante.",
+        "code_example": '# Coexistence de /api/v1 et /api/v2 via deux Blueprints Flask :\nbp_v1 = Blueprint("v1", __name__, url_prefix="/api/v1/formations")\nbp_v2 = Blueprint("v2", __name__, url_prefix="/api/v2/formations")\napp.register_blueprint(bp_v1)\napp.register_blueprint(bp_v2)'
+    },
+    {
+        "id": "breaking_vs_non_breaking_changes",
+        "term": "Évolution Rétrocompatible (Non-Breaking) vs Rupture de Contrat (Breaking Change)",
+        "category": "Architecture Web",
+        "level": "Cœur d'API",
+        "short": "Distinction chirurgicale entre une modification qui préserve les clients v1 existants et une modification qui exige la création de /api/v2.",
+        "analogy": "Ajouter une colonne supplémentaire à la fin d'un catalogue imprimé ne gêne personne (Non-Breaking). En revanche, remplacer les prix en Dinars par un objet complexe ou supprimer la colonne 'Titre' fait planter tous les lecteurs automatiques (Breaking Change).",
+        "explanation": "- **Non-Breaking (Rester en `v1`)** : Ajouter une clé JSON en sortie, créer un nouvel endpoint (`GET /api/v1/certificats`), ajouter un query param optionnel (`?lang=fr`).\n- **Breaking Change (Exige `v2`)** : Renommer ou supprimer une clé JSON (`intitule` -> `titre`), changer le type d'une clé (`\"duree\": 5` -> `\"duree\": {\"valeur\": 5, \"unite\": \"jours\"}`), ou rendre un nouveau champ obligatoire en `POST`.",
+        "code_example": '# v1 (Schéma plat historique) :\n{"id": 1, "intitule": "Architecture API", "duree": 5}\n\n# v2 (Breaking Change sur le nom et le type des champs) :\n{"id": 1, "titre": "Architecture API", "duree": {"valeur": 5, "unite": "jours"}}'
+    },
+    {
+        "id": "rfc8594_deprecation_sunset_410",
+        "term": "Dépréciation d'API (Norme RFC 8594 : En-têtes Deprecation, Sunset, Link & Code 410 Gone)",
+        "category": "Architecture Web",
+        "level": "Cœur d'API",
+        "short": "Protocole standard IETF permettant d'avertir les clients qu'une version d'API (/api/v1) est en fin de vie avant son extinction définitive (410 Gone).",
+        "analogy": "Les panneaux d'information routiers posés 6 mois avant la fermeture d'un ancien pont : ils indiquent que le pont est en fin de vie (`Deprecation: true`), la date exacte de fermeture (`Sunset`), et la flèche vers le nouveau pont (`Link: </api/v2>; rel=\"successor-version\"`).",
+        "explanation": "- **`Deprecation: true`** : Indique aux clients et outils de monitoring que la route appelée est obsolète.\n- **`Sunset: Thu, 31 Dec 2026 23:59:59 GMT`** (RFC 8594) : Date HTTP officielle à laquelle `v1` cessera de fonctionner.\n- **`Link: </api/v2/formations>; rel=\"successor-version\"`** : Pointe vers la nouvelle version.\n- **`410 Gone`** : Code HTTP renvoyé une fois la date `Sunset` dépassée (contrairement à `404`, `410` signifie que la ressource a existé mais a été définitivement retirée).",
+        "code_example": '@formations_v1_bp.after_request\ndef avertir_depreciation_v1(response):\n    response.headers["Deprecation"] = "true"\n    response.headers["Sunset"] = "Thu, 31 Dec 2026 23:59:59 GMT"\n    response.headers["Link"] = \'</api/v2/formations>; rel="successor-version"\'\n    return response'
+    },
+    {
+        "id": "api_envelope_pagination_cursor_offset",
+        "term": "Enveloppe JSON (meta / data / links) & Pagination (Offset/Limit vs Cursor)",
+        "category": "Architecture Web",
+        "level": "Intermédiaire",
+        "short": "Structuration racine d'une réponse JSON de collection pour permettre l'évolution sans Breaking Change et la pagination haute performance.",
+        "analogy": "Ne jamais expédier des feuilles volantes sans chemise cartonnée : l'objet enveloppe `{\"meta\": ..., \"data\": [...]}` est la chemise sur laquelle on peut inscrire le numéro de page et le total sans toucher aux feuilles `data`.",
+        "explanation": "- **Pourquoi proscrire `[...]` à la racine** : Si `GET /api/v1/formations` renvoie directement un tableau JSON `[...]`, vous ne pourrez jamais ajouter `total_items` ou `next_page` sans casser le type racine (forçant une `v2`). Encapsulez toujours dans `{\"meta\": {...}, \"data\": [...]}`.\n- **Pagination `Offset/Limit` (`?page=2&per_page=20`)** : Simple (`LIMIT 20 OFFSET 20`), idéale pour les interfaces avec numéros de pages.\n- **Pagination par Curseur (`?after_id=1042&limit=20`)** : Utilise `WHERE id > 1042 LIMIT 20` (index SQL direct), indispensable sur des tables de millions de lignes ou des flux temps réel.",
+        "code_example": 'return jsonify({\n    "meta": {"version": "v2", "page": 1, "per_page": 20, "total_items": 145},\n    "data": formations,\n    "links": {"self": "/api/v2/formations?page=1", "next": "/api/v2/formations?page=2"}\n}), 200'
+    },
+
+    # =========================================================================
     # CATÉGORIE 3 : SÉCURITÉ & ARCHITECTURE API
     # =========================================================================
+    {
+        "id": "swagger_openapi_3",
+        "term": "Swagger UI (/api/docs), Swagger Editor & Spécification OpenAPI 3.0 (OAS)",
+        "category": "Architecture Web",
+        "level": "Cœur d'API",
+        "short": "Norme mondiale de contrat d'API (OpenAPI 3.0 JSON/YAML) et portail Web interactif (Swagger UI) permettant de documenter et tester une API dans le navigateur.",
+        "analogy": "OpenAPI 3.0 est le plan d'architecte coté et normalisé de l'immeuble (`openapi.json`), tandis que Swagger UI est la visite virtuelle interactive générée automatiquement à partir de ce plan (boutons « Authorize » et « Try it out »).",
+        "explanation": "- **OpenAPI Specification (OAS 3.0 / 3.1)** : Standard géré par la Linux Foundation décrivant formellement `info`, `servers`, `paths` (avec paramètres entre accolades `{id}`), `components.schemas` (`$ref`) et `components.securitySchemes` (`BearerAuth` JWT, `ApiKeyAuth` `X-API-Key`).\n- **Swagger UI (`/api/docs`)** : Portail HTML/JS qui lit `/api/openapi.json` et offre le bouton cadenas **« Authorize »** ainsi que le bouton **« Try it out »** sur chaque route.\n- **Import universel** : Le fichier `openapi.json` peut être importé en un clic dans Postman, Insomnia ou `openapi-generator` pour générer les SDK clients.",
+        "code_example": '# Route Flask exposant le contrat OpenAPI 3.0.3 :\n@app.route("/api/openapi.json")\ndef spec():\n    return jsonify({"openapi": "3.0.3", "info": {"title": "API ISGP", "version": "1.0.0"}, "paths": {...}})'
+    },
     {
         "id": "curl_postman_httpie",
         "term": "curl, Postman, HTTPie & REST Client (.http)",
@@ -246,6 +344,16 @@ GLOSSARY_TERMS = [
         "analogy": "Consulter un catalogue de 50 000 articles par pages de 20 résultats au lieu d'imprimer les 50 000 lignes d'un seul bloc.",
         "explanation": "Formule mathématique du découpage (Offset Pagination) :\n`offset = (page - 1) * limit`\nEn Python : `resultats[offset : offset + limit]`. En SQL : `LIMIT ? OFFSET ?`. L'API retourne une enveloppe contenant `meta` (`total_items`, `total_pages`, `has_next`) et `data`.",
         "code_example": 'page = max(1, request.args.get("page", 1, type=int))\nlimit = min(100, request.args.get("limit", 10, type=int))\noffset = (page - 1) * limit'
+    },
+    {
+        "id": "jinja2_forms_request_form",
+        "term": "Templates Jinja2 (render_template) & Formulaires HTML (request.form / request.files)",
+        "category": "Flask",
+        "level": "Cœur d'API",
+        "short": "Séparation propre du HTML dans le dossier templates/ avec Jinja2 et traitement des formulaires Web envoyés en application/x-www-form-urlencoded ou multipart/form-data.",
+        "analogy": "Jinja2 est le moule d'imprimerie (`.html`) dans lequel Flask injecte les variables Python (`{{ titre }}`) sans jamais mélanger le HTML dans le code Python. `request.form` est le guichet qui lit les bordereaux papier (`<form method='POST'>`), tandis que `request.get_json()` lit les colis électroniques JSON.",
+        "explanation": "- **Zéro HTML en dur dans Python** : On place les fichiers `.html` dans `templates/` et on appelle `render_template('page.html', formations=liste)`. Jinja2 échappe automatiquement `{{ variable }}` contre les failles XSS et permet les boucles `{% for %}` et conditions `{% if %}`.\n- **Lecture d'un formulaire `<form method='POST'>`** : Le navigateur envoie les champs munis d'un attribut `name='...'` sous le type `application/x-www-form-urlencoded`. Dans Flask, **`request.get_json()` vaut `None`** : on lit les données avec **`request.form.get('titre')`**.\n- **Upload de fichiers (`enctype='multipart/form-data'`)** : Lus via **`request.files.get('fichier')`** et sécurisés par `secure_filename()`.",
+        "code_example": '@app.route("/formations", methods=["GET", "POST"])\ndef page_formations():\n    if request.method == "POST":\n        titre = request.form.get("titre", "").strip()  # Lecture du <input name="titre">\n        duree = request.form.get("duree_jours", type=int)\n    return render_template("formations.html", formations=FORMATIONS)'
     },
     {
         "id": "path_variables_syntax",

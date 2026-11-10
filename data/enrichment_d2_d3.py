@@ -419,6 +419,111 @@ ENRICHMENT_D2_D3 = {
     },
 
     # =========================================================================
+    # JOUR 2 — CHAPITRE 2.5 : MOTEUR DE TEMPLATES JINJA2 & FORMULAIRES WEB HTML (REQUEST.FORM / REQUEST.FILES)
+    # =========================================================================
+    "d2-l5": {
+        "context": (
+            "Un service Web complet en entreprise ne se limite pas toujours à des échanges JSON entre machines : "
+            "très souvent, l'application Flask doit aussi afficher un **portail d'administration**, une **page de connexion** "
+            "ou un **formulaire de saisie** pour des opérateurs humains.\n"
+            "Or, deux erreurs reviennent constamment chez les développeurs débutants :\n"
+            "1. **Coder du HTML en dur dans les fichiers Python (`return f\"<h1>{titre}</h1>\"`)**, ce qui mélange la logique "
+            "métier et la présentation tout en ouvrant une faille critique d'injection JavaScript (**XSS — Cross-Site Scripting**).\n"
+            "2. **Essayer de lire un formulaire HTML `<form method=\"POST\">` avec `request.get_json()`**, qui renvoie alors "
+            "`None` car un navigateur soumettant un formulaire HTML n'envoie **pas** du JSON, mais le format "
+            "`application/x-www-form-urlencoded` lu par **`request.form`** (ou `multipart/form-data` lu par **`request.files`**) !"
+        ),
+        "deep_sections": [
+            {
+                "heading": "1. Le Moteur de Templates `Jinja2` (`render_template`) et la protection automatique Anti-XSS",
+                "body": (
+                    "Dans Flask, on ne construit **jamais** une page HTML par concaténation de chaînes dans le fichier `.py`. "
+                    "Tous les fichiers HTML sont placés dans le dossier dédié **`templates/`** et rendus par **`render_template(\"fichier.html\", ...)`** :\n"
+                    "- **Les expressions `{{ variable }}`** : Évaluent une variable ou un attribut Python (`{{ f.titre }}`) et l'insèrent dans la page.\n"
+                    "- **Sécurité automatique contre les failles XSS (*Auto-Escaping*)** : Si un attaquant saisit `<script>alert('Piraté')</script>` "
+                    "comme titre de formation, une f-string Python `f\"<td>{titre}</td>\"` exécuterait le script malveillant dans le navigateur de "
+                    "tous les visiteurs ! À l'inverse, **Jinja2 échappe automatiquement** les caractères spéciaux en `&lt;script&gt;...`, neutralisant l'attaque.\n"
+                    "- **Les structures de contrôle `{% ... %}`** : Permettent d'écrire des boucles (`{% for f in formations %} ... {% endfor %}`), "
+                    "des conditions (`{% if erreurs %} ... {% endif %}`) et de l'héritage de mise en page (`{% extends \"base.html\" %}` / `{% block content %}`)."
+                )
+            },
+            {
+                "heading": "2. Anatomie d'un Formulaire HTML (`<form method=\"POST\">`) : `request.form` vs `request.get_json()`",
+                "body": (
+                    "Comprenons exactement ce qu'envoie un navigateur Web lorsqu'un utilisateur remplit un formulaire `<form method=\"POST\" action=\"/formations\">` :\n"
+                    "- Chaque champ `<input name=\"titre\">`, `<input name=\"duree_jours\">`, `<select name=\"salle\">` est identifié par son attribut **`name=\"...\"`** "
+                    "(attention : l'attribut `id=\"...\"` ne sert qu'au CSS/JavaScript et n'est **jamais** envoyé au serveur !).\n"
+                    "- Au clic sur `<button type=\"submit\">`, le navigateur assemble une chaîne de paires `cle=valeur` séparées par `&` :\n"
+                    "  `titre=Architecture+API&duree_jours=5&salle=Salle+A`\n"
+                    "  accompagnée de l'en-tête HTTP : **`Content-Type: application/x-www-form-urlencoded`**.\n"
+                    "- Côté Flask :\n"
+                    "  - **`request.get_json()` vaut `None`** (car le corps n'est pas du JSON `{...}`).\n"
+                    "  - **`request.form`** contient le dictionnaire des champs soumis : `request.form.get(\"titre\")` et `request.form.get(\"duree_jours\", type=int)`."
+                )
+            },
+            {
+                "heading": "3. Envoi de Fichiers (`multipart/form-data` -> `request.files`) et Patron `PRG` (*Post/Redirect/Get*)",
+                "body": (
+                    "Deux mécanismes complémentaires sont indispensables pour maîtriser les formulaires en production :\n"
+                    "1. **Upload de fichiers (`enctype=\"multipart/form-data\"`)** : Dès qu'un formulaire contient `<input type=\"file\" name=\"document_pdf\">`, "
+                    "on ajoute `enctype=\"multipart/form-data\"` sur la balise `<form>`. Flask place alors les champs texte dans `request.form` et les fichiers "
+                    "binaires dans **`request.files.get(\"document_pdf\")`**. Avant d'enregistrer le fichier sur le disque (`fichier.save(...)`), il est "
+                    "obligatoire d'assainir son nom avec **`werkzeug.utils.secure_filename(fichier.filename)`** pour bloquer toute attaque *Path Traversal* (`../../etc/passwd`).\n"
+                    "2. **Le Patron `PRG` (*Post / Redirect / Get*)** : Après un `POST` réussi depuis un navigateur, renvoyer `return redirect(url_for(\"gerer_formations\"))` "
+                    "(code HTTP `302` / `303`) évite que l'utilisateur ne soumette le formulaire une seconde fois en appuyant sur la touche `F5` (Actualiser)."
+                )
+            }
+        ],
+        "architecture_diagram": (
+            "COMPARAISON DES 3 FORMATS D'ENVOI POST ET LEUR LECTURE DANS FLASK\n"
+            "=================================================================\n\n"
+            "  [1] FORMULAIRE HTML CLASSIQUE (<form method=\"POST\">)\n"
+            "      Header : Content-Type: application/x-www-form-urlencoded\n"
+            "      Body   : titre=API+Flask&duree_jours=5&salle=Salle+A\n"
+            "      Flask  : request.form.get(\"titre\")  |  Réponse : render_template(\"...\") ou redirect()\n\n"
+            "  [2] FORMULAIRE HTML AVEC FICHIER (<form method=\"POST\" enctype=\"multipart/form-data\">)\n"
+            "      Header : Content-Type: multipart/form-data; boundary=----WebKitFormBoundary...\n"
+            "      Flask  : Texte -> request.form.get(\"...\")  +  Fichier -> request.files.get(\"document_pdf\")\n\n"
+            "  [3] CLIENT API / FETCH JAVASCRIPT / MOBILE\n"
+            "      Header : Content-Type: application/json\n"
+            "      Body   : {\"titre\": \"API Flask\", \"duree_jours\": 5, \"salle\": \"Salle A\"}\n"
+            "      Flask  : request.get_json()         |  Réponse : jsonify({...}), 201"
+        ),
+        "reference_table": {
+            "title": "Tableau Comparatif : Formulaires Web HTML (`request.form` / `Jinja2`) vs API JSON (`request.get_json`)",
+            "headers": ["Caractéristique", "Formulaire HTML Classique", "Formulaire avec Fichier (Upload)", "Requête API REST (JSON)"],
+            "rows": [
+                ["En-tête `Content-Type`", "`application/x-www-form-urlencoded`", "`multipart/form-data`", "`application/json`"],
+                ["Objet de lecture dans Flask", "`request.form.get('champ')`", "`request.form` + `request.files.get('fichier')`", "`request.get_json(silent=True)`"],
+                ["Attribut HTML obligatoire", "`<input name=\"champ\">` (`name` et non `id`)", "`<form enctype=\"multipart/form-data\">`", "Clé de l'objet JSON `{\"champ\": ...}`"],
+                ["Fonction de réponse Flask", "`render_template('page.html', ...)` ou `redirect()`", "`render_template()` ou `jsonify()`", "`jsonify({...}), 201`"],
+                ["Commande `curl` équivalente", "`curl -X POST -d \"titre=Flask&jours=5\" URL`", "`curl -X POST -F \"doc=@cours.pdf\" URL`", "`curl -X POST -H \"Content-Type: application/json\" -d '{...}' URL`"]
+            ]
+        },
+        "pitfalls": [
+            {
+                "bad": "Écrire du HTML en dur dans Python (`return f'<h1>Bonjour {nom}</h1>'`) au lieu d'utiliser `render_template()`",
+                "good": "Placer tout le HTML dans `templates/fichier.html` et utiliser `render_template('fichier.html', nom=nom)`",
+                "why": "La concaténation HTML dans Python rend le code ingérable et expose l'application aux injections JavaScript (XSS), alors que Jinja2 échappe automatiquement les variables `{{ nom }}`."
+            },
+            {
+                "bad": "Mettre uniquement `<input id=\"titre\">` dans un formulaire HTML en oubliant l'attribut `name=\"titre\"`",
+                "good": "Toujours définir l'attribut `name=\"titre\"` sur chaque `<input>`, `<select>` et `<textarea>`",
+                "why": "Le navigateur n'envoie au serveur que les champs possédant un attribut `name` ; sans `name`, `request.form.get('titre')` vaudra toujours `None` !"
+            },
+            {
+                "bad": "Appeler `request.get_json()` pour lire les données d'un `<form method=\"POST\">` HTML standard",
+                "good": "Utiliser `request.form.get(...)` pour un formulaire HTML (ou tester `if request.is_json:` pour supporter les deux)",
+                "why": "Un formulaire HTML envoie `application/x-www-form-urlencoded`, donc `request.get_json()` renvoie `None`."
+            }
+        ],
+        "practical_exercises": [
+            "Ouvrez l'atelier interactif réel sur `/sandbox/formulaire-jinja` (bouton ci-dessous ou dans la barre d'outils), soumettez une nouvelle formation via le formulaire HTML et observez la trame `application/x-www-form-urlencoded` reçue dans `request.form`.",
+            "Testez également un envoi invalide (durée négative ou titre d'une seule lettre) pour observer comment la boucle Jinja2 `{% for err in erreurs %}` affiche les erreurs côté serveur."
+        ]
+    },
+
+    # =========================================================================
     # JOUR 3 — CHAPITRE 3.1 : CRUD MÉMOIRE, VALIDATION & RFC 7807 (400 vs 422)
     # =========================================================================
     "d3-l1": {

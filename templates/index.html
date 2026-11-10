@@ -7,7 +7,8 @@
   <title>ISGP — Développement d'APIs et services web</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
-  <link rel="stylesheet" href="/static/styles.css?v=17" />
+  <link rel="stylesheet" href="/static/styles.css?v=21" />
+  <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
   <!-- Barre de navigation compacte (type documentation technique) -->
@@ -29,10 +30,13 @@
         Client HTTP &amp; Inspecteur
       </button>
       <button class="tab-btn" data-tab="curl" onclick="switchTab('curl')">
-        curl &amp; Postman
+        curl, Postman &amp; Swagger
       </button>
       <button class="tab-btn" data-tab="runner" onclick="switchTab('runner')">
         Atelier Python
+      </button>
+      <button class="tab-btn" data-tab="nginx" onclick="switchTab('nginx')">
+        Déploiement &amp; Load Balancing
       </button>
       <button class="tab-btn" data-tab="glossary" onclick="switchTab('glossary')">
         Référentiel
@@ -261,18 +265,27 @@ print(json.dumps(stagiaire, indent=2, ensure_ascii=False))
       </div>
     </section>
 
-    <!-- ONGLET : LABORATOIRE CURL, POSTMAN, HTTPIE & REST CLIENT -->
+    <!-- ONGLET : LABORATOIRE CURL, POSTMAN, SWAGGER UI, HTTPIE & REST CLIENT -->
     <section id="tab-curl" class="tab-section">
       <div class="section-intro">
         <div>
-          <h2>Laboratoire <code>curl</code>, Postman, HTTPie &amp; VS Code REST Client</h2>
+          <h2>Laboratoire <code>curl</code>, Postman, Swagger UI (OpenAPI 3.0), HTTPie &amp; VS Code REST Client</h2>
           <p>
             En production, sur un serveur Linux en SSH ou dans un pipeline CI/CD, <code>curl</code> est l'outil universel pour diagnostiquer une API.
-            En développement local, on le complète avec <strong>Postman</strong> (collections graphiques), <strong>HTTPie</strong> ou l'extension <strong>REST Client (<code>.http</code>)</strong>.
+            En développement et intégration, on l'associe au portail interactif <strong>Swagger UI (<code>/api/docs</code>)</strong>, à <strong>Postman</strong>, <strong>HTTPie</strong> ou <strong>REST Client (<code>.http</code>)</strong>.
           </p>
         </div>
         <div class="btn-group">
-          <a class="btn-primary" href="/api/download/postman-collection" download>
+          <a class="btn-primary" href="/api/docs" target="_blank">
+            Ouvrir Swagger UI Interactif (/api/docs)
+          </a>
+          <a class="btn-secondary" href="/sandbox/formulaire-jinja" target="_blank">
+            Ouvrir Atelier Formulaire HTML &amp; Jinja2
+          </a>
+          <a class="btn-secondary" href="/api/download/openapi-spec" download>
+            Télécharger Contrat OpenAPI 3.0 (.json)
+          </a>
+          <a class="btn-secondary" href="/api/download/postman-collection" download>
             Télécharger Collection Postman (.json)
           </a>
           <a class="btn-secondary" href="/api/download/http-requests" download>
@@ -432,6 +445,35 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
           </div>
         </div>
       </div>
+
+      <!-- Partie 4 : SWAGGER UI & CONTRAT OPENAPI 3.0 -->
+      <div class="card" style="margin-top: 18px;">
+        <div class="card-header">
+          <div>
+            <h3>6. Documentation Interactive : Swagger UI (<code>/api/docs</code>) &amp; Contrat OpenAPI 3.0 (<code>/api/openapi.json</code>)</h3>
+            <p class="muted-small" style="margin: 2px 0 0 0;">
+              Standard mondial de documentation et de test interactif d'API REST (Chapitre 5.4 — <code>day_5/05_swagger_openapi_ui.py</code>).
+            </p>
+          </div>
+          <div class="btn-group">
+            <a class="btn-primary btn-sm" href="/api/docs" target="_blank">Ouvrir Swagger UI (/api/docs)</a>
+            <a class="btn-secondary btn-sm" href="/api/openapi.json" target="_blank">Inspecter /api/openapi.json</a>
+            <a class="btn-secondary btn-sm" href="/api/download/openapi-spec" download>Télécharger openapi.json</a>
+          </div>
+        </div>
+        <div class="explanation-list">
+          <div class="explanation-item">
+            <strong>1. Différence entre <code>OpenAPI 3.0</code> et <code>Swagger</code></strong> :
+            <strong>OpenAPI Specification (OAS 3.0.3)</strong> est la norme officielle (format du fichier <code>/api/openapi.json</code> ou <code>openapi.yaml</code> décrivant les <code>paths</code>, les paramètres <code>{id}</code>, les modèles <code>components.schemas</code> et les sécurités <code>securitySchemes</code>). <strong>Swagger UI</strong> est le portail Web interactif qui lit ce fichier JSON et génère automatiquement la page de test pour les développeurs.
+          </div>
+          <div class="explanation-item">
+            <strong>2. Comment utiliser le bouton cadenas <em>« Authorize »</em> et <em>« Try it out »</em> dans Swagger UI</strong> :<br/>
+            1. Cliquez sur <strong>Ouvrir Swagger UI (/api/docs)</strong> ci-dessus.<br/>
+            2. Cliquez sur le bouton vert <strong>Authorize</strong> en haut à droite : saisissez <code>isgp-secret-2026</code> dans <em>ApiKeyAuth (X-API-Key)</em> ou collez un jeton obtenu via <code>POST /api/sandbox/auth/token</code> dans <em>BearerAuth</em>.<br/>
+            3. Dépliez n'importe quelle route, cliquez sur <strong>Try it out</strong> puis sur <strong>Execute</strong> : Swagger UI forge et exécute l'appel HTTP réel et affiche même la commande <code>curl</code> correspondante !
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ONGLET 4 : RÉFÉRENTIEL & ADDENDUM TECHNIQUE (OPENSSL, LINUX & CONCEPTS) -->
@@ -450,9 +492,10 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
             oninput="renderGlossary()"
           />
           <select id="glossary-category" class="select-input" onchange="renderGlossary()">
-            <option value="ALL">Toutes les catégories (34 fiches)</option>
+            <option value="ALL">Toutes les catégories (40 fiches)</option>
             <option value="Cryptographie & OpenSSL">Addendum 1 — Cryptographie &amp; OpenSSL (Hachage, AES, RSA, TLS)</option>
             <option value="Linux & Réseau Prod">Addendum 2 — Commandes Linux, Réseau, Logs &amp; Production</option>
+            <option value="Types MIME & Flask">Addendum 3 — Types MIME (Content-Type / Accept) &amp; Flask</option>
             <option value="Sécurité & Architecture API">Sécurité, Tokens, AuthN/AuthZ &amp; Rate Limit</option>
             <option value="Architecture Web">Architecture Web, REST &amp; HTTP</option>
             <option value="Flask">Framework Flask, Blueprints &amp; WSGI</option>
@@ -538,6 +581,17 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-title">Arbre de Décision Cryptographique : Quelle Opération Choisir en Architecture d'API ?</div>
+          <pre class="mermaid">flowchart TD
+    Goal["Quel est votre besoin de sécurité sur la donnée ?"]
+    Goal -->|"Transporter des octets en texte ASCII\n(0 confidentialité)"| Enc["1. Encodage\nBase64 / Hex / URL-Encoding"]
+    Goal -->|"Vérifier l'intégrité d'un fichier\n(Irréversible, sans clé)"| Hash["2. Hachage Rapide\nSHA-256 / SHA-512"]
+    Goal -->|"Stocker un mot de passe utilisateur\nen base SQL (Irréversible + Lent)"| KDF["3. Hachage KDF Salé\nArgon2id / PBKDF2 / scrypt"]
+    Goal -->|"Prouver l'authenticité d'un Token JWT\nou d'un Webhook (Clé secrète)"| Sign["4. Signature Cryptographique\nHMAC-SHA256 (Symétrique) ou Ed25519/RSA (Asymétrique)"]
+    Goal -->|"Cacher un secret ou une sauvegarde\npour pouvoir le déchiffrer plus tard"| Cipher["5. Chiffrement Réversible\nAES-256-GCM/CBC (Symétrique) ou TLS 1.3"]</pre>
         </div>
 
         <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Les 14 Commandes <code>openssl</code> Indispensables en Terminal Linux</h4>
@@ -712,8 +766,556 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
         </div>
       </div>
 
-      <!-- GRILLE INTERACTIVE DES 33 FICHES DU RÉFÉRENTIEL -->
+      <!-- ADDENDUM PARTIE 3 : RÉFÉRENTIEL DES TYPES MIME & IMPLÉMENTATION DANS FLASK -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Addendum III — Référentiel des Types MIME (<code>Content-Type</code> / <code>Accept</code>) &amp; Comment les Utiliser dans Flask</h3>
+          <span class="step-badge">Types MIME &amp; Négociation HTTP</span>
+        </div>
+
+        <div class="doc-context-box" style="margin-bottom: 16px;">
+          <h4>Anatomie d'un Type MIME (<code>type/sous-type; paramètre=valeur</code> — RFC 6838 / IANA)</h4>
+          <div class="doc-context-text">
+            Sur le réseau HTTP, le corps d'un message (<code>Body</code>) n'est qu'une suite d'octets. C'est le <strong>Type MIME (*Multipurpose Internet Mail Extensions*)</strong> qui indique au destinataire comment interpréter ces octets :
+            <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+              <li><strong><code>Content-Type</code> (En-tête descriptif du corps envoyé)</strong> : Indique le format du corps actuel (ex: le client envoie <code>Content-Type: application/json</code> ou <code>application/x-www-form-urlencoded</code> dans son <code>POST</code> ; Flask répond avec <code>Content-Type: application/json</code> ou <code>text/html; charset=utf-8</code>).</li>
+              <li><strong><code>Accept</code> (En-tête de négociation du client)</strong> : Le client indique à Flask sous quel format il souhaite recevoir la réponse (ex: <code>Accept: application/json</code> pour un client mobile vs <code>Accept: text/html</code> pour un navigateur Web).</li>
+              <li><strong><code>Content-Disposition</code> (Comportement d'affichage vs téléchargement)</strong> : <code>inline</code> affiche le document (PDF, image) directement dans l'onglet du navigateur, tandis que <code>attachment; filename="rapport.pdf"</code> ouvre la boîte de dialogue de téléchargement.</li>
+              <li><strong><code>X-Content-Type-Options: nosniff</code> (Sécurité)</strong> : Interdit au navigateur de deviner le type d'un fichier par son contenu (*MIME Sniffing*), bloquant l'exécution de scripts malveillants déguisés en image ou en fichier texte.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-title">Cycle de Négociation des Types MIME dans Flask : Décodage Entrant (Content-Type) &amp; Sérialisation Sortante (Accept)</div>
+          <pre class="mermaid">flowchart LR
+    subgraph Entree["1. Requête Entrante (En-tête Content-Type)"]
+        CT_JSON["application/json"]
+        CT_FORM["application/x-www-form-urlencoded"]
+        CT_MULTI["multipart/form-data"]
+    end
+    subgraph FlaskCore["2. Extraction dans la Route Flask"]
+        R_JSON["request.get_json(silent=True)"]
+        R_FORM["request.form.get('champ')"]
+        R_FILES["request.form + request.files.get('doc')"]
+    end
+    subgraph Sortie["3. Réponse Sortante selon l'en-tête Accept"]
+        OUT_JSON["jsonify(data) -> application/json"]
+        OUT_HTML["render_template('page.html') -> text/html"]
+        OUT_CSV["Response(csv, mimetype='text/csv')"]
+        OUT_PDF["send_file(buf, mimetype='application/pdf')"]
+    end
+    CT_JSON --> R_JSON
+    CT_FORM --> R_FORM
+    CT_MULTI --> R_FILES
+    R_JSON --> Sortie
+    R_FORM --> Sortie
+    R_FILES --> Sortie</pre>
+        </div>
+
+        <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Matrice des 12 Types MIME Incontournables &amp; Leur Manipulation dans Flask</h4>
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Type MIME Officiel (IANA)</th>
+                <th style="width: 26%;">Lecture Entrante dans Flask (Requête Client &rarr; Serveur)</th>
+                <th style="width: 28%;">Émission Sortante par Flask (Réponse Serveur &rarr; Client)</th>
+                <th>Cas d'Usage en Architecture Web &amp; API</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. <code>application/json</code></strong><br/>(Standard API REST)</td>
+                <td><code>request.get_json(silent=True)</code><br/><span class="muted-small">(Vérifier avec <code>request.is_json</code>)</span></td>
+                <td><code>return jsonify(donnees), 200</code></td>
+                <td>Échange de données structurées entre API REST, applications mobiles, React/Vue et microservices.</td>
+              </tr>
+              <tr>
+                <td><strong>2. <code>application/problem+json</code></strong><br/>(Standard RFC 7807)</td>
+                <td><code>request.get_json(silent=True)</code></td>
+                <td><code>Response(json.dumps(err), status=422, mimetype="application/problem+json")</code></td>
+                <td>Format international normalisé pour les erreurs d'API (<code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>3. <code>application/x-www-form-urlencoded</code></strong><br/>(Formulaire HTML classique)</td>
+                <td><code>request.form.get("champ")</code><br/><code>request.form.getlist("choix")</code></td>
+                <td>Envoyé par <code>&lt;form method="POST"&gt;</code> ou <code>curl -d "a=1&amp;b=2"</code></td>
+                <td>Soumission de formulaires Web HTML (sans fichier) et requêtes de jetons OAuth2 (<code>grant_type=password</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>4. <code>multipart/form-data</code></strong><br/>(Formulaire + Upload Fichier)</td>
+                <td>Texte : <code>request.form.get("...")</code><br/>Fichier : <code>request.files.get("doc")</code></td>
+                <td>Envoyé par <code>&lt;form enctype="multipart/form-data"&gt;</code> ou <code>curl -F</code></td>
+                <td>Téléversement de fichiers (PDF, images, Excel) accompagnés de champs de formulaire texte.</td>
+              </tr>
+              <tr>
+                <td><strong>5. <code>text/html; charset=utf-8</code></strong><br/>(Page Web Jinja2)</td>
+                <td>N/A (Généré côté serveur)</td>
+                <td><code>return render_template("page.html", ...)</code></td>
+                <td>Pages Web rendues par le moteur de templates <strong>Jinja2</strong>, portails documentaires (Swagger UI).</td>
+              </tr>
+              <tr>
+                <td><strong>6. <code>text/plain; charset=utf-8</code></strong><br/>(Texte brut)</td>
+                <td><code>request.get_data(as_text=True)</code></td>
+                <td><code>Response("OK", mimetype="text/plain; charset=utf-8")</code></td>
+                <td>Journaux de logs (<code>.log</code>), collections <code>.http</code>, sondes de santé minimalistes (<code>/ping</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>7. <code>text/csv; charset=utf-8</code></strong><br/>(Tableur CSV)</td>
+                <td><code>csv.DictReader(io.StringIO(request.get_data(as_text=True)))</code></td>
+                <td><code>Response(csv_texte, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=export.csv"})</code></td>
+                <td>Export et import de tableaux comptables, listes d'inscriptions ou rapports compatibles Excel.</td>
+              </tr>
+              <tr>
+                <td><strong>8. <code>text/event-stream</code></strong><br/>(Flux temps réel SSE)</td>
+                <td>Connexion persistante ouverte par <code>new EventSource("/api/flux")</code></td>
+                <td><code>Response(generateur_sse(), mimetype="text/event-stream")</code></td>
+                <td>Notifications serveur temps réel (<strong>Server-Sent Events</strong>), progression de tâches ou streaming IA.</td>
+              </tr>
+              <tr>
+                <td><strong>9. <code>application/xml</code></strong><br/>(et <code>application/soap+xml</code>)</td>
+                <td><code>ElementTree.fromstring(request.data)</code></td>
+                <td><code>Response(xml_str, mimetype="application/xml")</code></td>
+                <td>Services Web historiques <strong>SOAP / WSDL</strong>, virements bancaires SEPA ISO 20022, flux RSS.</td>
+              </tr>
+              <tr>
+                <td><strong>10. <code>application/pdf</code></strong><br/>(Document PDF)</td>
+                <td><code>f = request.files.get("pdf")</code></td>
+                <td><code>send_file("attestation.pdf", mimetype="application/pdf", as_attachment=True)</code></td>
+                <td>Génération et téléchargement de factures, attestations de stage et convocations officielles.</td>
+              </tr>
+              <tr>
+                <td><strong>11. <code>image/png</code>, <code>image/jpeg</code>, <code>image/svg+xml</code></strong></td>
+                <td><code>img = request.files.get("photo")</code></td>
+                <td><code>send_file(buffer_img, mimetype="image/png")</code></td>
+                <td>Affichage d'avatars, graphiques statistiques générés à la volée, badges ou QR codes 2FA.</td>
+              </tr>
+              <tr>
+                <td><strong>12. <code>application/octet-stream</code></strong><br/>(Binaire générique)</td>
+                <td><code>octets = request.get_data()</code> (<code>bytes</code>)</td>
+                <td><code>Response(octets, mimetype="application/octet-stream")</code></td>
+                <td>Flux binaire brut (archives <code>.zip</code>, sauvegardes SQLite chiffrées <code>.db.enc</code>) forçant le téléchargement.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Modèles d'Implémentation Python / Flask : Lire, Négocier et Renvoyer chaque Type MIME</h4>
+        <pre class="code-block" style="margin: 0; font-size: 13.5px;">import csv, io, json
+from flask import Flask, Response, jsonify, render_template, request, send_file
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+
+# 1. INSPECTION DU TYPE MIME ENTRANT (POST : JSON vs Formulaire HTML vs Multipart vs Binaire)
+@app.route("/api/v1/ingestion-universelle", methods=["POST"])
+def ingerer_donnees_selon_mimetype():
+    # request.mimetype contient le type MIME pur sans les paramètres '; charset=utf-8' ou '; boundary=...'
+    mime_entrant = request.mimetype  # ex: "application/json", "application/x-www-form-urlencoded", "multipart/form-data"
+
+    if mime_entrant == "application/json":
+        donnees = request.get_json(silent=True) or {}
+        return jsonify({"source": "JSON", "recu": donnees}), 201
+
+    elif mime_entrant == "application/x-www-form-urlencoded":
+        # Envoyé par un <form method="POST"> HTML standard
+        donnees = dict(request.form)
+        return jsonify({"source": "Formulaire HTML (request.form)", "recu": donnees}), 201
+
+    elif mime_entrant == "multipart/form-data":
+        # Envoyé par un <form method="POST" enctype="multipart/form-data"> avec fichier
+        champ_titre = request.form.get("titre", "")
+        fichier = request.files.get("document")
+        nom_sain = secure_filename(fichier.filename) if fichier and fichier.filename else None
+        return jsonify({
+            "source": "Multipart (request.form + request.files)",
+            "titre": champ_titre,
+            "fichier_nom": nom_sain,
+            "fichier_mimetype": fichier.mimetype if fichier else None,
+        }), 201
+
+    return jsonify({"erreur": f"Type MIME '{mime_entrant}' non supporté (415 Unsupported Media Type)"}), 415
+
+
+# 2. NÉGOCIATION DE CONTENU (Header 'Accept') : Répondre en JSON, HTML (Jinja2) ou CSV sur la même route !
+@app.route("/api/v1/export-formations", methods=["GET"])
+def exporter_formations_multi_formats():
+    formations = [
+        {"id": 1, "titre": "Architecture API REST", "duree_jours": 5, "salle": "Salle A"},
+        {"id": 2, "titre": "Templates Jinja2 & Formulaires", "duree_jours": 3, "salle": "Salle B"},
+    ]
+    # Flask compare l'en-tête 'Accept' du client avec les formats que notre serveur sait produire :
+    meilleur_format = request.accept_mimetypes.best_match(
+        ["application/json", "text/csv", "text/html"], default="application/json"
+    )
+
+    if meilleur_format == "text/csv":
+        tampon = io.StringIO()
+        ecrivain = csv.DictWriter(tampon, fieldnames=["id", "titre", "duree_jours", "salle"])
+        ecrivain.writeheader()
+        ecrivain.writerows(formations)
+        return Response(
+            tampon.getvalue(),
+            status=200,
+            mimetype="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="formations_isgp.csv"'},
+        )
+
+    elif meilleur_format == "text/html":
+        return render_template("formations.html", formations=formations), 200
+
+    # Par défaut : application/json
+    return jsonify({"total": len(formations), "data": formations}), 200
+
+
+# 3. ENVOYER UN FICHIER BINAIRE (PDF, Image, Archive) EN MÉMOIRE AVEC send_file()
+@app.route("/api/v1/attestation.pdf", methods=["GET"])
+def telecharger_attestation_pdf():
+    octets_pdf = b"%PDF-1.4\n% Attestation officielle de reussite ISGP..."
+    flux_memoire = io.BytesIO(octets_pdf)
+    return send_file(
+        flux_memoire,
+        mimetype="application/pdf",
+        as_attachment=True,                  # True -> Content-Disposition: attachment (Télécharger)
+        download_name="attestation_isgp.pdf" # Nom du fichier proposé à l'utilisateur
+    )</pre>
+      </div>
+
+      <!-- ADDENDUM IV : INGÉNIERIE APPROFONDIE DU CYCLE DE VIE DES APIs (/api/v1 vs /api/v2, BREAKING CHANGES, RFC 8594) -->
+      <div class="card" style="margin-bottom: 18px; border-left: 4px solid #7c3aed;">
+        <div class="card-header">
+          <div>
+            <h3>Addendum IV — Cycle de Vie d'une API : Pourquoi voit-on presque toujours <code>/api/v1</code> et si rarement <code>/api/v2</code> ?</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Loi de Postel (<em>Tolerant Reader</em>), Changements Rétrocompatibles vs <em>Breaking Changes</em>, Coexistence Multi-Versions par Blueprints Flask, En-têtes de Dépréciation <strong>IETF RFC 8594 (<code>Deprecation</code> &amp; <code>Sunset</code>)</strong> et Enveloppe de Pagination
+            </p>
+          </div>
+          <span class="step-badge">Architecture &amp; Cycle de Vie API</span>
+        </div>
+
+        <!-- DIAGRAMME MERMAID : ARBRE DE DÉCISION ÉVOLUTION v1 VS CRÉATION v2 & TRANSITION RFC 8594 -->
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Arbre de Décision Architecturale : Rester sur /api/v1 (Additive Change) vs Créer /api/v2 (Breaking Change) &amp; Cycle RFC 8594</span>
+            <span class="mermaid-badge">Diagramme Vectoriel Mermaid</span>
+          </div>
+          <pre class="mermaid">flowchart LR
+    Change["Évolution demandée sur l'API"]
+    Check{"Les clients v1 existants\n(Apps Mobiles, Partenaires)\nvont-ils planter ?"}
+    StayV1["ÉVOLUTION RÉTROCOMPATIBLE (90% des cas)\n- Ajout d'un champ JSON optionnel\n- Ajout d'une nouvelle route (/api/v1/certificats)\n- Nouveau paramètre query optionnel (?lang=fr)\n-> ON RESTE SUR /api/v1 !"]
+    CreateV2["RUPTURE DE CONTRAT (Breaking Change)\n- Champ renommé ('intitule' -> 'titre') ou supprimé\n- Type modifié ('duree': 5 -> {'valeur': 5, 'unite': 'jours'})\n- Nouveau champ obligatoire en POST\n-> CRÉATION DU BLUEPRINT /api/v2 !"]
+    Coexist["Période de Coexistence (6 à 12 mois)\n/api/v1 (Headers Deprecation + Sunset RFC 8594)\n+ /api/v2 (Nouveau contrat) actifs en parallèle"]
+    Gone["Extinction de /api/v1 après la date Sunset\n-> Renvoie HTTP 410 Gone"]
+    Change --> Check
+    Check -->|"Non (Loi de Postel)"| StayV1
+    Check -->|"Oui (Rupture)"| CreateV2
+    CreateV2 --> Coexist --> Gone</pre>
+        </div>
+
+        <div class="two-col" style="margin-bottom: 14px; gap: 14px;">
+          <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px;">
+            <strong style="font-size: 14px; color: #0f172a; display: block; margin-bottom: 6px;">
+              1. Pourquoi <code>/api/v1</code> dure souvent 5 à 10 ans sans jamais passer en <code>v2</code> ?
+            </strong>
+            <p style="font-size: 13.5px; color: #334155; margin: 0 0 8px 0; line-height: 1.55;">
+              Dans les grandes APIs mondiales (OpenAI <code>/v1/chat/completions</code>, Stripe <code>/v1/charges</code>, Kubernetes <code>/apis/apps/v1</code>), on voit presque toujours <code>v1</code> parce que <strong>90 % de la vie d'une API se fait par ajouts rétrocompatibles (<em>Additive / Non-Breaking Changes</em>)</strong> :
+            </p>
+            <ul style="font-size: 13px; color: #334155; margin: 0; padding-left: 18px; line-height: 1.55;">
+              <li><strong>Loi de Postel (<em>Tolerant Reader Pattern</em>)</strong> : Lorsqu'on ajoute un nouveau champ <code>"certifiant": true</code> dans le JSON de <code>/api/v1/formations</code>, une application mobile codée il y a 2 ans qui lit uniquement <code>formation.intitule</code> ignore simplement la nouvelle clé sans planter.</li>
+              <li><strong>Pourquoi écrire <code>/api/v1</code> dès le Jour 1 alors ?</strong> C'est une <strong>assurance-vie architecturale</strong> : si vous publiez <code>/api/formations</code> sans <code>/v1</code> dans 50 000 téléphones et qu'un jour vous devez changer le type d'un champ, vous êtes bloqué. Avec <code>/api/v1</code> présent dès l'origine, vous montez <code>/api/v2</code> à côté sans casser <code>/api/v1</code> !</li>
+            </ul>
+          </div>
+
+          <div style="background: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 6px; padding: 12px 14px;">
+            <strong style="font-size: 14px; color: #4c1d95; display: block; margin-bottom: 6px;">
+              2. Quand faut-il obligatoirement créer <code>/api/v2</code> et comment déprécier <code>/api/v1</code> ?
+            </strong>
+            <p style="font-size: 13.5px; color: #334155; margin: 0 0 8px 0; line-height: 1.55;">
+              On ne crée <code>/api/v2</code> que lorsqu'une modification <strong>casse le code des clients existants (<em>Breaking Change</em>)</strong> : changement de type (<code>5</code> devient <code>{"valeur": 5, "unite": "jours"}</code>), renommage/suppression de clé, ou nouveau champ requis en <code>POST</code>.
+            </p>
+            <ul style="font-size: 13px; color: #334155; margin: 0; padding-left: 18px; line-height: 1.55;">
+              <li><strong>Coexistence par Blueprints Flask</strong> : Les deux Blueprints <code>bp_v1</code> et <code>bp_v2</code> tournent simultanément sur la même base SQLite/SQL.</li>
+              <li><strong>En-têtes HTTP de Dépréciation (Norme IETF RFC 8594)</strong> : Tant que <code>v1</code> est en sursis, le serveur injecte dans ses réponses : <code>Deprecation: true</code>, <code>Sunset: Thu, 31 Dec 2026 23:59:59 GMT</code> et <code>Link: &lt;/api/v2/formations&gt;; rel="successor-version"</code>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Nature du Changement</th>
+                <th style="width: 28%;">Exemples Concrets en JSON / HTTP</th>
+                <th style="width: 22%;">Impact sur les Clients <code>v1</code></th>
+                <th style="width: 28%;">Décision Architecturale</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ajout Rétrocompatible</strong><br><span class="muted">(Non-Breaking / Additive)</span></td>
+                <td>
+                  • Ajouter une clé JSON en sortie (<code>"niveau": "Avancé"</code>)<br>
+                  • Créer une nouvelle route <code>GET /api/v1/certificats</code><br>
+                  • Ajouter un filtre optionnel <code>?salle=Alger</code>
+                </td>
+                <td><strong>Aucun impact</strong> : les clients existants ignorent les clés/routes qu'ils n'utilisent pas.</td>
+                <td><strong>Rester sur <code>/api/v1</code></strong> (Ne jamais créer une <code>v2</code> pour un simple ajout !)</td>
+              </tr>
+              <tr>
+                <td><strong>Rupture de Contrat</strong><br><span class="muted">(Breaking Change)</span></td>
+                <td>
+                  • Renommer <code>"intitule"</code> en <code>"titre"</code><br>
+                  • Changer <code>"duree": 5</code> (int) en <code>"duree": {"valeur": 5, "unite": "jours"}</code><br>
+                  • Rendre un nouveau champ obligatoire dans <code>POST</code>
+                </td>
+                <td><strong>Crash immédiat</strong> (<code>KeyError</code>, <code>TypeError</code> ou rejet <code>422</code> sur les apps mobiles en production).</td>
+                <td><strong>Créer un Blueprint <code>/api/v2</code></strong> et maintenir <code>/api/v1</code> avec en-têtes <code>Deprecation</code> + <code>Sunset</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Piège de la Racine JSON</strong><br><span class="muted">(Liste brute vs Enveloppe)</span></td>
+                <td>
+                  • Mauvais : Renvoyer une liste brute <code>[ {...}, {...} ]</code><br>
+                  • Bon : Renvoyer <code>{"meta": {"total": 42, "page": 1}, "data": [...]}</code>
+                </td>
+                <td>Si la racine est une liste <code>[...]</code>, impossible d'ajouter <code>total</code> ou <code>next_cursor</code> sans casser la racine !</td>
+                <td>Toujours utiliser une <strong>enveloppe objet <code>{"meta": ..., "data": [...]}</code></strong> dès <code>/api/v1</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Les 4 Stratégies de Versioning</strong><br><span class="muted">(Où placer le numéro ?)</span></td>
+                <td>
+                  1. <strong>URI Path</strong> : <code>/api/v1/formations</code> (80 % des APIs)<br>
+                  2. <strong>Header Date</strong> : <code>X-API-Version: 2026-11-01</code> (Stripe)<br>
+                  3. <strong>MIME Accept</strong> : <code>Accept: application/vnd.isgp.v2+json</code><br>
+                  4. <strong>Query Param</strong> : <code>?version=2</code>
+                </td>
+                <td>Le versioning dans l'URI (<code>/api/v1/</code>) est le plus lisible dans <code>curl</code>, Swagger UI et les blocs <code>location</code> de Nginx.</td>
+                <td>Utiliser <strong><code>/api/v1/</code> dans l'URL</strong> pour les versions majeures, et un en-tête pour les sous-versions mineures.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Comparaison en Direct sur ce Serveur : Testez <code>GET /api/v1/sandbox/formations</code> vs <code>GET /api/v2/sandbox/formations</code>
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none;"># 1. Interroger la version historique v1 (Observez les en-têtes RFC 8594 Deprecation, Sunset et Link) :
+curl -i http://127.0.0.1:5000/api/v1/sandbox/formations
+# HTTP/1.1 200 OK
+# X-API-Version: 1.0
+# Deprecation: true
+# Sunset: Thu, 31 Dec 2026 23:59:59 GMT
+# Link: &lt;/api/v2/sandbox/formations&gt;; rel="successor-version"
+# {"version": "v1", "items": [{"id": 1, "intitule": "Architecture API REST", "duree": 5, "salle": "Salle A"}]}
+
+# 2. Interroger la nouvelle version v2 (Enveloppe meta/data/links + objet structuré 'duree' + pagination) :
+curl -i "http://127.0.0.1:5000/api/v2/sandbox/formations?page=1&amp;per_page=2"
+# HTTP/1.1 200 OK
+# X-API-Version: 2.0
+# {"meta": {"version": "v2", "page": 1, "per_page": 2, "total_items": 4},
+#  "data": [{"id": 1, "titre": "Architecture API REST",
+#            "duree": {"valeur": 5, "unite": "jours", "heures_pedagogiques": 35},
+#            "localisation": {"salle": "Salle A", "campus": "ISGP Alger"}}]}</pre>
+      </div>
+
+      <!-- GRILLE INTERACTIVE DES FICHES DU RÉFÉRENTIEL -->
       <div id="glossary-grid" class="glossary-grid"></div>
+    </section>
+
+    <!-- ONGLET DÉDIÉ : ARCHITECTURE DE PRODUCTION, REVERSE PROXY NGINX & LOAD BALANCING -->
+    <section id="tab-nginx" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Architecture de Production : Reverse Proxy Nginx, Répartition de Charge (Load Balancing) &amp; Haute Disponibilité</h2>
+          <p>
+            En production, on n'expose jamais un serveur Python unique directement sur Internet. <strong>Nginx</strong> est placé en frontal (Port 80/443) pour remplir deux missions critiques :
+            <strong>1) Servir directement les fichiers statiques (<code>/static/</code>)</strong> via le noyau Linux (<code>sendfile</code>) sans solliciter Python, et
+            <strong>2) Répartir les requêtes dynamiques (<code>/api/...</code> et Jinja2)</strong> entre <strong>4 instances Flask/Gunicorn (ports <code>8001</code> à <code>8004</code>)</strong> avec tolérance aux pannes automatique (<em>Zero-Downtime Failover</em>).
+          </p>
+        </div>
+      </div>
+
+      <!-- 1. DIAGRAMMES D'ARCHITECTURE MERMAID & RÈGLES D'INGÉNIERIE -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>1. Topologie d'Aiguillage Nginx : Délestage Statique (<code>location /static/</code>) vs Load Balancing (<code>upstream</code> 4 Nœuds WSGI)</h3>
+          <span class="step-badge">Architecture Production Linux</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="mermaid-container" style="margin-bottom: 0;">
+            <div class="mermaid-title">A. Topologie Reverse Proxy, Délestage Statique &amp; Pool Upstream (4 Instances)</div>
+            <pre class="mermaid">flowchart LR
+    Clients["Clients Web, Mobiles &amp; curl\n(HTTPS :443 / HTTP :80)"]
+    Nginx["NGINX FRONTAL\nReverse Proxy &amp; Load Balancer"]
+    StaticDisk[("Disque /static/\nstyles.css, app.js, images\n(Noyau Linux sendfile < 0.5ms)")]
+    subgraph Cluster["Pool Upstream : isgp_flask_cluster (4 Instances WSGI)"]
+        N1["Instance Flask #1\n127.0.0.1:8001 (Gunicorn)"]
+        N2["Instance Flask #2\n127.0.0.1:8002 (Gunicorn)"]
+        N3["Instance Flask #3\n127.0.0.1:8003 (Gunicorn)"]
+        N4["Instance Flask #4\n127.0.0.1:8004 (Gunicorn)"]
+    end
+    DB[("Base de Données\nSQLite WAL / PostgreSQL")]
+    Clients --> Nginx
+    Nginx -->|"Chemin A : GET /static/*\n(0% CPU Python sollicité)"| StaticDisk
+    Nginx -->|"Chemin B : /api/* &amp; Jinja2\n(least_conn / round-robin)"| N1
+    Nginx --> N2
+    Nginx --> N3
+    Nginx --> N4
+    N1 --> DB
+    N2 --> DB
+    N3 --> DB
+    N4 --> DB</pre>
+          </div>
+
+          <div class="mermaid-container" style="margin-bottom: 0;">
+            <div class="mermaid-title">B. Séquence de Basculement Automatique sur Panne (Zero-Downtime Failover)</div>
+            <pre class="mermaid">sequenceDiagram
+    participant C as Client HTTP
+    participant LB as Nginx (max_fails=3)
+    participant N1 as Node #1 (:8001)
+    participant N2 as Node #2 (:8002)
+    C->>LB: 1. GET /static/styles.css
+    LB-->>C: 200 OK direct depuis disque (sendfile, 0.4ms)
+    C->>LB: 2. GET /api/v1/formations
+    LB->>N1: proxy_pass (X-Forwarded-For, X-Real-IP)
+    N1--xLB: Panne / Timeout sur :8001 !
+    Note over LB,N2: proxy_next_upstream : Nginx bascule en transparence sur :8002
+    LB->>N2: Rejoue GET /api/v1/formations sur :8002
+    N2-->>LB: HTTP 200 OK (X-Flask-Instance: flask-node-2)
+    LB-->>C: HTTP 200 OK (Zéro erreur visible côté client !)</pre>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Algorithme Nginx (<code>upstream</code>)</th>
+                <th style="width: 26%;">Directive dans <code>nginx.conf</code></th>
+                <th>Principe d'Aiguillage &amp; Cas d'Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Round-Robin (Tourniquet)</strong></td>
+                <td><em>(Par défaut, aucune directive)</em></td>
+                <td>Distribue les requêtes séquentiellement dans l'ordre exact : <code>:8001</code> &rarr; <code>:8002</code> &rarr; <code>:8003</code> &rarr; <code>:8004</code> &rarr; <code>:8001</code>. Idéal lorsque toutes les requêtes ont un temps d'exécution similaire.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Least Connections</strong></td>
+                <td><code>least_conn;</code></td>
+                <td>Envoie chaque nouvelle requête à l'instance ayant actuellement <strong>le moins de connexions actives</strong>. <strong>Recommandé pour les APIs REST</strong> où certaines requêtes SQL sont plus longues que d'autres.</td>
+              </tr>
+              <tr>
+                <td><strong>3. IP Hash (Affinité client)</strong></td>
+                <td><code>ip_hash;</code></td>
+                <td>Calcule un hachage de l'adresse IP du client pour qu'un même utilisateur atterrisse toujours sur la même instance (utile uniquement si l'application stocke un état en mémoire locale).</td>
+              </tr>
+              <tr>
+                <td><strong>4. Weighted (Pondéré)</strong></td>
+                <td><code>server 127.0.0.1:8001 weight=3;</code></td>
+                <td>Attribue 3 fois plus de requêtes à l'instance <code>:8001</code> qu'aux autres (utile lors d'un déploiement progressif <em>Canary</em> ou sur des serveurs de puissances différentes).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. SIMULATEUR INTERACTIF DU CLUSTER NGINX + 4 INSTANCES FLASK -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>2. Simulateur Interactif de Répartition de Charge (4 Instances Flask <code>:8001..:8004</code>), Délestage Statique &amp; Pannes (Failover)</h3>
+          <div class="btn-group">
+            <button class="btn-secondary btn-sm" onclick="resetNginxCluster()">Réinitialiser le Cluster</button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; border-radius: 4px;">
+          <div style="flex: 1; min-width: 220px;">
+            <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px;">Algorithme de Load Balancing Nginx :</label>
+            <select id="nginx-algo-select" class="select-input input-full" onchange="simulateNginxTraffic('dynamic', 0)">
+              <option value="round_robin">Round-Robin (Tourniquet 8001 &rarr; 8002 &rarr; 8003 &rarr; 8004)</option>
+              <option value="least_conn">least_conn (Instance la moins chargée)</option>
+              <option value="weighted">Weighted Round-Robin (Node 1 :8001 avec weight=3)</option>
+              <option value="ip_hash">ip_hash (Affinité selon l'IP cliente)</option>
+            </select>
+          </div>
+          <div style="width: 190px;">
+            <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px;">IP Cliente simulée (<code>X-Real-IP</code>) :</label>
+            <input type="text" id="nginx-client-ip" class="input-full" value="197.204.12.88" />
+          </div>
+          <div class="btn-group" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="btn-primary" onclick="simulateNginxTraffic('dynamic', 1)">
+              Envoyer 1 Requête API (/api/v1/formations)
+            </button>
+            <button class="btn-primary" onclick="simulateNginxTraffic('dynamic', 12)">
+              Rafale de 12 Requêtes API (Load Balancing)
+            </button>
+            <button class="btn-secondary" onclick="simulateNginxTraffic('static', 4)">
+              Envoyer 4 Requêtes Statiques (/static/styles.css)
+            </button>
+          </div>
+        </div>
+
+        <!-- Compteurs globaux Nginx + Cartes des 4 instances -->
+        <div id="nginx-summary-banner" style="margin-bottom: 14px;"></div>
+        <div id="nginx-nodes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 16px;"></div>
+
+        <div>
+          <div class="label-row" style="margin-bottom: 6px;">
+            <h4 style="margin:0; font-size:15px;">Journal en direct de Nginx (<code>/var/log/nginx/isgp_cluster_access.log</code> — variable <code>$upstream_addr</code>)</h4>
+            <span class="muted-small">Cliquez sur « Simuler Panne (DOWN) » sur une instance ci-dessus pour observer le basculement automatique Nginx</span>
+          </div>
+          <pre id="nginx-live-logs" class="code-block" style="max-height: 210px; overflow-y: auto; margin: 0; font-size: 13px;"></pre>
+        </div>
+      </div>
+
+      <!-- 3. LES 4 FICHIERS RÉELS DE DÉPLOIEMENT (DANS deploy_nginx_cluster/) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>3. Fichiers Réels de Production Générés dans le Projet (<code>deploy_nginx_cluster/</code>)</h3>
+          <span class="step-badge">Prêt à déployer sous Linux &amp; Docker</span>
+        </div>
+
+        <p style="font-size: 15.5px; color: #374151; line-height: 1.65; margin: 0 0 14px 0;">
+          Les 4 fichiers complets ci-dessous sont présents dans le dossier <code>deploy_nginx_cluster/</code> de votre espace de travail. Vous pouvez les tester immédiatement sur votre machine Linux :
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">A. Configuration Nginx (<code>deploy_nginx_cluster/nginx_isgp_cluster.conf</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-conf')">Copier nginx.conf</button>
+            </div>
+            <pre id="code-nginx-conf" class="code-block" style="max-height: 420px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">B. Instance Flask + <code>ProxyFix</code> (<code>deploy_nginx_cluster/instance_flask.py</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-flask')">Copier instance_flask.py</button>
+            </div>
+            <pre id="code-nginx-flask" class="code-block" style="max-height: 420px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">C. Script Bash de Lancement des 4 Instances (<code>deploy_nginx_cluster/start_4_instances.sh</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-sh')">Copier start_4_instances.sh</button>
+            </div>
+            <pre id="code-nginx-sh" class="code-block" style="max-height: 340px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">D. Orchestration Multi-Conteneurs (<code>deploy_nginx_cluster/docker-compose.yml</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-compose')">Copier docker-compose.yml</button>
+            </div>
+            <pre id="code-nginx-compose" class="code-block" style="max-height: 340px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ONGLET 5 : ÉVALUATIONS PAR MODULE -->
@@ -733,6 +1335,6 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=17"></script>
+  <script src="/static/app.js?v=21"></script>
 </body>
 </html>

@@ -1,10 +1,11 @@
-const CACHE_NAME = "isgp-api-lab-v17";
+const CACHE_NAME = "isgp-api-lab-v21";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",
   "/static/icon.svg",
   "/static/styles.css",
   "/static/app.js",
+  "/static/mermaid.min.js",
   "/api/course-data"
 ];
 

@@ -37,10 +37,11 @@ DAY_1_DATA = {
             ],
             "code": _read("01_html_vs_json.py"),
             "line_explanations": [
-                {"lines": "6-14", "text": "Flux HTML : la donnée métier (`Alger`, `24`) est noyée dans des balises visuelles (`<div>`, `<h1>`)."},
-                {"lines": "17-27", "text": "Enveloppe SOAP/XML : structure hiérarchique stricte (`<soap:Envelope>`, `<soap:Body>`) avec espaces de noms (`xmlns`), beaucoup plus volumineuse en octets."},
-                {"lines": "30-35", "text": "Objet REST/JSON : concis, typé (chaînes, nombres entiers) et directement convertible en dictionnaire Python ou objet JavaScript."},
-                {"lines": "37-40", "text": "Comparaison de l'empreinte réseau en octets des trois formats pour une même information."}
+                {"lines": "11-12", "text": "Configuration du dossier `day_1/templates/` contenant le fichier HTML Jinja2 `meteo.html` (zéro HTML codé en dur dans Python)."},
+                {"lines": "23-26", "text": "Approche Web classique : `render_template('meteo.html', meteo=DONNEES_METEO)` injecte les données dans le gabarit HTML Jinja2."},
+                {"lines": "30-43", "text": "Enveloppe SOAP/XML historique : structure hiérarchique verbeuse (`<soap:Envelope>`, `<soap:Body>`) avec espaces de noms (`xmlns`)."},
+                {"lines": "47-49", "text": "Approche API REST moderne : `jsonify(DONNEES_METEO)` sérialise directement le dictionnaire en JSON léger (`application/json`)."},
+                {"lines": "52-63", "text": "Exécution comparative automatique mesurant la taille exacte en octets et le `Content-Type` des trois formats."}
             ],
             "sandbox_preset": {
                 "label": "Tester une réponse REST/JSON réelle : GET /api/sandbox/meteo?ville=Alger",
@@ -107,9 +108,9 @@ DAY_1_DATA = {
             ],
             "code": _read("04_trame_http_et_headers.py"),
             "line_explanations": [
-                {"lines": "7-14", "text": "Construction de la Request Line (`POST /api/v1/formations HTTP/1.1`) et des en-têtes standards (`Host`, `User-Agent`, `Accept`)."},
-                {"lines": "17-19", "text": "Calcul exact de `Content-Length` en octets UTF-8 (et non en nombre de caractères, car un caractère accentué comme `'é'` occupe 2 octets en UTF-8 !)."},
-                {"lines": "21", "text": "`\\r\\n\\r\\n` matérialise la ligne vide normalisée qui sépare l'enveloppe (Headers) de la charge utile (Body JSON)."}
+                {"lines": "10-23", "text": "Construction d'une trame brute HTTP/1.1 avec ligne de départ (`POST ... HTTP/1.1`), en-têtes (`Host`, `Content-Type`, `Content-Length`) et ligne vide obligatoire (`\\r\\n\\r\\n`)."},
+                {"lines": "26-35", "text": "Trame 1 (API JSON) : `Content-Type: application/json; charset=utf-8` — décodée par `request.get_json()` dans Flask."},
+                {"lines": "38-45", "text": "Trame 2 (Formulaire HTML `<form method='POST'>`) : `Content-Type: application/x-www-form-urlencoded` — décodée par `request.form` dans Flask."}
             ],
             "python_runner": {
                 "prompt": "Générez et inspectez la trame HTTP/1.1 brute exacte envoyée sur un socket réseau :",
@@ -176,9 +177,10 @@ DAY_1_DATA = {
             ],
             "code": _read("05_outils_curl_postman_httpie.py"),
             "line_explanations": [
-                {"lines": "20-23", "text": "`curl -s -i` interroge la route paginée en affichant les en-têtes HTTP de réponse (`HTTP/1.1 200 OK`, `Content-Type`, etc.)."},
-                {"lines": "26-29", "text": "L'option `-H 'X-API-Key: isgp-secret-2026'` injecte l'en-tête d'authentification requis par le serveur."},
-                {"lines": "32-41", "text": "Combinaison standard `-X POST -H 'Content-Type: application/json' -d '{...}'` pour envoyer un corps JSON et obtenir un Bearer Token."}
+                {"lines": "30-33", "text": "Test 1 : `curl -s -i` interroge la route paginée en affichant les en-têtes HTTP de réponse (`HTTP/1.1 200 OK`, `Content-Type`, etc.)."},
+                {"lines": "36-39", "text": "Test 2 : L'option `-H 'X-API-Key: isgp-secret-2026'` injecte l'en-tête d'authentification requis par le serveur."},
+                {"lines": "42-51", "text": "Test 3 : `-X POST -H 'Content-Type: application/json' -d '{...}'` envoie un corps JSON (lu par `request.get_json()`)."},
+                {"lines": "54-62", "text": "Test 4 : `-X POST -d 'titre=...&duree_jours=3'` envoie des données de formulaire HTML en `application/x-www-form-urlencoded` (lues par `request.form`)."}
             ],
             "sandbox_preset": {
                 "label": "Tester dans le Client HTTP ou ouvrir l'onglet 'curl & Postman'",

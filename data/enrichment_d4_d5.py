@@ -751,103 +751,124 @@ ENRICHMENT_D4_D5 = {
     },
 
     # =========================================================================
-    # JOUR 5 — CHAPITRE 5.2 : ARCHITECTURE MODULAIRE : BLUEPRINTS, APPLICATION FACTORY & VERSIONING
+    # JOUR 5 — CHAPITRE 5.2 : ARCHITECTURE MODULAIRE, BLUEPRINTS & CYCLE DE VIE API (/api/v1 vs /api/v2)
     # =========================================================================
     "d5-l2": {
         "context": (
-            "Écrire toute son API dans un seul fichier `app.py` est parfait pour un script de 150 lignes ou un exercice "
-            "pédagogique. Mais en entreprise, une API comporte rapidement **80 à 200 routes** réparties sur une dizaine "
-            "de domaines métier (catalogue des formations, gestion des étudiants, facturation, authentification, administration).\n"
-            "Un fichier `app.py` monolithique de 6 000 lignes devient impossible à maintenir : cinq développeurs qui "
-            "modifient le même fichier provoquent des conflits Git quotidiens, et l'importation croisée entre fichiers "
-            "déclenche le cauchemar classique de Flask : **`ImportError: cannot import name 'app' from partially initialized module` "
-            "(Importations circulaires)**.\n"
-            "Ce chapitre présente les trois patrons d'architecture officiels de Flask pour structurer une application "
-            "de taille industrielle : les **Blueprints**, l'**Application Factory (`create_app`)** et le **Versioning d'URL (`/api/v1/`)**."
+            "Deux questions fondamentales se posent dès qu'une API dépasse le stade du prototype :\n"
+            "1. **Comment organiser 150 routes en Python sans transformer `app.py` en un fichier illisible de 6 000 lignes** sujet "
+            "aux conflits Git et aux erreurs d'importations circulaires (`ImportError: cannot import name 'app'`) ?\n"
+            "2. **Pourquoi voit-on presque toujours `/api/v1/...` dans les APIs mondiales (OpenAI `/v1/`, Stripe `/v1/`, Kubernetes `/v1`) "
+            "et si rarement `/api/v2/...` ?** Et si `v2` est si rare, pourquoi est-il pourtant obligatoire de préfixer ses routes par `/api/v1` "
+            "dès le premier jour ?\n"
+            "Ce chapitre répond en profondeur à ces deux questions d'architecture industrielle à travers les **`Blueprints` Flask**, "
+            "l'**Application Factory (`create_app`)**, la distinction entre **Évolution Rétrocompatible (*Non-Breaking*)** et **Rupture de Contrat (*Breaking Change*)**, "
+            "ainsi que le protocole officiel de dépréciation **IETF RFC 8594 (`Deprecation` & `Sunset`)**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Découpage modulaire par domaine métier avec `flask.Blueprint`",
+                "heading": "1. Pourquoi voit-on presque toujours `/api/v1` et rarement `/api/v2` ? (Loi de Postel & *Tolerant Reader*)",
                 "body": (
-                    "Un **`Blueprint`** (littéralement « plan d'architecte ») est un composant Flask autonome qui regroupe un ensemble "
-                    "cohérent de routes, de décorateurs et de gestionnaires d'erreurs appartenant au même domaine fonctionnel, "
-                    "**sans avoir besoin d'une instance `app = Flask(__name__)` globale au moment où on l'écrit**.\n"
-                    "- Par exemple, dans `routes/formations.py`, on crée `bp_formations = Blueprint(\"formations\", __name__, url_prefix=\"/api/v1/formations\")`.\n"
-                    "- À l'intérieur de ce fichier, une route décorée par `@bp_formations.route(\"/<int:id>\")` répondra automatiquement "
-                    "à l'URL complète `/api/v1/formations/<int:id>` une fois le Blueprint branché sur l'application principale via "
-                    "`app.register_blueprint(bp_formations)`.\n"
-                    "- On peut même attacher un middleware (`@bp_admin.before_request`) qui ne s'exécutera **que** sur les routes de ce Blueprint précis !"
+                    "Dans l'industrie, une API bien conçue reste sur **`/api/v1` pendant 5 à 10 ans** parce que **90 % des évolutions fonctionnelles "
+                    "sont additives et rétrocompatibles (*Non-Breaking Changes*)** :\n"
+                    "- **Ce qui NE casse PAS les clients existants (On reste en `/api/v1`)** :\n"
+                    "  1. **Ajouter un nouveau champ** dans la réponse JSON (ex: ajouter `\"certifiant\": true` à un objet formation) : selon le patron "
+                    "*Tolerant Reader* (Loi de Postel), une application mobile ou React qui lit `data.intitule` ignore simplement les nouvelles clés JSON qu'elle ne connaît pas.\n"
+                    "  2. **Ajouter une nouvelle route** (ex: `GET /api/v1/certificats`).\n"
+                    "  3. **Ajouter un paramètre de requête optionnel** avec valeur par défaut (ex: `GET /api/v1/formations?lang=fr`).\n"
+                    "- **Ce qui CASSE les clients existants (*Breaking Changes* -> Obligation de créer `/api/v2`)** :\n"
+                    "  1. **Supprimer ou renommer une clé JSON existante** (ex: renommer `\"intitule\"` en `\"titre\"`).\n"
+                    "  2. **Changer le type de données d'un champ** (ex: en `v1`, `\"duree\": 5` est un entier ; en `v2`, `\"duree\": {\"valeur\": 5, \"unite\": \"jours\"}` "
+                    "devient un dictionnaire — tout client `v1` qui faisait `formation.duree * 7` plante immédiatement avec `TypeError` !).\n"
+                    "  3. **Exiger un nouveau champ obligatoire** dans le corps d'un `POST` ou `PUT` sans valeur par défaut côté serveur.\n"
+                    "  4. **Modifier la structure racine de la réponse** (ex: passer d'un tableau brut `[...]` à un objet enveloppe `{\"meta\": ..., \"data\": [...]}`).\n"
+                    "- **Pourquoi mettre `/api/v1` dès le Jour 1 (« L'Assurance-Vie Architecturale ») ?** Si vous lancez votre API sur `/api/formations` (sans `/v1`) "
+                    "et que 50 000 téléphones iOS/Android ont cette URL compilée en dur, le jour où survient une rupture de contrat, vous êtes piégé : "
+                    "vous ne pouvez pas modifier `/api/formations` sans faire planter les 50 000 téléphones. Avec `/api/v1/` présent dès l'origine, vous "
+                    "déployez `/api/v2/` à côté de `/api/v1/` sans aucune interruption de service !"
                 )
             },
             {
-                "heading": "2. Le patron de conception *Application Factory* (`def create_app(config=None):`)",
+                "heading": "2. Comment faire coexister `/api/v1` et `/api/v2` dans Flask et déprécier `v1` (Norme RFC 8594)",
                 "body": (
-                    "Au lieu de créer l'objet `app = Flask(__name__)` tout en haut du fichier au moment de l'importation du module Python, "
-                    "la norme industrielle consiste à l'encapsuler dans une fonction de fabrication appelée **`create_app()`** :\n"
-                    "1. **Élimination des imports circulaires** : Les Blueprints et extensions (`db`, `limiter`) sont définis dans leurs propres "
-                    "modules et rattachés proprement à l'intérieur de `create_app()`.\n"
-                    "2. **Isolation des tests automatisés** : Votre suite de tests unitaires peut appeler `create_app({\"TESTING\": True, \"DATABASE_URI\": \"sqlite:///:memory:\"})` "
-                    "pour créer une instance propre et isolée pour chaque test sans jamais toucher à la base de données de production.\n"
-                    "3. **Compatibilité native avec Gunicorn** : Le serveur de production Gunicorn sait appeler directement cette usine "
-                    "via la commande `gunicorn \"app:create_app()\"`."
+                    "Lorsqu'une version `/api/v2` est créée, on ne coupe **jamais** `/api/v1` brutalement : on ouvre une **période de coexistence et de transition** "
+                    "(généralement 6 à 12 mois) :\n"
+                    "1. **Deux Blueprints sur la même couche métier** : Dans Flask, `formations_v1_bp` (`url_prefix=\"/api/v1/formations\"`) et `formations_v2_bp` "
+                    "(`url_prefix=\"/api/v2/formations\"`) interrogent exactement la même base SQLite/PostgreSQL mais formatent le dictionnaire JSON différemment.\n"
+                    "2. **Signalement automatique de fin de vie via `@formations_v1_bp.after_request` (RFC 8594)** : Chaque réponse de `/api/v1` inclut "
+                    "trois en-têtes HTTP standards inspectés par les outils de supervision et les passerelles d'API :\n"
+                    "   - `Deprecation: true` : Signale officiellement que cette version de l'API est en fin de vie.\n"
+                    "   - `Sunset: Thu, 31 Dec 2026 23:59:59 GMT` : Indique la date et l'heure exactes d'extinction définitive.\n"
+                    "   - `Link: </api/v2/formations>; rel=\"successor-version\"` : Indique l'URL de la nouvelle version.\n"
+                    "3. **Extinction finale (`410 Gone`)** : Une fois la date `Sunset` dépassée et le trafic `v1` tombé à 0 % dans les logs Nginx, "
+                    "`/api/v1` renvoie le code HTTP **`410 Gone`** (Ressource définitivement retirée) avec un message pointant vers `/api/v2`."
                 )
             },
             {
-                "heading": "3. Versioning d'API (`/api/v1/` vs `/api/v2/`) et Sondes de Santé (`Liveness` vs `Readiness`)",
+                "heading": "3. Découpage modulaire (`Blueprint`), *Application Factory* (`create_app`) & Sondes (`Liveness`/`Readiness`)",
                 "body": (
-                    "Deux exigences supplémentaires distinguent une API industrielle d'un projet scolaire :\n"
-                    "- **Le Versioning d'API (`/api/v1/`)** : Une fois que 10 000 utilisateurs ont installé votre application mobile sur leur "
-                    "téléphone, vous ne pouvez plus renommer un champ JSON (ex: remplacer `\"prix\"` par `\"tarif_ht\"`) sans faire planter "
-                    "leurs applications qui ne sont pas encore mises à jour. En préfixant vos routes par `/api/v1/`, vous pouvez maintenir "
-                    "l'ancien contrat sur `/api/v1/formations` tout en déployant le nouveau format enrichi sur un second Blueprint `/api/v2/formations`.\n"
-                    "- **Les Sondes de Santé (*Healthchecks* pour Kubernetes / Load Balancers)** :\n"
-                    "  - `GET /api/health/live` (*Liveness Probe*) : Vérifie uniquement que le processus Python répond (`200 OK`). S'il ne répond plus, "
-                    "l'orchestrateur redémarre le conteneur.\n"
-                    "  - `GET /api/health/ready` (*Readiness Probe*) : Vérifie que la base de données SQL et les dépendances critiques sont joignables. "
-                    "En cas de panne BDD, renvoie `503 Service Unavailable` pour que le répartiteur de charge cesse d'envoyer du trafic à ce nœud."
+                    "Au-delà du versioning, l'industrialisation d'une application Flask repose sur trois piliers :\n"
+                    "- **Les `Blueprints` par domaine** : Chaque module (`web_bp`, `formations_v1_bp`, `formations_v2_bp`, `sante_bp`) encapsule ses routes, "
+                    "ses templates Jinja2 et ses middlewares sans dépendre d'une variable `app` globale.\n"
+                    "- **L'Application Factory (`def create_app(config=None):`)** : Instancie `Flask(__name__)` et appelle `app.register_blueprint(...)`. "
+                    "Supprime tout risque d'importation circulaire et permet à `pytest` ou `gunicorn \"app:create_app()\"` de créer des instances à la demande.\n"
+                    "- **Les Sondes de Santé (*Healthchecks*)** :\n"
+                    "  - `GET /api/health/live` (*Liveness Probe*) : Vérifie uniquement que le processus Python répond (`200 OK`).\n"
+                    "  - `GET /api/health/ready` (*Readiness Probe*) : Vérifie que la base de données SQL répond (`200 OK` ou `503 Service Unavailable`)."
                 )
             }
         ],
         "architecture_diagram": (
-            "ARBORESCENCE ET ARCHITECTURE APPLICATION FACTORY + BLUEPRINTS\n"
-            "=============================================================\n\n"
-            "  projet_api_isgp/\n"
-            "  |-- app_factory.py          ---> def create_app(config):\n"
-            "  |                                    app = Flask(__name__)\n"
-            "  |                                    app.register_blueprint(bp_v1_formations)\n"
-            "  |                                    app.register_blueprint(bp_v2_formations)\n"
-            "  |                                    app.register_blueprint(bp_health)\n"
-            "  |                                    return app\n"
-            "  |-- blueprints/\n"
-            "      |-- v1_formations.py    ---> Blueprint('v1_formations', url_prefix='/api/v1/formations')\n"
-            "      |-- v2_formations.py    ---> Blueprint('v2_formations', url_prefix='/api/v2/formations')\n"
-            "      |-- health.py           ---> Blueprint('health', url_prefix='/api/health')"
+            "COEXISTENCE MULTI-VERSIONS (/api/v1 DÉPRÉCIÉE + /api/v2) VIA BLUEPRINTS FLASK\n"
+            "=============================================================================\n\n"
+            "  Clients Historiques (App Mobile v1)            Nouveaux Clients (Portail Web / App v2)\n"
+            "  GET /api/v1/formations                         GET /api/v2/formations\n"
+            "            |                                              |\n"
+            "            v                                              v\n"
+            "  +--------------------------------------------------------------------------+\n"
+            "  | APPLICATION FACTORY : create_app()                                       |\n"
+            "  |                                                                          |\n"
+            "  |  [Blueprint formations_v1_bp]               [Blueprint formations_v2_bp] |\n"
+            "  |  url_prefix='/api/v1/formations'            url_prefix='/api/v2/...'     |\n"
+            "  |  + Headers RFC 8594 :                       + Enveloppe normalisée :     |\n"
+            "  |    Deprecation: true                          {\"meta\": {...},            |\n"
+            "  |    Sunset: Thu, 31 Dec 2026...                 \"data\": [{\"duree\": {      |\n"
+            "  |  + Schéma plat : {\"duree\": 5}                    \"valeur\": 5, ...}}]}    |\n"
+            "  +--------------------------------------------------------------------------+\n"
+            "                                    \\          /\n"
+            "                                     v        v\n"
+            "                      [ Couche Métier & Base SQLite Unique ]"
         ),
         "reference_table": {
-            "title": "Composants d'Architecture Modulaire Flask (`Blueprints`, `Factory`, `Probes`)",
-            "headers": ["Composant Architectural", "Syntaxe Flask", "Problème Résolu", "Usage en Production"],
+            "title": "Comparatif des 4 Stratégies de Versionnement d'API & Gestion des Changements",
+            "headers": ["Stratégie / Mécanisme", "Exemple Concret", "Avantages Majeurs", "Usage Industriel"],
             "rows": [
-                ["`Blueprint`", "`bp = Blueprint('nom', __name__, url_prefix='/api/v1/...')`", "Évite le fichier monolithique `app.py` de 5 000 lignes", "Un Blueprint par domaine fonctionnel ou par version d'API"],
-                ["`Application Factory`", "`def create_app(config=None): ... return app`", "Supprime les imports circulaires et permet d'instancier plusieurs configs", "Appelé par `pytest` en test et par `gunicorn 'app:create_app()'` en prod"],
-                ["Versioning d'URI", "`/api/v1/ressource` vs `/api/v2/ressource`", "Permet de faire évoluer le schéma JSON sans casser les clients existants", "Coexistence temporaire de `v1` (dépréciée) et `v2`"],
-                ["Sonde `Readiness`", "`GET /api/health/ready` (`200` ou `503`)", "Empêche le Load Balancer d'envoyer des clients vers un serveur sans BDD", "Interrogée toutes les 5 secondes par Nginx / Kubernetes / Cloud Run"]
+                ["1. Versioning dans l'URI (*Path Versioning*)", "`GET /api/v1/formations` vs `/api/v2/formations`", "Immédiatement visible (logs Nginx, navigateur, `curl`), routage Reverse Proxy trivial", "80 % des APIs REST publiques (OpenAI, Twilio, PayPal, Kubernetes)"],
+                ["2. Versioning par En-tête HTTP (*Header*)", "`X-API-Version: 2026-11-01` ou `Stripe-Version`", "URL permanente et immuable, permet un versionnement fin par date", "APIs financières et plateformes (Stripe, GitHub API)"],
+                ["3. Négociation MIME (*Accept Header*)", "`Accept: application/vnd.isgp.v2+json`", "Respecte strictement la théorie REST pure (Content Negotiation)", "Systèmes hypermédias stricts"],
+                ["4. En-têtes de Dépréciation (RFC 8594)", "`Deprecation: true` + `Sunset: <Date HTTP>`", "Permet aux clients de planifier leur migration de `v1` vers `v2` sans coupure brutale", "Toute API en phase de transition `v1 -> v2`"]
             ]
         },
         "pitfalls": [
             {
-                "bad": "Renommer ou supprimer un champ JSON existant directement sur la route en production sans changer de version d'API",
-                "good": "Créer une nouvelle version (`/api/v2/...`) pour toute modification non rétrocompatible (*Breaking Change*)",
-                "why": "Les applications mobiles déjà installées sur les téléphones des utilisateurs attendent l'ancien nom de champ et planteraient immédiatement."
+                "bad": "Créer `/api/v2`, `/api/v3`, `/api/v4` chaque fois qu'on ajoute un simple champ optionnel ou une nouvelle route",
+                "good": "Rester sur `/api/v1` pour tous les ajouts rétrocompatibles (*Additive Changes*) et réserver `/api/v2` aux vraies ruptures de contrat (*Breaking Changes*)",
+                "why": "Multiplier les versions majeures fragmente la maintenance serveur. Grâce à la Loi de Postel, `v1` peut évoluer par ajouts pendant des années."
             },
             {
-                "bad": "Définir un `Blueprint` sans jamais appeler `app.register_blueprint(mon_bp)` dans `create_app()`",
-                "good": "Enregistrer explicitement chaque Blueprint dans `create_app()` et vérifier `app.url_map`",
-                "why": "Un Blueprint non enregistré est totalement ignoré par Flask : toutes ses routes renvoient `404 Not Found`."
+                "bad": "Renommer une clé JSON (`intitule` -> `titre`) ou changer son type (`5` -> `{'valeur': 5}`) directement dans `/api/v1`",
+                "good": "Conserver l'ancien format sur `/api/v1` (avec les en-têtes `Deprecation` et `Sunset`) et publier la rupture de schéma sur `/api/v2`",
+                "why": "Modifier le contrat de `v1` en place provoque le crash immédiat des applications mobiles et scripts clients déjà déployés."
+            },
+            {
+                "bad": "Renvoyer une liste JSON brute `[ {...}, {...} ]` à la racine d'une route de collection",
+                "good": "Toujours encapsuler les collections dans un objet JSON `{\"meta\": {\"total\": 2}, \"data\": [ ... ]}` dès la `v1`",
+                "why": "Avec un objet racine `{...}`, vous pourrez ajouter plus tard la pagination (`meta.next_cursor`) sans casser la `v1`. Avec une liste brute `[...]`, ajouter des métadonnées oblige à casser la racine et à créer une `v2` !"
             }
         ],
         "practical_exercises": [
-            "Créez un Blueprint `bp_etudiants` avec le préfixe `/api/v1/etudiants`, attachez-lui un hook `@bp_etudiants.after_request` qui ajoute l'en-tête `X-API-Version: 1.0-deprecated` sur toutes ses réponses, et enregistrez-le dans `create_app()`.",
-            "Modifiez la sonde `GET /api/health/ready` pour qu'elle exécute une vraie requête SQL `SELECT 1` sur SQLite et mesure sa latence en millisecondes dans la réponse JSON."
+            "Dans le Sandbox HTTP ou avec `curl -i http://127.0.0.1:5000/api/v1/sandbox/formations`, inspectez les en-têtes HTTP de dépréciation (`Deprecation`, `Sunset`, `Link`), puis appelez `/api/v2/sandbox/formations` pour comparer la transformation du champ `duree`.",
+            "Ajoutez un décorateur ou middleware qui lit l'en-tête `Accept-Version: v2` ou `X-API-Version: 2.0` et aiguille automatiquement le format de sortie."
         ]
     },
 
@@ -973,9 +994,114 @@ ENRICHMENT_D4_D5 = {
     },
 
     # =========================================================================
-    # JOUR 5 — CHAPITRE 5.4 : OUVERTURE ARCHITECTURALE : SYNCHRONE (FLASK/WSGI) VS ASYNCHRONE (FASTAPI/ASGI)
+    # JOUR 5 — CHAPITRE 5.4 : DOCUMENTATION INTERACTIVE SWAGGER UI & CONTRAT OPENAPI 3.0
     # =========================================================================
     "d5-l4": {
+        "context": (
+            "Dans une entreprise où l'équipe Backend Python développe une API consommée par une équipe Mobile (iOS/Android), "
+            "une équipe Frontend (React/Vue) et des partenaires externes, comment communiquer la liste des URLs, les types "
+            "de chaque champ JSON et les jetons requis ?\n"
+            "Si vous rédigez un document Word ou un fichier PDF, **il devient obsolète dès la semaine suivante** dès qu'un "
+            "développeur ajoute ou modifie un champ dans `app.py`.\n"
+            "L'industrie mondiale a résolu ce problème grâce au standard **OpenAPI 3.0 (anciennement Swagger)** couplé au "
+            "portail Web interactif **Swagger UI (`/api/docs`)** : un contrat unique, lisible à la fois par les machines "
+            "et par les humains, permettant de tester chaque route en direct depuis le navigateur."
+        ),
+        "deep_sections": [
+            {
+                "heading": "1. Histoire et distinction exacte : `OpenAPI Specification (OAS)` vs `Swagger`",
+                "body": (
+                    "En entretien comme en réunion d'architecture, il est essentiel de connaître la distinction exacte entre ces deux termes :\n"
+                    "- **2010–2015 (*Swagger 1.0 et 2.0*)** : Créé initialement par Tony Tam chez Wordnik puis racheté par SmartBear.\n"
+                    "- **Novembre 2015 (Création de l'*OpenAPI Initiative*)** : SmartBear fait don de la spécification à la **Linux Foundation** "
+                    "(avec Google, Microsoft, IBM, Stripe). La norme s'appelle désormais officiellement **OpenAPI Specification (OAS 3.0 / 3.1)**.\n"
+                    "- **Aujourd'hui** :\n"
+                    "  - **`OpenAPI 3.0`** désigne la **règle / la grammaire standard** du fichier de contrat (`openapi.json` ou `openapi.yaml`).\n"
+                    "  - **`Swagger`** désigne la **boîte à outils** qui manipule ce fichier :\n"
+                    "    1. **`Swagger UI`** : L'application Web HTML/JS qui lit `/api/openapi.json` et génère le portail interactif avec les boutons *« Try it out »* et *« Authorize »*.\n"
+                    "    2. **`Swagger Editor`** : L'éditeur avec validation syntaxique en temps réel.\n"
+                    "    3. **`Swagger Codegen` / `OpenAPI Generator`** : L'outil qui génère automatiquement le code client (Python, TypeScript, Kotlin, Swift) ou une collection Postman à partir de `openapi.json`."
+                )
+            },
+            {
+                "heading": "2. Anatomie chirurgicale d'un contrat OpenAPI 3.0 (`paths`, `$ref`, `securitySchemes`)",
+                "body": (
+                    "Un document OpenAPI 3.0 (`openapi: \"3.0.3\"`) s'articule autour de cinq sections maîtresses :\n"
+                    "1. **`info` & `servers`** : Identifient le titre de l'API, sa version sémantique (`1.0.0`) et les URLs des environnements (Local, Staging, Production).\n"
+                    "2. **`paths` (Les routes avec syntaxe `{variable}`)** : Contrairement à Flask qui utilise `<int:id>` et Postman qui utilise `:id`, "
+                    "**OpenAPI impose les accolades `{id}`** (`/api/v1/formations/{id}`). Chaque chemin détaille les méthodes (`get`, `post`, `put`, `delete`), "
+                    "les `parameters` (`in: \"path\"`, `in: \"query\"`, `in: \"header\"`), le `requestBody` et toutes les `responses` (`200`, `201`, `401`, `403`, `422`).\n"
+                    "3. **`components.schemas` et les pointeurs `$ref`** : Au lieu de réécrire 15 fois la structure d'une `Formation` ou d'une `ErreurRFC7807`, "
+                    "on la définit une seule fois dans `components.schemas` et on la pointe partout avec `{\"$ref\": \"#/components/schemas/Formation\"}`.\n"
+                    "4. **`components.securitySchemes` (Le bouton cadenas *Authorize*)** : C'est cette section qui active le bouton **« Authorize »** en haut à droite "
+                    "de Swagger UI pour permettre de saisir un **`Bearer Token` JWT** (`type: \"http\", scheme: \"bearer\"`) ou une **`X-API-Key`** (`type: \"apiKey\", in: \"header\"`)."
+                )
+            },
+            {
+                "heading": "3. Comment intégrer Swagger UI dans Flask : Approche Native vs `Flasgger` / `Flask-Smorest`",
+                "body": (
+                    "Dans l'écosystème Flask, trois approches sont utilisées selon la taille du projet :\n"
+                    "1. **Approche Native Explicite (`/api/openapi.json` + `swagger-ui-dist`)** : Comme démontré dans `day_5/05_swagger_openapi_ui.py` et sur "
+                    "notre propre serveur (`/api/docs`), il suffit d'une route Flask renvoyant le JSON/YAML OpenAPI et d'une route HTML de 20 lignes "
+                    "chargeant `SwaggerUIBundle`. **Avantage** : zéro dépendance externe complexe, compatibilité totale avec toutes les versions de Python.\n"
+                    "2. **Extensions Flask dédiées (`Flask-Smorest`, `APIFlask`, `Flasgger`)** : Génèrent automatiquement `openapi.json` à partir de vos "
+                    "décorateurs et schémas `Marshmallow` ou `Pydantic`.\n"
+                    "3. **Approche *Contract-First* (Industrie bancaire & grands groupes)** : Le fichier `openapi.yaml` est écrit et validé **avant** toute "
+                    "ligne de Python, puis versionné dans Git comme source de vérité unique."
+                )
+            }
+        ],
+        "architecture_diagram": (
+            "ÉCOSYSTÈME OPENAPI 3.0 : UN SEUL CONTRAT POUR TOUS LES OUTILS\n"
+            "=============================================================\n\n"
+            "                    +-------------------------------------+\n"
+            "                    |   Serveur Flask (/api/openapi.json) |\n"
+            "                    |   Contrat OpenAPI 3.0.3 (JSON/YAML) |\n"
+            "                    +------------------+------------------+\n"
+            "                                       |\n"
+            "         +-----------------------------+-----------------------------+\n"
+            "         |                             |                             |\n"
+            "         v                             v                             v\n"
+            "  +--------------+             +---------------+             +---------------+\n"
+            "  |  SWAGGER UI  |             |  POSTMAN /    |             | OPENAPI       |\n"
+            "  |  (/api/docs) |             |  INSOMNIA     |             | GENERATOR     |\n"
+            "  |  Portail Web |             |  Import 1-clic|             | Génère les SDK|\n"
+            "  |  Interactif  |             |  Collection   |             | Mobile & Web  |\n"
+            "  +--------------+             +---------------+             +---------------+"
+        ),
+        "reference_table": {
+            "title": "Structure de Référence d'un Document OpenAPI 3.0 (`openapi.json`)",
+            "headers": ["Clé Racine OpenAPI 3.0", "Rôle dans le Contrat", "Exemple de Contenu", "Impact Visuel dans Swagger UI (`/api/docs`)"],
+            "rows": [
+                ["`openapi` & `info`", "Version de la norme et identité de l'API", "`\"openapi\": \"3.0.3\", \"info\": {\"title\": \"...\", \"version\": \"1.0.0\"}`", "Affiche l'en-tête principal, le badge de version et la description"],
+                ["`servers`", "Liste des URLs de base cibles", "`[{\"url\": \"http://127.0.0.1:5000\"}]`", "Alimente la liste déroulante *Servers* pour choisir où envoyer les requêtes"],
+                ["`paths`", "Catalogue des routes et méthodes HTTP", "`\"/api/v1/formations/{id}\": {\"get\": {...}}`", "Crée les bandeaux colorés dépliables (`GET` bleu, `POST` vert, `PUT` orange, `DELETE` rouge)"],
+                ["`components.schemas`", "Modèles de données JSON réutilisables (`$ref`)", "`\"Formation\": {\"type\": \"object\", \"properties\": {...}}`", "Alimente la section *Schemas* en bas de page et pré-remplit les exemples *Try it out*"],
+                ["`components.securitySchemes`", "Définition des mécanismes d'authentification", "`\"BearerAuth\": {\"type\": \"http\", \"scheme\": \"bearer\"}`", "Affiche le bouton cadenas vert **« Authorize »** en haut à droite et sur chaque route protégée"]
+            ]
+        },
+        "pitfalls": [
+            {
+                "bad": "Écrire `/api/v1/formations/<int:id>` (syntaxe Flask) à l'intérieur du fichier `openapi.json`",
+                "good": "Toujours utiliser la syntaxe entre accolades `/api/v1/formations/{id}` dans la section `paths` d'OpenAPI 3.0",
+                "why": "La norme OpenAPI (RFC 6570) ne reconnaît que `{id}` pour relier l'URL au paramètre `{\"name\": \"id\", \"in\": \"path\"}` dans Swagger UI."
+            },
+            {
+                "bad": "Laisser la documentation Swagger accessible publiquement en production sur une API interne critique sans authentification si elle expose l'architecture interne",
+                "good": "Protéger l'accès à `/api/docs` sur les APIs privées d'administration ou la réserver au réseau interne / portail développeur",
+                "why": "Sur une API privée non destinée au public, exposer `/api/openapi.json` facilite la phase de reconnaissance d'un attaquant."
+            }
+        ],
+        "practical_exercises": [
+            "Ouvrez le portail Swagger UI intégré à ce laboratoire (`/api/docs`), cliquez sur le bouton cadenas **« Authorize »**, entrez la clé `isgp-secret-2026` dans `ApiKeyAuth`, puis testez la route `GET /api/sandbox/admin-stats` avec **« Try it out »**.",
+            "Dans `day_5/05_swagger_openapi_ui.py`, ajoutez la documentation de la méthode `DELETE /api/v1/formations/{id}` sous la clé `paths[\"/api/v1/formations/{id}\"]` avec les réponses `200` et `404`."
+        ]
+    },
+
+    # =========================================================================
+    # JOUR 5 — CHAPITRE 5.5 : OUVERTURE ARCHITECTURALE : SYNCHRONE (FLASK/WSGI) VS ASYNCHRONE (FASTAPI/ASGI)
+    # =========================================================================
+    "d5-l5": {
         "context": (
             "Vous maîtrisez désormais l'intégralité du cycle de conception d'une API Web professionnelle avec **Flask** : "
             "protocole HTTP, architecture REST, persistance SQL atomique, authentification par jetons signés, autorisation "

@@ -1,41 +1,65 @@
 # Fichier : day_1/01_html_vs_json.py
-# Exécution : python day_1/01_html_vs_json.py
-# Objectif : Comparer les 3 formats historiques du Web (HTML, SOAP/XML, REST/JSON)
+# Exécution : .venv/bin/python day_1/01_html_vs_json.py
+# Objectif : Comparer les 3 formats du Web dans Flask :
+#   1. Page Web HTML rendue proprement via un template Jinja2 (day_1/templates/meteo.html)
+#   2. Service Web Historique SOAP (XML verbeux)
+#   3. API Web Moderne REST (JSON léger via jsonify)
 
-# 1. Page Web Classique (HTML) : Couplée à l'affichage visuel humain
-reponse_html = """
-<html>
-  <body>
-    <div class="carte-meteo">
-      <h1>Ville : Alger</h1>
-      <p>Température : 24 °C (Ensoleillé)</p>
-    </div>
-  </body>
-</html>
-"""
+import os
+from flask import Flask, Response, jsonify, render_template
 
-# 2. Service Web Historique SOAP (XML) : Verbeux, strict, utilisé en banque/télécom
-enveloppe_soap_xml = """
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <GetMeteoResponse xmlns="http://isgp.dz/ws/meteo">
-      <Ville>Alger</Ville>
-      <TemperatureCelsius>24</TemperatureCelsius>
-      <Condition>Ensoleillé</Condition>
-    </GetMeteoResponse>
-  </soap:Body>
-</soap:Envelope>
-"""
+# Flask charge automatiquement les fichiers HTML depuis le sous-dossier "templates/"
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
-# 3. API Web Moderne REST (JSON) : Léger, lisible, universellement supporté
-reponse_rest_json = {
+# Données métier partagées (indépendantes du format de sortie)
+DONNEES_METEO = {
     "ville": "Alger",
     "temperature_celsius": 24,
     "condition": "Ensoleillé",
-    "humidite_pourcent": 55
+    "humidite_pourcent": 55,
 }
 
-print(f"Taille HTML     : {len(reponse_html.strip())} octets")
-print(f"Taille SOAP/XML : {len(enveloppe_soap_xml.strip())} octets")
-print(f"Taille REST/JSON: {len(str(reponse_rest_json))} octets")
-print("\nDonnées REST/JSON prêtes pour tout client :", reponse_rest_json)
+
+# 1. APPROCHE WEB CLASSIQUE (HTML rendu par Jinja2 — Zéro HTML codé en dur dans Python)
+@app.route("/meteo/html", methods=["GET"])
+def meteo_page_html():
+    # render_template() injecte le dictionnaire dans le fichier day_1/templates/meteo.html
+    return render_template("meteo.html", meteo=DONNEES_METEO), 200
+
+
+# 2. APPROCHE HISTORIQUE SOAP / XML (Verbeuse, stricte, utilisée en banque/télécom)
+@app.route("/meteo/soap", methods=["GET"])
+def meteo_enveloppe_soap():
+    flux_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetMeteoResponse xmlns="http://isgp.dz/ws/meteo">
+      <Ville>{DONNEES_METEO['ville']}</Ville>
+      <TemperatureCelsius>{DONNEES_METEO['temperature_celsius']}</TemperatureCelsius>
+      <Condition>{DONNEES_METEO['condition']}</Condition>
+      <HumiditePourcent>{DONNEES_METEO['humidite_pourcent']}</HumiditePourcent>
+    </GetMeteoResponse>
+  </soap:Body>
+</soap:Envelope>"""
+    return Response(flux_xml, status=200, mimetype="application/xml")
+
+
+# 3. APPROCHE API MODERNE REST / JSON (Légère, découplée, universelle)
+@app.route("/api/v1/meteo", methods=["GET"])
+def meteo_api_json():
+    return jsonify(DONNEES_METEO), 200
+
+
+if __name__ == "__main__":
+    # Comparaison automatique des 3 formats grâce au client de test intégré à Flask
+    with app.test_client() as client:
+        rep_html = client.get("/meteo/html")
+        rep_soap = client.get("/meteo/soap")
+        rep_json = client.get("/api/v1/meteo")
+
+        print(f"1. HTML (Template Jinja2) : {len(rep_html.data)} octets | Content-Type: {rep_html.content_type}")
+        print(f"2. SOAP (Enveloppe XML)   : {len(rep_soap.data)} octets | Content-Type: {rep_soap.content_type}")
+        print(f"3. REST (Payload JSON)    : {len(rep_json.data)} octets | Content-Type: {rep_json.content_type}")
+        print("\nPayload REST/JSON prêt pour tout client (Web, Mobile, Python) :")
+        print(rep_json.get_json())
