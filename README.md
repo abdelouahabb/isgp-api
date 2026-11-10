@@ -12,7 +12,12 @@ Plateforme Web Progressive (**PWA**) et manuel de référence complet dédié au
 
 ## Contenu de Chaque Édition (Symétrie Complète sur les 3 Frameworks)
 
-- **Support de Cours Progressif (Jours 0 à 5 — 30 Chapitres)** : Fondations Python, pile réseau TCP/TLS/URI/HTTP, sérialisation JSON, validation, formulaires, authentification (`X-API-Key`, `Bearer HMAC/JWT`, cookies `HttpOnly` / `Secure` / `SameSite`), RBAC, Rate-Limiting (`429`), erreurs normalisées `RFC 7807`, versioning `v1`/`v2` (`RFC 8594` `Deprecation`/`Sunset`) et tests automatisés.
+- **Chapitre 0 — Prologue Littéraire & Grand Jargon des APIs (Avant Python — 4 Chapitres Narratifs)** :
+  - **0.1 — Histoire & Philosophie du Découplage** : *Information Hiding* de David Parnas (1972), le Mandat API de Jeff Bezos (2002), la thèse REST de Roy Fielding (2000), les 4 strates d'APIs (Syscalls OS, bibliothèques In-Process, IPC local, APIs réseau) et la comparaison des grands styles d'interfaces (REST, gRPC, GraphQL, Webhooks, SSE/WebSockets).
+  - **0.2 — Le Grand Jargon des APIs (15 Termes Démystifiés)** : Client/Serveur, Ressource vs Représentation, URI vs Endpoint vs Route, Headers vs Payload, Sérialisation/Désérialisation, `400` vs `422`, Content Negotiation (`406`/`415`), Statelessness, Idempotence & `Idempotency-Key`, Pagination `Offset` vs `Cursor`, Webhooks, SDK, Reverse Proxy/Load Balancer, Rate-Limit/Backpressure (`429`), Latence `p99` vs Throughput, et `SLI / SLO / SLA`.
+  - **0.3 — Contrats d'API, Documentation & Histoire de Swagger vs OpenAPI** : Contrat formel exécutable vs portail documentaire humain (*Documentation Drift*), *Contract-First* vs *Code-First*, Loi de Postel, *Breaking* vs *Non-Breaking* (`RFC 8594`), et la distinction historique entre la norme ouverte **OpenAPI (`OAS 3.1`, Linux Foundation)** et la suite d'outils **Swagger** (`Swagger Editor`, `Swagger UI`, `Swagger Codegen`).
+  - **0.4 — Géopolitique du Réseau : Nord-Sud vs Est-Ouest, Zero-Trust & Opérations Déléguées OAuth 2.0** : Frontière verticale Nord-Sud vs maillage latéral Est-Ouest (*Fan-Out*), fin du *Castle-and-Moats* -> **Zero-Trust**, **OAuth 2.0 (`RFC 6749`)** (*Valet Key* + `PKCE`) vs **OpenID Connect (`ID Token` vs `Access Token`)**, faille du *Confused Deputy* (1988) et **mTLS + Token Exchange (`RFC 8693` claim `act`)**.
+- **Support de Cours Python Progressif (Jours 0 à 5 — 30 Chapitres, soit 34 Chapitres au total avec le Chapitre 0)** : Fondations Python, pile réseau TCP/TLS/URI/HTTP, sérialisation JSON, validation, formulaires, authentification (`X-API-Key`, `Bearer HMAC/JWT`, cookies `HttpOnly` / `Secure` / `SameSite`), RBAC, Rate-Limiting (`429`), erreurs normalisées `RFC 7807`, versioning `v1`/`v2` (`RFC 8594` `Deprecation`/`Sunset`) et tests automatisés.
 - **Manuel de Référence I — Architecture API, Contrats, Nord-Sud vs Est-Ouest, OAuth 2.0 & Swagger (9 Chapitres + 2 Labos Interactifs)** :
   - **Fondations & Lexique de Précision** : Qu'est-ce qu'une API réellement (frontière de découplage OS Syscalls, PEP 249 In-Process, IPC, REST vs gRPC vs GraphQL vs Webhooks vs WebSockets) et définition rigoureuse des 12 termes clés (Ressource vs Représentation, Endpoint vs Route, Idempotence & `Idempotency-Key`, Statelessness, `400` vs `422`, `406` vs `415`, Pagination Cursor vs Offset, SLI/SLO/SLA).
   - **Contrat d'API vs Documentation d'API** : Spécification exécutable par machine (`OpenAPI 3.1`, `JSON Schema`, `Protobuf`, CI Spectral & Schemathesis) vs portail DX humain généré automatiquement pour éliminer le *Documentation Drift* ; *Contract-First* vs *Code-First*, Loi de Postel et gestion des *Breaking Changes*.
@@ -63,7 +68,7 @@ isgp-api/
 ├── requirements.txt         # Dépendances Python (Flask, FastAPI, Uvicorn, Tornado, HTTPX)
 ├── static/                  # Styles CSS, logique interactive JS (app.js), shim GitHub Pages, Mermaid, Service Worker PWA
 ├── templates/               # Portail comparatif de la trilogie (landing.html) et vues partagées
-├── flask-version/           # Volume I : 30 leçons, day_0..day_5, 3 manuels de réf., 69 fiches, 62 quiz, deploy_nginx_cluster/
-├── fastapi-version/         # Volume II : 30 leçons, day_0..day_5, 3 manuels de réf., 69 fiches, 62 quiz, deploy_nginx_cluster/
-└── tornado-version/         # Volume III : 30 leçons, day_0..day_5, 3 manuels de réf., 69 fiches, 62 quiz, deploy_nginx_cluster/
+├── flask-version/           # Volume I : Chap. 0 Littérature + 30 leçons Python (34 chap.), 3 manuels, 69 fiches, 62 quiz
+├── fastapi-version/         # Volume II : Chap. 0 Littérature + 30 leçons Python (34 chap.), 3 manuels, 69 fiches, 62 quiz
+└── tornado-version/         # Volume III : Chap. 0 Littérature + 30 leçons Python (34 chap.), 3 manuels, 69 fiches, 62 quiz
 ```

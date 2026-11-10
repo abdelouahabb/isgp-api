@@ -1,6 +1,6 @@
 """
-Agrégation des modules pédagogiques structurés par dossier :
-day_0/, day_1/, day_2/, day_3/, day_4/, day_5/
+Agrégation des modules pédagogiques structurés :
+Chapitre 0 (Prologue Littéraire & Jargon avant Python) + day_0/ à day_5/
 et fusion avec le Manuel de Référence Approfondi (enrichment_d0_d1, enrichment_d2_d3, enrichment_d4_d5).
 """
 
@@ -11,6 +11,7 @@ from day_3.lesson_data import DAY_3_DATA
 from day_4.lesson_data import DAY_4_DATA
 from day_5.lesson_data import DAY_5_DATA
 
+from data.chapter_0_literature import CHAPTER_0_LITERATURE
 from data.enrichment_d0_d1 import ENRICHMENT_D0_D1
 from data.enrichment_d2_d3 import ENRICHMENT_D2_D3
 from data.enrichment_d4_d5 import ENRICHMENT_D4_D5
@@ -22,6 +23,7 @@ ALL_ENRICHMENTS.update(ENRICHMENT_D2_D3)
 ALL_ENRICHMENTS.update(ENRICHMENT_D4_D5)
 
 DAYS_CURRICULUM = [
+    CHAPTER_0_LITERATURE,
     DAY_0_DATA,
     DAY_1_DATA,
     DAY_2_DATA,
@@ -41,5 +43,7 @@ for _day in DAYS_CURRICULUM:
             _lesson["mermaid_diagram"] = MERMAID_DIAGRAMS[_lid]
 
 STARTER_FILES_CONTENT = {
-    d["day_number"]: d["lessons"][-1]["code"] for d in DAYS_CURRICULUM
+    d["day_number"]: d["lessons"][-1].get("code", "")
+    for d in DAYS_CURRICULUM
+    if not d.get("is_literature_chapter")
 }

@@ -10,10 +10,10 @@ let COURSE_DATA = {
 
 let STATE = {
   activeTab: "course",
-  activeDay: 0,
-  activeLessonId: "d0-l1",
-  activeQuizDay: 0,
-  expandedDays: new Set([0]),
+  activeDay: -1,
+  activeLessonId: "c0-l1",
+  activeQuizDay: 8,
+  expandedDays: new Set([-1]),
   sidebarHidden: false,
   deferredPwaPrompt: null
 };
@@ -286,7 +286,7 @@ function renderDaysSidebar() {
               <span class="day-chevron">&#9662;</span>
               <span>${escapeHtml(day.badge)}</span>
             </span>
-            <code>${escapeHtml(day.folder)}/</code>
+            <code>${escapeHtml(day.sidebar_tag || (day.folder + "/"))}</code>
           </div>
           <div class="day-lessons-list">${lessonsHtml}</div>
         </div>
@@ -313,32 +313,51 @@ function renderActiveLesson() {
   const lesson =
     dayObj.lessons.find((l) => l.id === STATE.activeLessonId) || dayObj.lessons[0];
 
-  const filePath = lesson.file || dayObj.starter_filename;
-  const fileBasename = filePath.split("/").pop();
+  const filePath = lesson.file || dayObj.starter_filename || "";
+  const fileBasename = filePath ? filePath.split("/").pop() : "";
+  const quizTargetId = dayObj.quiz_id !== undefined ? dayObj.quiz_id : dayObj.day_number;
 
   const banner = document.getElementById("day-header-banner");
-  banner.innerHTML = `
-    <div>
-      <div class="day-banner-meta">${escapeHtml(dayObj.badge)} — Dossier : ${escapeHtml(dayObj.folder)}/</div>
-      <h2>${formatInlineText(dayObj.title)}</h2>
-      <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
-    </div>
-    <div class="btn-group">
-      <a class="btn-secondary" href="/api/day-file/${dayObj.day_number}/${encodeURIComponent(fileBasename)}?download=1&framework=${encodeURIComponent(getActiveFramework())}" download>
-        Télécharger ${escapeHtml(filePath)}
-      </a>
-      <button class="btn-primary" onclick="openDayQuiz(${dayObj.day_number})">
-        Évaluation Jour ${dayObj.day_number}
-      </button>
-    </div>
-  `;
+  if (dayObj.is_literature_chapter) {
+    banner.innerHTML = `
+      <div>
+        <div class="day-banner-meta">${escapeHtml(dayObj.badge)} — Lecture Fondamentale (Avant Python)</div>
+        <h2>${formatInlineText(dayObj.title)}</h2>
+        <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
+      </div>
+      <div class="btn-group">
+        <button class="btn-secondary" onclick="switchTab('architecture')">
+          Ouvrir les Labos Interactifs OAuth2 &amp; Swagger
+        </button>
+        <button class="btn-primary" onclick="openDayQuiz(${quizTargetId})">
+          Évaluation Chapitre 0
+        </button>
+      </div>
+    `;
+  } else {
+    banner.innerHTML = `
+      <div>
+        <div class="day-banner-meta">${escapeHtml(dayObj.badge)} — Dossier : ${escapeHtml(dayObj.folder)}/</div>
+        <h2>${formatInlineText(dayObj.title)}</h2>
+        <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
+      </div>
+      <div class="btn-group">
+        <a class="btn-secondary" href="/api/day-file/${dayObj.day_number}/${encodeURIComponent(fileBasename)}?download=1&framework=${encodeURIComponent(getActiveFramework())}" download>
+          Télécharger ${escapeHtml(filePath)}
+        </a>
+        <button class="btn-primary" onclick="openDayQuiz(${quizTargetId})">
+          Évaluation Jour ${dayObj.day_number}
+        </button>
+      </div>
+    `;
+  }
 
   const detailContainer = document.getElementById("lesson-detail-container");
 
   const contextHtml = lesson.context
     ? `
       <div class="doc-context-box">
-        <h4>1. Contexte &amp; Problématique d'Ingénierie</h4>
+        <h4>${lesson.is_literature ? "1. Histoire, Philosophie &amp; Mise en Situation" : "1. Contexte &amp; Problématique d'Ingénierie"}</h4>
         <div class="doc-context-text">${formatRichText(lesson.context)}</div>
       </div>
     `
@@ -447,8 +466,8 @@ function renderActiveLesson() {
     lesson.practical_exercises && lesson.practical_exercises.length
       ? `
       <div class="exercises-box">
-        <h4>Travaux Pratiques &amp; Exercices d'Approfondissement Post-Bootcamp</h4>
-        <ol style="margin:8px 0 0 0; padding-left:22px; font-size:15.5px; color:#1f2937; line-height:1.7;">
+        <h4>${lesson.is_literature ? "Questions de Réflexion &amp; Passerelle vers la Suite" : "Travaux Pratiques &amp; Exercices d'Approfondissement Post-Bootcamp"}</h4>
+        <ol style="margin:8px 0 0 0; padding-left:22px; font-size:15.5px; color:var(--text-secondary); line-height:1.7;">
           ${lesson.practical_exercises.map((ex) => `<li style="margin-bottom:8px;">${formatRichText(ex)}</li>`).join("")}
         </ol>
       </div>
@@ -564,13 +583,37 @@ function renderActiveLesson() {
 
   const { prev, next } = getAdjacentLessons(dayObj.day_number, lesson.id);
 
+  const codeWalkthroughHtml =
+    lesson.code && lesson.code.trim()
+      ? `
+      <div class="code-walkthrough-grid">
+        <div class="code-panel">
+          <div class="panel-bar">
+            <span>${lesson.artifact_title ? escapeHtml(lesson.artifact_title) : "Fichier : " + escapeHtml(filePath)}</span>
+            <button class="btn-xs" onclick="copyLessonCode()">Copier</button>
+          </div>
+          <pre id="active-lesson-code" class="code-block">${escapeHtml(lesson.code)}</pre>
+        </div>
+
+        <div class="line-explain-panel">
+          <div class="panel-bar">
+            <span>${lesson.is_literature ? "Lecture Annotée Section par Section" : "Analyse Détaillée Ligne par Ligne"}</span>
+          </div>
+          <div class="line-explain-list">
+            ${lineExplainHtml}
+          </div>
+        </div>
+      </div>
+    `
+      : "";
+
   detailContainer.innerHTML = `
     <article class="lesson-card">
       <div class="lesson-title-row">
         <h3>${formatInlineText(lesson.title)}</h3>
         <div class="btn-group">
-          <span class="category-tag">Fichier : ${escapeHtml(filePath)}</span>
-          <span class="category-tag">Durée : ${escapeHtml(lesson.duration)}</span>
+          <span class="category-tag">${lesson.is_literature ? "Prologue Littéraire — Culture &amp; Jargon" : "Fichier : " + escapeHtml(filePath)}</span>
+          <span class="category-tag">${lesson.is_literature ? "Lecture : " : "Durée : "}${escapeHtml(lesson.duration)}</span>
         </div>
       </div>
 
@@ -590,7 +633,7 @@ function renderActiveLesson() {
       ${deepSectionsHtml}
 
       <div class="explanation-box">
-        <h4>Synthèse Méthodique &amp; Règles d'Ingénierie</h4>
+        <h4>${lesson.is_literature ? "Points Clés à Retenir (Synthèse Fondamentale)" : "Synthèse Méthodique &amp; Règles d'Ingénierie"}</h4>
         ${explanationsHtml}
       </div>
 
@@ -598,24 +641,7 @@ function renderActiveLesson() {
       ${refTableHtml}
       ${pitfallsHtml}
 
-      <div class="code-walkthrough-grid">
-        <div class="code-panel">
-          <div class="panel-bar">
-            <span>Fichier : ${escapeHtml(filePath)}</span>
-            <button class="btn-xs" onclick="copyLessonCode()">Copier</button>
-          </div>
-          <pre id="active-lesson-code" class="code-block">${escapeHtml(lesson.code)}</pre>
-        </div>
-
-        <div class="line-explain-panel">
-          <div class="panel-bar">
-            <span>Analyse Détaillée Ligne par Ligne</span>
-          </div>
-          <div class="line-explain-list">
-            ${lineExplainHtml}
-          </div>
-        </div>
-      </div>
+      ${codeWalkthroughHtml}
 
       ${sandboxPresetHtml}
       ${runnerHtml}
@@ -631,7 +657,7 @@ function renderActiveLesson() {
         ${
           next
             ? `<button class="btn-primary" onclick="selectLesson(${next.day}, '${next.id}')">Chapitre suivant</button>`
-            : `<button class="btn-primary" onclick="openDayQuiz(${dayObj.day_number})">Accéder à l'évaluation du module</button>`
+            : `<button class="btn-primary" onclick="openDayQuiz(${quizTargetId})">Accéder à l'évaluation du module</button>`
         }
       </div>
     </article>
@@ -851,6 +877,7 @@ function renderFilesTree() {
   container.innerHTML =
     refCardHtml +
     COURSE_DATA.days
+      .filter((day) => day.files && day.files.length > 0)
       .map((day) => {
         const filesList = (day.files || [])
           .map((fp) => {
@@ -1328,17 +1355,17 @@ function renderQuizSelector() {
   const sel = document.getElementById("quiz-day-selector");
   if (!sel) return;
   const quizLabels = {
-    0: "Jour 0 — Diagnostic",
+    8: "Chapitre 0 — Littérature, Jargon, OAuth2 & Swagger",
+    0: "Jour 0 — Fondations Python",
     1: "Module Jour 1",
     2: "Module Jour 2",
     3: "Module Jour 3",
     4: "Module Jour 4",
     5: "Module Jour 5",
     6: "Spécial SQLite & Sécurité SQL",
-    7: "Spécial Temps Réel, Upload & Cache",
-    8: "Spécial Architecture, Contrats, OAuth2 & Swagger"
+    7: "Spécial Temps Réel, Upload & Cache"
   };
-  sel.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  sel.innerHTML = [8, 0, 1, 2, 3, 4, 5, 6, 7]
     .filter((d) => COURSE_DATA.quizzes && COURSE_DATA.quizzes[d])
     .map(
       (d) => `

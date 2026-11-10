@@ -143,8 +143,8 @@ init_db()
 CLASSROOM_STATE = {
     "version": 1,
     "sync_enabled": True,
-    "active_day": 0,
-    "active_lesson_id": "d0-l1",
+    "active_day": -1,
+    "active_lesson_id": "c0-l1",
     "active_tab": "course",
     "teacher_banner": "Séminaire de 5 jours — Aucun prérequis technique n'est supposé. Chaque concept est détaillé étape par étape.",
     "shared_live_code": (
