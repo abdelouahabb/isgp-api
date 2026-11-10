@@ -147,7 +147,14 @@ if __name__ == "__main__":
         print("\n=== 2. LECTURE DU CATALOGUE SQLITE (GET /api/formations -> JSON) ===")
         print(client.get("/api/formations").get_json())
     if "--once" not in sys.argv:
+        import socket as _sock
         port = int(os.environ.get("PORT", 5001))
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as _s:
+            if _s.connect_ex(("127.0.0.1", port)) == 0:
+                _s2 = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                _s2.bind(("127.0.0.1", 0))
+                port = _s2.getsockname()[1]
+                _s2.close()
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
         print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")

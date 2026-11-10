@@ -1365,11 +1365,26 @@ def _stop_live_python_process():
         LIVE_PYTHON_PROCESS["tmp_path"] = None
 
 
-def _extract_routes_and_port(code: str, output_text: str, fw: str):
-    port = {"tornado": 8889, "fastapi": 8001, "flask": 5001}.get(fw, 5001)
-    m_port = re.search(r"http://(?:127\.0\.0\.1|0\.0\.0\.0):(\d+)", output_text)
-    if m_port:
-        port = int(m_port.group(1))
+def _find_available_port(preferred_port: int) -> int:
+    for candidate in range(preferred_port, preferred_port + 50):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if s.connect_ex(("127.0.0.1", candidate)) != 0:
+                return candidate
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _extract_routes_and_port(code: str, output_text: str, fw: str, default_port: int = None):
+    port = default_port or {"tornado": 8889, "fastapi": 8001, "flask": 5001}.get(fw, 5001)
+    m_banner = re.findall(r"Serveur en écoute sur http://(?:127\.0\.0\.1|0\.0\.0\.0):(\d+)", output_text)
+    if m_banner:
+        port = int(m_banner[-1])
+    else:
+        m_all = re.findall(r"http://(?:127\.0\.0\.1|0\.0\.0\.0):(\d+)", output_text)
+        if m_all:
+            port = int(m_all[-1])
 
     raw_routes = []
     # Tornado routes: (r"/api/...", Handler)
@@ -1421,6 +1436,9 @@ def run_python_snippet():
             tmp.write(code)
             tmp_path = tmp.name
 
+        preferred_port = {"tornado": 8889, "fastapi": 8001, "flask": 5001}.get(fw, 5001)
+        assigned_port = _find_available_port(preferred_port)
+
         proc = subprocess.Popen(
             [sys.executable, "-u", tmp_path],
             stdout=subprocess.PIPE,
@@ -1432,6 +1450,7 @@ def run_python_snippet():
                 "PATH": os.environ.get("PATH", ""),
                 "PYTHONIOENCODING": "utf-8",
                 "PYTHONUNBUFFERED": "1",
+                "PORT": str(assigned_port),
             },
         )
 
@@ -1472,7 +1491,7 @@ def run_python_snippet():
         is_running = proc.poll() is None
 
         if is_running:
-            port, routes = _extract_routes_and_port(code, output_so_far, fw)
+            port, routes = _extract_routes_and_port(code, output_so_far, fw, default_port=assigned_port)
             LIVE_PYTHON_PROCESS["port"] = port
             LIVE_PYTHON_PROCESS["routes"] = routes
             return jsonify({

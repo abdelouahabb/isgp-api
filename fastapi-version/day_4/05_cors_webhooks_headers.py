@@ -79,7 +79,14 @@ if __name__ == "__main__":
     print("3. Webhook HMAC falsifié (401) :", r_ko.status_code, r_ko.json())
     if "--once" not in sys.argv:
         import uvicorn
+        import socket as _sock
         port = int(os.environ.get("PORT", 8001))
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as _s:
+            if _s.connect_ex(("127.0.0.1", port)) == 0:
+                _s2 = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                _s2.bind(("127.0.0.1", 0))
+                port = _s2.getsockname()[1]
+                _s2.close()
         print("\n" + "=" * 76)
         print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
         print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")

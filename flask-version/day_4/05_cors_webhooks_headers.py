@@ -61,7 +61,14 @@ if __name__ == "__main__":
         print("1. Webhook signé valide (200) :", r_ok.status_code, r_ok.get_json())
         print("2. En-têtes CORS & Sécurité :", {k: v for k, v in r_ok.headers.items() if k.startswith(("Access-Control", "X-"))})
     if "--once" not in sys.argv:
+        import socket as _sock
         port = int(os.environ.get("PORT", 5001))
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as _s:
+            if _s.connect_ex(("127.0.0.1", port)) == 0:
+                _s2 = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                _s2.bind(("127.0.0.1", 0))
+                port = _s2.getsockname()[1]
+                _s2.close()
         print("\n" + "=" * 76)
         print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
         print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
