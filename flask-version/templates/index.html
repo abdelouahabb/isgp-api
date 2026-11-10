@@ -1759,10 +1759,176 @@ with closing(conn.cursor()) as cur:
         </div>
       </div>
 
-      <!-- CHAPITRE 5 : DIFFÉRENCE ENTRE SQLITE3 (STDLIB), APSW ET AIOSQLITE -->
+      <!-- CHAPITRE 5 : COMMENT FLASK, FASTAPI ET TORNADO GÈRENT LE CURSEUR (ORM VS ASYNC DRIVERS VS THREADPOOL) -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>Chapitre 5 — <code>sqlite3</code> (Bibliothèque Standard) vs <code>APSW</code> (<em>Another Python SQLite Wrapper</em>) vs <code>aiosqlite</code> : Quelle Différence ?</h3>
+          <h3>Chapitre 5 — Philosophie Comparée des 3 Frameworks face au Curseur : Flask (Culture ORM <code>SQLAlchemy</code>), FastAPI (<code>SQLModel</code> / <code>AsyncSession</code>) &amp; Tornado (Drivers Async &amp; Protection de l'<code>IOLoop</code>)</h3>
+          <span class="step-badge">Architecture Comparée des 3 Écosystèmes</span>
+        </div>
+
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 14px 0;">
+          Bien que le moteur SQL sous-jacent soit le même, les communautés <strong>Flask</strong>, <strong>FastAPI</strong> et <strong>Tornado</strong> manipulent le curseur de base de données de façon très différente. Cette différence ne relève pas d'une simple préférence esthétique : elle découle directement de l'<strong>architecture d'exécution du serveur</strong> (<strong>WSGI synchrone multi-threads</strong> vs <strong>ASGI hybride typé</strong> vs <strong>boucle d'événements <code>IOLoop</code> mono-thread</strong>) :
+        </p>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-title">Comment chaque Framework orchestre le Curseur SQL (De la Requête HTTP au Moteur de Base de Données)</div>
+          <pre class="mermaid">flowchart LR
+    subgraph FLASK["1. Écosystème FLASK (WSGI Synchrone)"]
+      direction TB
+      F1["1 Requête HTTP = 1 Thread OS (Gunicorn)"] --> F2["Approche A : Curseur DB-API 2.0 direct
+(g.db + closing(conn.cursor()))"]
+      F1 --> F3["Approche B (Majoritaire) : ORM SQLAlchemy
+(db.session.execute / Model.query)"]
+      F3 --> F4["Le Curseur DB-API est caché dans la Session
+et fermé dès l'hydratation des objets"]
+    end
+
+    subgraph FASTAPI["2. Écosystème FASTAPI (ASGI &amp; Pydantic)"]
+      direction TB
+      A1["Route def (Synchrone) vs async def (Coroutine)"] --> A2["Si route def : Pool de Threads AnyIO
+(Curseur sqlite3 avec check_same_thread=False)"]
+      A1 --> A3["Si route async def : Boucle ASGI
+(Curseur async aiosqlite / AsyncSession / SQLModel)"]
+      A2 --> A4["Validation &amp; Sérialisation stricte Pydantic v2
+avant la fermeture du yield Depends(get_db)"]
+      A3 --> A4
+    end
+
+    subgraph TORNADO["3. Écosystème TORNADO (IOLoop Non-Bloquant)"]
+      direction TB
+      T1["Boucle IOLoop Mono-Thread (10 000+ sockets)"] --> T2["Interdiction absolue de bloquer l'IOLoop
+(Rejet des ORMs synchrones à Lazy Loading)"]
+      T2 --> T3["Approche A : Driver Async natif
+(async with aiosqlite / asyncpg / aiomysql)"]
+      T2 --> T4["Approche B : Déport ThreadPoolExecutor
+(await IOLoop.run_in_executor + sqlite3 / APSW)"]
+    end</pre>
+        </div>
+
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 16%;">Dimension</th>
+                <th style="width: 28%;">Vol. I — Flask (WSGI Synchrone)</th>
+                <th style="width: 28%;">Vol. II — FastAPI (ASGI &amp; Typage)</th>
+                <th style="width: 28%;">Vol. III — Tornado (<code>IOLoop</code> Temps Réel)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Modèle de Concurrence</strong></td>
+                <td><strong>1 Thread (ou Processus) par requête :</strong> si le curseur bloque 15 ms sur le disque ou le réseau, seul ce thread attend ; le noyau Linux planifie les autres threads.</td>
+                <td><strong>Hybride :</strong> les routes <code>def</code> tournent dans un <em>ThreadPool</em> AnyIO ; les routes <code>async def</code> tournent directement sur la boucle d'événements ASGI Uvicorn.</td>
+                <td><strong>Mono-Thread Non-Bloquant (<code>IOLoop</code>) :</strong> toutes les connexions HTTP et WebSocket partagent le même thread d'événements.</td>
+              </tr>
+              <tr>
+                <td><strong>Culture Dominante dans l'Écosystème</strong></td>
+                <td><strong>Culture ORM (<code>Flask-SQLAlchemy</code>) :</strong> les développeurs manipulent rarement <code>cur.fetchone()</code> directement ; ils passent par <code>db.session</code> (patron <em>Unit of Work</em> &amp; <em>Identity Map</em>).</td>
+                <td><strong>Culture Schémas Typés (<code>SQLModel</code> / <code>SQLAlchemy 2.0</code> + Pydantic) :</strong> couplage fort entre le modèle de table SQL et le schéma de validation JSON Pydantic.</td>
+                <td><strong>Culture Bas-Niveau Explicite (Drivers Async &amp; SQL Brut) :</strong> préférence marquée pour <code>asyncpg</code>, <code>aiomysql</code>, <code>aiosqlite</code> ou <code>APSW</code> sans couche ORM lourde.</td>
+              </tr>
+              <tr>
+                <td><strong>Qui ouvre et ferme le Curseur ?</strong></td>
+                <td>En SQL pur : le développeur (<code>with closing(g.db.cursor())</code>).<br/>Avec SQLAlchemy : l'objet <code>Session</code> ouvre un curseur temporaire par requête, lit les lignes, puis appelle immédiatement <code>cursor.close()</code>.</td>
+                <td>La dépendance <code>Depends(get_db)</code> via <code>yield</code>. En mode asynchrone (<code>aiosqlite</code>), le curseur est un <em>Async Context Manager</em> : <code>async with db.execute(...) as cur:</code>.</td>
+                <td>Soit un contexte asynchrone (<code>async with cursor:</code> qui rend la main à l'<code>IOLoop</code> à chaque <code>await</code>), soit une fonction isolée dans <code>run_in_executor</code> qui ferme tout dans <code>finally</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Piège Principal à Éviter</strong></td>
+                <td><strong>Le piège du <em>Lazy Loading (N+1 Queries)</em> de l'ORM :</strong> accéder à <code>formation.stagiaires</code> dans une boucle déclenche silencieusement <code>N</code> nouveaux curseurs SQL synchrones !</td>
+                <td><strong>Appeler un curseur synchrone dans <code>async def</code> (ou le <em>Lazy Loading</em> en Async) :</strong> un appel bloquant dans <code>async def</code> fige tout Uvicorn ; en <code>AsyncSession</code>, le <em>Lazy Loading</em> lève <code>MissingGreenlet</code>.</td>
+                <td><strong>Utiliser un ORM synchrone sur le thread de l'<code>IOLoop</code> :</strong> un seul <code>cur.fetchall()</code> synchrone de 50 ms sur l'<code>IOLoop</code> paralyse tous les clients WebSocket et HTTP connectés !</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+          <!-- Colonne 1 : FLASK & ORM -->
+          <div style="border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 6px; padding: 12px;">
+            <h4 style="margin: 0 0 6px 0; font-size: 14.5px; color: #1e3a8a;">
+              1. Pourquoi les développeurs Flask adorent l'ORM (<code>SQLAlchemy</code>) — et ce qu'il cache
+            </h4>
+            <p style="font-size: 13.2px; color: #1e40af; line-height: 1.5; margin: 0 0 8px 0;">
+              En Flask WSGI, comme le thread courant peut bloquer sans gêner les autres requêtes, l'ORM <strong>SQLAlchemy</strong> abstrait complètement le curseur. Lorsque vous écrivez <code>db.session.get(Formation, 1)</code>, SQLAlchemy :
+            </p>
+            <ol style="font-size: 12.8px; color: #1e3a8a; padding-left: 18px; margin: 0 0 8px 0; line-height: 1.45;">
+              <li>Vérifie d'abord son cache mémoire (<em>Identity Map</em>).</li>
+              <li>Emprunte une connexion, crée un <code>cursor</code> DB-API 2.0, lie <code>(1,)</code> et appelle <code>fetchone()</code>.</li>
+              <li><strong>Ferme immédiatement le curseur</strong> et retourne une instance de classe Python.</li>
+            </ol>
+            <pre class="code-block" style="margin: 0; font-size: 11.6px;"># Style ORM idiomatique sous Flask (SQLAlchemy 2.0) :
+@app.get("/api/formations/&lt;int:id&gt;")
+def get_formation(id: int):
+    # Aucun curseur visible : db.session gère le curseur C
+    stmt = db.select(Formation).where(Formation.id == id)
+    obj = db.session.execute(stmt).scalar_one_or_none()
+    if obj is None:
+        return jsonify({"erreur": "Introuvable"}), 404
+    return jsonify(obj.to_dict()), 200</pre>
+          </div>
+
+          <!-- Colonne 2 : FASTAPI & ASYNC/SQLMODEL -->
+          <div style="border: 1px solid #a7f3d0; background: #ecfdf5; border-radius: 6px; padding: 12px;">
+            <h4 style="margin: 0 0 6px 0; font-size: 14.5px; color: #065f46;">
+              2. Comment FastAPI concilie Curseurs Synchrones (<code>def</code>) et Curseurs Asynchrones (<code>async def</code>)
+            </h4>
+            <p style="font-size: 13.2px; color: #047857; line-height: 1.5; margin: 0 0 8px 0;">
+              FastAPI offre deux voies selon le pilote choisi :
+            </p>
+            <ul style="font-size: 12.8px; color: #065f46; padding-left: 18px; margin: 0 0 8px 0; line-height: 1.45;">
+              <li><strong>Avec <code>sqlite3</code> standard :</strong> on déclare la route avec <code>def</code> (sans <code>async</code>). FastAPI l'exécute dans son pool de threads AnyIO.</li>
+              <li><strong>Avec <code>aiosqlite</code> ou <code>AsyncSession</code> :</strong> on déclare <code>async def</code> et le curseur supporte nativement <code>async with</code> (qui le ferme automatiquement à la sortie du bloc !).</li>
+            </ul>
+            <pre class="code-block" style="margin: 0; font-size: 11.6px;"># Style Asynchrone idiomatique sous FastAPI (aiosqlite) :
+@app.get("/api/formations/{id}")
+async def get_formation(id: int, db = Depends(get_async_db)):
+    # En aiosqlite, db.execute() EST un Async Context Manager
+    # qui ferme le curseur dès la sortie du bloc `async with` :
+    async with db.execute(
+        "SELECT * FROM formations WHERE id = ?", (id,)
+    ) as cur:
+        row = await cur.fetchone()
+    if row is None:
+        raise HTTPException(404, "Introuvable")
+    return dict(row)</pre>
+          </div>
+
+          <!-- Colonne 3 : TORNADO & ASYNC DRIVERS -->
+          <div style="border: 1px solid #ddd6fe; background: #f5f3ff; border-radius: 6px; padding: 12px;">
+            <h4 style="margin: 0 0 6px 0; font-size: 14.5px; color: #4c1d95;">
+              3. Pourquoi les ingénieurs Tornado privilégient les Drivers Async ou <code>run_in_executor</code>
+            </h4>
+            <p style="font-size: 13.2px; color: #5b21b6; line-height: 1.5; margin: 0 0 8px 0;">
+              Sous Tornado, la règle d'or est : <strong>ne jamais bloquer l'<code>IOLoop</code></strong>. Les ORMs classiques qui déclenchent des requêtes implicites lors de la lecture d'un attribut Python (<code>obj.relation</code>) sont proscrits car un attribut Python ne peut pas faire <code>await</code>. On utilise donc :
+            </p>
+            <ul style="font-size: 12.8px; color: #4c1d95; padding-left: 18px; margin: 0 0 8px 0; line-height: 1.45;">
+              <li>Sur PostgreSQL / MySQL : un curseur non-bloquant (<code>asyncpg</code>, <code>aiomysql</code>) branché sur l'<code>IOLoop</code>.</li>
+              <li>Sur SQLite local : <code>aiosqlite</code> ou <code>run_in_executor</code> retournant des dictionnaires purs.</li>
+            </ul>
+            <pre class="code-block" style="margin: 0; font-size: 11.6px;"># Style Tornado avec driver asynchrone (aiosqlite / aiomysql) :
+class FormationHandler(tornado.web.RequestHandler):
+    async def get(self, id_str: str):
+        # Chaque `await` rend immédiatement la main à l'IOLoop
+        # pour servir les 10 000 autres sockets en parallèle :
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM formations WHERE id = ?", (int(id_str),)
+            ) as cur:
+                row = await cur.fetchone()
+        if not row:
+            self.set_status(404); self.write({"erreur": "404"}); return
+        self.write(dict(row))</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAPITRE 6 : DIFFÉRENCE ENTRE SQLITE3 (STDLIB), APSW ET AIOSQLITE -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Chapitre 6 — <code>sqlite3</code> (Bibliothèque Standard) vs <code>APSW</code> (<em>Another Python SQLite Wrapper</em>) vs <code>aiosqlite</code> : Quelle Différence ?</h3>
           <span class="step-badge">Comparatif des Pilotes SQLite</span>
         </div>
 
@@ -1858,10 +2024,10 @@ conn.close()</pre>
         </div>
       </div>
 
-      <!-- CHAPITRE 6 : LABORATOIRE INTERACTIF EN DIRECT (BASE EN ACTION & ANTI-INJECTION SQL) -->
+      <!-- CHAPITRE 7 : LABORATOIRE INTERACTIF EN DIRECT (BASE EN ACTION & ANTI-INJECTION SQL) -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>Chapitre 6 — La Base SQLite en Action : Comparateur Requête Préparée (<code>?</code>) vs Injection SQL (<code>f-string</code>), <code>find_one</code>, <code>insert</code> &amp; <code>ROLLBACK</code></h3>
+          <h3>Chapitre 7 — La Base SQLite en Action : Comparateur Requête Préparée (<code>?</code>) vs Injection SQL (<code>f-string</code>), <code>find_one</code>, <code>insert</code> &amp; <code>ROLLBACK</code></h3>
           <span class="step-badge step-server">Exécution Réelle sur SQLite3</span>
         </div>
 
@@ -1971,10 +2137,10 @@ conn.close()</pre>
         </div>
       </div>
 
-      <!-- CHAPITRE 7 : SÉCURITÉ SQL APPROFONDIE : `?` (SQLITE) VS `%s` (POSTGRESQL / MYSQL) & STRATÉGIE MULTI-SGBD -->
+      <!-- CHAPITRE 8 : SÉCURITÉ SQL APPROFONDIE : `?` (SQLITE) VS `%s` (POSTGRESQL / MYSQL) & STRATÉGIE MULTI-SGBD -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>Chapitre 7 — Sécurité SQL &amp; Portabilité : Pourquoi <code>?</code> dans SQLite vs <code>%s</code> dans PostgreSQL / MySQL (Norme PEP 249 / DB-API 2.0)</h3>
+          <h3>Chapitre 8 — Sécurité SQL &amp; Portabilité : Pourquoi <code>?</code> dans SQLite vs <code>%s</code> dans PostgreSQL / MySQL (Norme PEP 249 / DB-API 2.0)</h3>
           <span class="step-badge">Architecture &amp; Sécurité Multi-SGBD</span>
         </div>
 
@@ -2109,10 +2275,10 @@ cur.execute(sql, (salle,))</pre>
         </div>
       </div>
 
-      <!-- CHAPITRE 8 : SCRIPT AUTONOME COMPLET EXÉCUTABLE EN DIRECT (sqlite_api_lab.py) -->
+      <!-- CHAPITRE 9 : SCRIPT AUTONOME COMPLET EXÉCUTABLE EN DIRECT (sqlite_api_lab.py) -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>Chapitre 8 — Script Serveur SQLite Autonome (<code>flask-version/sqlite_api_lab.py</code>) — Exécutable en Direct ou dans VS Code</h3>
+          <h3>Chapitre 9 — Script Serveur SQLite Autonome (<code>flask-version/sqlite_api_lab.py</code>) — Exécutable en Direct ou dans VS Code</h3>
           <div class="btn-group">
             <button class="btn-primary btn-sm" onclick="runSqliteStandaloneServer()">
               Démarrer le Serveur SQLite (FLASK) en Direct
