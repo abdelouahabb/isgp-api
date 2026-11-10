@@ -37,4 +37,11 @@ def verifier_statut():
     }), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            rep = client.get("/api/v1/statut", headers={"X-Request-ID": "req-demo-isgp"})
+            print("En-têtes injectés :", dict(rep.headers))
+            print("Corps JSON :", rep.get_json())

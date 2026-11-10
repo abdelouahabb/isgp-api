@@ -70,4 +70,14 @@ def modifier_partiellement_patch(id):
     return jsonify({"methode": "PATCH (mise à jour partielle)", "formation": actuelle}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            r1 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
+            r2 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
+            print("1. Premier POST (201) :", r1.status_code, r1.get_json())
+            print("2. Rejeu idempotent (200 sans doublon) :", r2.status_code, r2.get_json())
+            r_patch = client.patch("/api/v1/formations/1", json={"salle": "Amphithéâtre"})
+            print("3. PATCH partiel (200) :", r_patch.status_code, r_patch.get_json())

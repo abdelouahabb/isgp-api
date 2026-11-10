@@ -58,4 +58,12 @@ def creer_formation():
     return jsonify({"message": "Formation créée", "formation": nouvelle}), 201
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            rep_err = client.post("/api/v1/formations", json={"titre": "AB", "duree_jours": 99})
+            print("1. Rejet RFC 7807 (HTTP 422) :", rep_err.status_code, rep_err.get_json())
+            rep_ok = client.post("/api/v1/formations", json={"titre": "Sécurité OWASP API", "duree_jours": 4})
+            print("2. Création valide (HTTP 201) :", rep_ok.status_code, rep_ok.get_json())

@@ -21,7 +21,7 @@ case "$ACTION" in
     for idx in "${!PORTS[@]}"; do
       PORT="${PORTS[$idx]}"
       NODE_ID="tornado-node-$((idx + 1))"
-      PORT="$PORT" INSTANCE_ID="$NODE_ID" nohup "$PYTHON_BIN" deploy_nginx_cluster/instance_tornado.py \
+      PORT="$PORT" INSTANCE_ID="$NODE_ID" nohup "$PYTHON_BIN" deploy_nginx_cluster/instance_tornado.py --serve \
         > "/tmp/${NODE_ID}.log" 2>&1 &
       echo "  [OK] Instance $NODE_ID démarrée sur 127.0.0.1:$PORT (PID: $!)"
     done

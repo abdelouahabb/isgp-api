@@ -72,11 +72,12 @@ def lister_formations():
 
 
 if __name__ == "__main__":
-    if "--test" in os.sys.argv:
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="127.0.0.1", port=PORT, debug=False)
+    else:
         with app.test_client() as c:
             rep = c.get("/api/v1/formations", headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"})
             print("Statut :", rep.status_code)
             print("En-tête X-Flask-Instance :", rep.headers.get("X-Flask-Instance"))
             print("Payload JSON :", rep.get_json())
-    else:
-        app.run(host="127.0.0.1", port=PORT, debug=False)

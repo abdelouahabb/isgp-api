@@ -43,4 +43,14 @@ def calculer_division():
     return jsonify({"resultat": a / b}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            r_404 = client.get("/api/v1/route-inconnue")
+            print("1. Erreur 404 en JSON :", r_404.status_code, r_404.get_json())
+            r_405 = client.delete("/api/v1/division")
+            print("2. Erreur 405 en JSON :", r_405.status_code, r_405.get_json())
+            r_500 = client.get("/api/v1/division?a=100&b=0")
+            print("3. Exception 500 interceptée en JSON :", r_500.status_code, r_500.get_json())

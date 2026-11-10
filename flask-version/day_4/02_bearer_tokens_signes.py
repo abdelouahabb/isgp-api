@@ -41,4 +41,13 @@ def profil_protege():
         return jsonify({"erreur": "Signature du jeton invalide (jeton falsifié)"}), 401
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
+            tok = r_tok.get_json()["access_token"]
+            print("1. Bearer Token émis (200) :", tok[:35] + "...")
+            r_prof = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {tok}"})
+            print("2. Profil vérifié (200) :", r_prof.status_code, r_prof.get_json())

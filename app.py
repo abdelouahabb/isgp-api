@@ -1307,6 +1307,23 @@ def sandbox_reset():
 # ==============================================================================
 # 7. EXÉCUTEUR PYTHON PÉDAGOGIQUE INTÉGRÉ
 # ==============================================================================
+def _prepare_runner_dir(fw: str) -> str:
+    runner_dir = os.path.join(tempfile.gettempdir(), f"isgp_runner_{fw}")
+    tpl_dir = os.path.join(runner_dir, "templates")
+    os.makedirs(tpl_dir, exist_ok=True)
+    fw_root = os.path.join(ROOT_DIR, f"{fw}-version")
+    for day_idx in range(6):
+        day_tpl = os.path.join(fw_root, f"day_{day_idx}", "templates")
+        if os.path.isdir(day_tpl):
+            for fname in os.listdir(day_tpl):
+                src = os.path.join(day_tpl, fname)
+                dst = os.path.join(tpl_dir, fname)
+                if os.path.isfile(src) and not os.path.exists(dst):
+                    with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+                        fdst.write(fsrc.read())
+    return runner_dir
+
+
 @app.route("/api/python/run", methods=["POST"])
 def run_python_snippet():
     data = request.get_json(silent=True) or {}
@@ -1314,8 +1331,17 @@ def run_python_snippet():
     if not code.strip():
         return jsonify({"output": "", "error": "Le code est vide."}), 400
 
+    fw = _resolve_active_framework()
+    if "import tornado" in code or "from tornado" in code:
+        fw = "tornado"
+    elif "from fastapi" in code or "import fastapi" in code:
+        fw = "fastapi"
+    elif "from flask" in code or "import flask" in code:
+        fw = "flask"
+
     try:
-        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as tmp:
+        runner_dir = _prepare_runner_dir(fw)
+        with tempfile.NamedTemporaryFile("w", suffix=".py", dir=runner_dir, delete=False, encoding="utf-8") as tmp:
             tmp.write(code)
             tmp_path = tmp.name
 
@@ -1323,7 +1349,8 @@ def run_python_snippet():
             [sys.executable, tmp_path],
             capture_output=True,
             text=True,
-            timeout=3,
+            timeout=4,
+            cwd=runner_dir,
             env={"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"},
         )
         os.unlink(tmp_path)
@@ -1340,7 +1367,7 @@ def run_python_snippet():
         return jsonify(
             {
                 "output": "",
-                "error": "Délai d'exécution dépassé (3s). Si votre script démarre un serveur app.run(), exécutez-le dans le terminal de VS Code / Antigravity IDE.",
+                "error": "Délai d'exécution dépassé (4s). Si votre script démarre un serveur (--serve), exécutez-le dans le terminal de VS Code / Antigravity IDE.",
                 "exit_code": 124,
             }
         )

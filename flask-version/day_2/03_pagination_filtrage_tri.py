@@ -59,4 +59,11 @@ def rechercher_formations():
     }), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            rep = client.get("/api/v1/formations?page=1&limit=2&salle=Salle+A&tri=duree_jours&ordre=desc")
+            print("Statut HTTP :", rep.status_code)
+            print("Réponse paginée :", rep.get_json())

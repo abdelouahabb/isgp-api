@@ -28,4 +28,12 @@ def stats_confidentielles():
     }), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            r_no_key = client.get("/api/admin/statistiques")
+            print("1. Sans X-API-Key (401) :", r_no_key.status_code, r_no_key.get_json())
+            r_valid = client.get("/api/admin/statistiques", headers={"X-API-Key": PARTNER_API_KEY})
+            print("2. Avec X-API-Key valide (200) :", r_valid.status_code, r_valid.get_json())

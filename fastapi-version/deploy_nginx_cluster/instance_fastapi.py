@@ -1,12 +1,10 @@
 """
 Fichier : deploy_nginx_cluster/instance_fastapi.py
-(Conserve le nom instance_fastapi.py pour compatibilité ascendante des liens — implémentation 100% FastAPI / Uvicorn ASGI)
-
 Exécution (4 instances FastAPI / Uvicorn sur 4 ports distincts) :
-  PORT=8001 INSTANCE_ID=fastapi-node-1 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py
-  PORT=8002 INSTANCE_ID=fastapi-node-2 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py
-  PORT=8003 INSTANCE_ID=fastapi-node-3 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py
-  PORT=8004 INSTANCE_ID=fastapi-node-4 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py
+  PORT=8001 INSTANCE_ID=fastapi-node-1 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
+  PORT=8002 INSTANCE_ID=fastapi-node-2 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
+  PORT=8003 INSTANCE_ID=fastapi-node-3 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
+  PORT=8004 INSTANCE_ID=fastapi-node-4 .venv/bin/python deploy_nginx_cluster/instance_fastapi.py --serve
 
 Ou en production avec Uvicorn (--proxy-headers) :
   INSTANCE_ID=fastapi-node-1 uvicorn deploy_nginx_cluster.instance_fastapi:app --host 127.0.0.1 --port 8001 --proxy-headers --forwarded-allow-ips="127.0.0.1"

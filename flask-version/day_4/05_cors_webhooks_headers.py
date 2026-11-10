@@ -49,4 +49,17 @@ def recevoir_webhook_paiement():
     return jsonify({"statut": "Webhook authentifié et traité", "evenement": evenement}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import json, sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            corps = json.dumps({"facture_id": "FAC-2026-09", "montant_dzd": 45000}).encode("utf-8")
+            sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), corps, hashlib.sha256).hexdigest()
+            r_ok = client.post(
+                "/api/webhooks/paiement",
+                data=corps,
+                headers={"Content-Type": "application/json", "X-Webhook-Signature": sig, "Origin": "https://portail.isgp.dz"},
+            )
+            print("1. Webhook signé valide (200) :", r_ok.status_code, r_ok.get_json())
+            print("2. En-têtes CORS & Sécurité :", {k: v for k, v in r_ok.headers.items() if k.startswith(("Access-Control", "X-"))})

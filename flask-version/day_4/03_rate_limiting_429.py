@@ -44,4 +44,11 @@ def catalogue_avec_ratelimit():
     return reponse, 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    import sys
+    if "--serve" in sys.argv:
+        app.run(host="0.0.0.0", port=5001, debug=True)
+    else:
+        with app.test_client() as client:
+            for i in range(1, 5):
+                r = client.get("/api/catalogue-protege")
+                print(f"Appel #{i} -> HTTP {r.status_code} | X-RateLimit-Remaining={r.headers.get('X-RateLimit-Remaining')} | {r.get_json()}")

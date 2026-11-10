@@ -96,10 +96,10 @@ async def _test_in_memory():
 
 
 if __name__ == "__main__":
-    if "--test" in sys.argv:
-        asyncio.run(_test_in_memory())
-    else:
+    if "--serve" in sys.argv:
         server = tornado.httpserver.HTTPServer(make_app(), xheaders=True)
         server.listen(PORT, address="127.0.0.1")
         print(f"[{INSTANCE_ID}] Tornado HTTPServer (xheaders=True) actif sur http://127.0.0.1:{PORT}")
         tornado.ioloop.IOLoop.current().start()
+    else:
+        asyncio.run(_test_in_memory())
