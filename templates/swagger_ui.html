@@ -4,36 +4,59 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ page_title }}</title>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("isgp-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
   <style>
     body {
       margin: 0;
-      background: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f7fb;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.2s ease;
+    }
+    [data-theme="dark"] body {
+      background: #080d19;
+    }
+    [data-theme="dark"] #swagger-ui {
+      filter: invert(88%) hue-rotate(180deg);
     }
     .isgp-swagger-bar {
-      background: #1e3a5f;
-      color: #ffffff;
-      padding: 10px 20px;
+      background: #0b1220;
+      color: #f8fafc;
+      padding: 11px 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #0f172a;
-      font-size: 14px;
+      border-bottom: 1px solid #1e293b;
+      font-size: 13.5px;
       flex-wrap: wrap;
       gap: 10px;
     }
-    .isgp-swagger-bar a {
-      color: #ffffff;
+    .isgp-swagger-bar a,
+    .isgp-swagger-bar button {
+      color: #f8fafc;
       text-decoration: none;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(96, 165, 250, 0.35);
       padding: 5px 12px;
-      border-radius: 4px;
+      border-radius: 7px;
       font-weight: 600;
-      font-size: 13px;
+      font-size: 12.5px;
+      cursor: pointer;
+      font-family: inherit;
     }
-    .isgp-swagger-bar a:hover {
-      background: rgba(255, 255, 255, 0.28);
+    .isgp-swagger-bar a:hover,
+    .isgp-swagger-bar button:hover {
+      background: rgba(59, 130, 246, 0.34);
     }
   </style>
 </head>
@@ -43,11 +66,12 @@
       <strong>{{ header_title }}</strong>
       &nbsp;|&nbsp; Astuce : Cliquez sur <strong>Authorize</strong> (Clé API : <code>{{ demo_api_key }}</code>) puis sur <strong>Try it out</strong>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <a href="{{ openapi_url }}" target="_blank">Voir {{ openapi_url }} brut</a>
       <a href="/api/download/openapi-spec">Télécharger openapi.json</a>
       <a href="/sandbox/formulaire-jinja" target="_blank">Démo Formulaire Jinja2</a>
       <a href="/">Retour au Bootcamp</a>
+      <button type="button" onclick="(function(){var c=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',c);try{localStorage.setItem('isgp-theme',c);}catch(e){}})()">Mode Clair / Nuit</button>
     </div>
   </div>
   <div id="swagger-ui"></div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-trilogy-v39";
+const CACHE_NAME = "isgp-api-trilogy-v40";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",

@@ -3,27 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#080d19">
   <title>ISGP — Portail de la Trilogie Python : Développement d'APIs (Flask • FastAPI • Tornado)</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("isgp-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/styles.css?v=40">
   <script src="/static/mermaid.min.js"></script>
   <style>
-    body {
-      background: #f8fafc;
-      color: #0f172a;
-      font-family: Inter, system-ui, -apple-system, sans-serif;
-      margin: 0;
-    }
     .landing-topbar {
-      background: #0f172a;
-      color: #f8fafc;
+      background: var(--topbar-bg);
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+      color: var(--text);
       padding: 14px 28px;
-      border-bottom: 3px solid #1d4ed8;
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-xs);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
     }
     .landing-brand {
       display: flex;
@@ -31,43 +42,58 @@
       gap: 12px;
     }
     .landing-badge {
-      background: #1d4ed8;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
       color: #ffffff;
       font-weight: 800;
       font-size: 13px;
-      padding: 5px 10px;
-      border-radius: 4px;
-      letter-spacing: 0.05em;
+      padding: 6px 11px;
+      border-radius: 7px;
+      letter-spacing: 0.06em;
+      box-shadow: 0 3px 10px rgba(37, 99, 235, 0.3);
+    }
+    .landing-brand-sub {
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+    .landing-server-pill {
+      font-size: 12px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      padding: 5px 11px;
+      border-radius: 999px;
+      color: var(--text-secondary);
     }
     .landing-container {
-      max-width: 1360px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 28px 24px 48px;
+      padding: 28px 24px 52px;
     }
     .landing-hero {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-left: 5px solid #1e3a5f;
-      border-radius: 8px;
-      padding: 22px 26px;
-      margin-bottom: 24px;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--primary);
+      border-radius: var(--radius-lg);
+      padding: 26px 30px;
+      margin-bottom: 26px;
+      box-shadow: var(--shadow-sm);
     }
     .landing-hero h1 {
-      margin: 0 0 8px 0;
-      font-size: 24px;
-      color: #0f172a;
+      margin: 0 0 10px 0;
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
     }
     .landing-hero p {
       margin: 0;
-      font-size: 15.5px;
-      color: #334155;
-      line-height: 1.6;
+      font-size: 15.2px;
+      color: var(--text-secondary);
+      line-height: 1.68;
     }
     .framework-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
+      gap: 22px;
       margin-bottom: 28px;
     }
     @media (max-width: 1024px) {
@@ -76,95 +102,116 @@
       }
     }
     .fw-card {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: 0 2px 5px rgba(15, 23, 42, 0.04);
-      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     }
     .fw-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-strong);
     }
-    .fw-card.fw-flask { border-top: 5px solid #1d4ed8; }
-    .fw-card.fw-fastapi { border-top: 5px solid #059669; }
-    .fw-card.fw-tornado { border-top: 5px solid #7c3aed; }
+    .fw-card.fw-flask { border-top: 4px solid #2563eb; }
+    .fw-card.fw-fastapi { border-top: 4px solid #10b981; }
+    .fw-card.fw-tornado { border-top: 4px solid #8b5cf6; }
     .fw-volume-tag {
       display: inline-block;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 3px 9px;
-      border-radius: 4px;
-      margin-bottom: 10px;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 12px;
     }
-    .fw-flask .fw-volume-tag { background: #dbeafe; color: #1e40af; }
-    .fw-fastapi .fw-volume-tag { background: #d1fae5; color: #065f46; }
-    .fw-tornado .fw-volume-tag { background: #ede9fe; color: #5b21b6; }
+    .fw-flask .fw-volume-tag { background: rgba(37, 99, 235, 0.14); color: #2563eb; }
+    .fw-fastapi .fw-volume-tag { background: rgba(16, 185, 129, 0.15); color: #059669; }
+    .fw-tornado .fw-volume-tag { background: rgba(139, 92, 246, 0.15); color: #7c3aed; }
+    [data-theme="dark"] .fw-flask .fw-volume-tag { color: #60a5fa; }
+    [data-theme="dark"] .fw-fastapi .fw-volume-tag { color: #34d399; }
+    [data-theme="dark"] .fw-tornado .fw-volume-tag { color: #c4b5fd; }
     .fw-card h2 {
       margin: 0 0 6px 0;
-      font-size: 20px;
-      color: #0f172a;
+      font-size: 20.5px;
+      font-weight: 750;
+      letter-spacing: -0.015em;
+      color: var(--text);
     }
     .fw-subtitle {
       font-size: 13.5px;
       font-weight: 600;
-      color: #475569;
+      color: var(--text-muted);
       margin-bottom: 12px;
     }
     .fw-desc {
-      font-size: 14.5px;
-      color: #334155;
-      line-height: 1.55;
+      font-size: 14.3px;
+      color: var(--text-secondary);
+      line-height: 1.6;
       margin-bottom: 14px;
     }
     .fw-list {
       margin: 0 0 18px 0;
       padding-left: 18px;
       font-size: 13.5px;
-      color: #334155;
-      line-height: 1.6;
+      color: var(--text-secondary);
+      line-height: 1.62;
     }
     .fw-list li {
-      margin-bottom: 5px;
+      margin-bottom: 6px;
+    }
+    .fw-list li strong {
+      color: var(--text);
     }
     .fw-stats {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
       margin-bottom: 16px;
-      padding-top: 12px;
-      border-top: 1px solid #e2e8f0;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
     }
     .fw-stat-pill {
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      color: #1e293b;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
       font-size: 11.5px;
       font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 4px;
+      padding: 3.5px 9px;
+      border-radius: 999px;
     }
     .fw-btn {
       display: block;
       text-align: center;
       text-decoration: none;
       font-weight: 700;
-      font-size: 14px;
+      font-size: 13.8px;
       padding: 11px 16px;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       color: #ffffff;
-      transition: opacity 0.15s ease;
+      transition: filter 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
     }
-    .fw-btn:hover { opacity: 0.92; }
-    .fw-flask .fw-btn { background: #1d4ed8; }
-    .fw-fastapi .fw-btn { background: #059669; }
-    .fw-tornado .fw-btn { background: #7c3aed; }
+    .fw-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+    .fw-flask .fw-btn {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    }
+    .fw-fastapi .fw-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+    }
+    .fw-tornado .fw-btn {
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -174,14 +221,17 @@
       <span class="landing-badge">ISGP</span>
       <div>
         <strong style="font-size: 15px; display: block;">Institut Supérieur de Gestion et de Planification</strong>
-        <span style="font-size: 12.5px; color: #cbd5e1;">Développement d'APIs et Services Web en Python — Trilogie des Micro-Frameworks (WSGI • ASGI • IOLoop)</span>
+        <span class="landing-brand-sub">Développement d'APIs et Services Web en Python — Trilogie des Micro-Frameworks (WSGI • ASGI • IOLoop)</span>
       </div>
     </div>
-    <div style="display: flex; gap: 10px; align-items: center;">
-      <a href="/api/docs" target="_blank" class="btn-secondary btn-sm" style="color: #f8fafc; border-color: #475569; text-decoration: none;">Swagger UI (/api/docs)</a>
-      <span style="font-size: 12px; background: #1e293b; border: 1px solid #334155; padding: 4px 10px; border-radius: 4px; color: #e2e8f0;">
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <a href="/api/docs" target="_blank" class="btn-secondary btn-sm">Swagger UI (/api/docs)</a>
+      <span class="landing-server-pill">
         Serveur Unifié Actif : <code>http://{{ local_ip }}:5000</code>
       </span>
+      <button id="landing-theme-toggle" class="theme-toggle-btn" onclick="toggleLandingTheme()" title="Basculer Mode Clair / Mode Nuit">
+        Mode Nuit
+      </button>
     </div>
   </header>
 
@@ -393,24 +443,93 @@
   </main>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      if (typeof mermaid !== "undefined") {
-        mermaid.initialize({
-          startOnLoad: true,
-          theme: "base",
-          securityLevel: "loose",
-          themeVariables: {
-            primaryColor: "#eff6ff",
-            primaryTextColor: "#0f172a",
-            primaryBorderColor: "#1e3a5f",
-            lineColor: "#334155",
-            secondaryColor: "#f8fafc",
-            tertiaryColor: "#f1f5f9",
-            fontFamily: "Inter, system-ui, -apple-system, sans-serif",
-            fontSize: "14px"
-          }
-        });
+    function getLandingTheme() {
+      var s = localStorage.getItem("isgp-theme");
+      if (s === "dark" || s === "light") return s;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+
+    function updateLandingThemeBtn(theme) {
+      var btn = document.getElementById("landing-theme-toggle");
+      if (!btn) return;
+      if (theme === "dark") {
+        btn.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg><span>Mode Clair</span>';
+      } else {
+        btn.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg><span>Mode Nuit</span>';
       }
+    }
+
+    async function renderLandingMermaid(theme) {
+      if (typeof mermaid === "undefined") return;
+      var isDark = theme === "dark";
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "base",
+        securityLevel: "loose",
+        themeVariables: isDark
+          ? {
+              darkMode: true,
+              background: "transparent",
+              primaryColor: "#172554",
+              primaryTextColor: "#f1f5f9",
+              primaryBorderColor: "#60a5fa",
+              lineColor: "#94a3b8",
+              secondaryColor: "#1e293b",
+              tertiaryColor: "#0f172a",
+              clusterBkg: "#0b1324",
+              clusterBorder: "#33476b",
+              edgeLabelBackground: "#0f172a",
+              fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+              fontSize: "14px"
+            }
+          : {
+              darkMode: false,
+              background: "transparent",
+              primaryColor: "#eff6ff",
+              primaryTextColor: "#0f172a",
+              primaryBorderColor: "#2563eb",
+              lineColor: "#475569",
+              secondaryColor: "#f8fafc",
+              tertiaryColor: "#f1f5f9",
+              clusterBkg: "#f8fafc",
+              clusterBorder: "#cbd5e1",
+              edgeLabelBackground: "#ffffff",
+              fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+              fontSize: "14px"
+            }
+      });
+      var nodes = Array.from(document.querySelectorAll("pre.mermaid"));
+      nodes.forEach(function (el) {
+        if (!el.getAttribute("data-mermaid-src")) {
+          el.setAttribute("data-mermaid-src", el.textContent.trim());
+        }
+        if (el.getAttribute("data-processed")) {
+          el.removeAttribute("data-processed");
+          el.textContent = el.getAttribute("data-mermaid-src");
+        }
+      });
+      if (nodes.length) {
+        await mermaid.run({ nodes: nodes });
+      }
+    }
+
+    async function toggleLandingTheme() {
+      var next = getLandingTheme() === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try {
+        localStorage.setItem("isgp-theme", next);
+      } catch (e) {}
+      updateLandingThemeBtn(next);
+      await renderLandingMermaid(next);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      var cur = getLandingTheme();
+      document.documentElement.setAttribute("data-theme", cur);
+      updateLandingThemeBtn(cur);
+      renderLandingMermaid(cur);
     });
   </script>
 </body>

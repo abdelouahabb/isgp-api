@@ -215,24 +215,25 @@ def _render_framework_course_page(framework: str):
         raw_html = f.read()
 
     switcher_bar = f"""
-    <div style="background: #0f172a; color: #f8fafc; padding: 6px 18px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <a href="/" style="color: #93c5fd; text-decoration: none; font-weight: 700; padding: 3px 8px; border: 1px solid #1d4ed8; border-radius: 4px; background: #1e293b;">
+    <div class="trilogy-switcher-bar">
+      <div class="trilogy-switcher-left">
+        <a href="/" class="trilogy-home-link">
           &larr; Portail d'Accueil Trilogie
         </a>
-        <span style="color: #94a3b8;">| Basculer d'édition :</span>
-        <a href="/cours/flask" style="text-decoration: none; padding: 3px 10px; border-radius: 4px; font-weight: 700; {'background:#1d4ed8;color:#fff;' if fw == 'flask' else 'color:#cbd5e1;background:#1e293b;'}">
+        <span style="color: #64748b;">|</span>
+        <span style="color: #94a3b8; font-weight: 500;">Édition :</span>
+        <a href="/cours/flask" class="trilogy-fw-pill {'active-flask' if fw == 'flask' else ''}">
           Vol. I — Flask (WSGI)
         </a>
-        <a href="/cours/fastapi" style="text-decoration: none; padding: 3px 10px; border-radius: 4px; font-weight: 700; {'background:#059669;color:#fff;' if fw == 'fastapi' else 'color:#cbd5e1;background:#1e293b;'}">
+        <a href="/cours/fastapi" class="trilogy-fw-pill {'active-fastapi' if fw == 'fastapi' else ''}">
           Vol. II — FastAPI (ASGI)
         </a>
-        <a href="/cours/tornado" style="text-decoration: none; padding: 3px 10px; border-radius: 4px; font-weight: 700; {'background:#7c3aed;color:#fff;' if fw == 'tornado' else 'color:#cbd5e1;background:#1e293b;'}">
+        <a href="/cours/tornado" class="trilogy-fw-pill {'active-tornado' if fw == 'tornado' else ''}">
           Vol. III — Tornado (IOLoop)
         </a>
       </div>
-      <div style="color: #cbd5e1; font-size: 12px;">
-        Framework actif : <strong style="color: #fff; text-transform: uppercase;">{fw}</strong> (Dossier <code>{fw}-version/</code>)
+      <div style="color: #94a3b8; font-size: 12px;">
+        Framework actif : <strong style="color: #f8fafc; text-transform: uppercase;">{fw}</strong> &bull; <code>{fw}-version/</code>
       </div>
     </div>
     <script>window.ACTIVE_FRAMEWORK = "{fw}";</script>

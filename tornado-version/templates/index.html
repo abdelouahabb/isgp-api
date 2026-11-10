@@ -7,7 +7,18 @@
   <title>ISGP — Volume III — Édition Tornado (Event-Loop Asynchrone &amp; RequestHandler)</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
-  <link rel="stylesheet" href="/static/styles.css?v=39" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("isgp-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/styles.css?v=40" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -52,6 +63,9 @@
       </button>
       <button class="tab-btn" data-tab="quiz" onclick="switchTab('quiz')">
         Évaluations
+      </button>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleTheme()" title="Basculer Mode Clair / Mode Nuit">
+        Mode Nuit
       </button>
       <button id="install-pwa-btn" class="btn-xs hidden" onclick="installPWA()">
         Installer PWA
@@ -4062,6 +4076,6 @@ class FormationCatalogueHandler(tornado.web.RequestHandler):
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=39"></script>
+  <script src="/static/app.js?v=40"></script>
 </body>
 </html>

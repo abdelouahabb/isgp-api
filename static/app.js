@@ -19,6 +19,7 @@ let STATE = {
 };
 
 window.addEventListener("DOMContentLoaded", async () => {
+  applyTheme(getCurrentTheme(), false);
   initMermaidEngine();
   registerServiceWorker();
   setupPwaInstallPrompt();
@@ -28,22 +29,121 @@ window.addEventListener("DOMContentLoaded", async () => {
   refreshLiveTables();
 });
 
+// ============================================================================
+// 0. GESTION DU MODE NUIT / MODE CLAIR (SANS FLASH + RE-RENDU MERMAID)
+// ============================================================================
+function getCurrentTheme() {
+  const saved = localStorage.getItem("isgp-theme");
+  if (saved === "dark" || saved === "light") return saved;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function getThemeButtonInnerHtml(theme) {
+  if (theme === "dark") {
+    return (
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="4"></circle>' +
+      '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>' +
+      "</svg><span>Mode Clair</span>"
+    );
+  }
+  return (
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>' +
+    "</svg><span>Mode Nuit</span>"
+  );
+}
+
+function applyTheme(theme, persist = true) {
+  const normalized = theme === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", normalized);
+  if (persist) {
+    try {
+      localStorage.setItem("isgp-theme", normalized);
+    } catch (e) {}
+  }
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute("content", normalized === "dark" ? "#080d19" : "#2563eb");
+  }
+  document.querySelectorAll(".theme-toggle-btn").forEach((btn) => {
+    btn.innerHTML = getThemeButtonInnerHtml(normalized);
+    btn.setAttribute(
+      "title",
+      normalized === "dark" ? "Basculer vers le Mode Clair" : "Basculer vers le Mode Nuit"
+    );
+  });
+}
+
+async function toggleTheme() {
+  const next = getCurrentTheme() === "dark" ? "light" : "dark";
+  applyTheme(next, true);
+  initMermaidEngine();
+  const activeSec = document.getElementById(`tab-${STATE.activeTab}`) || document;
+  await renderMermaidDiagrams(activeSec);
+  showToast(next === "dark" ? "Mode Nuit activé" : "Mode Clair activé");
+}
+
 function initMermaidEngine() {
   if (typeof mermaid !== "undefined") {
+    const isDark = getCurrentTheme() === "dark";
     mermaid.initialize({
       startOnLoad: false,
       theme: "base",
       securityLevel: "loose",
-      themeVariables: {
-        primaryColor: "#eff6ff",
-        primaryTextColor: "#0f172a",
-        primaryBorderColor: "#1e3a5f",
-        lineColor: "#334155",
-        secondaryColor: "#f8fafc",
-        tertiaryColor: "#f1f5f9",
-        fontFamily: "Inter, system-ui, -apple-system, sans-serif",
-        fontSize: "14px"
-      }
+      themeVariables: isDark
+        ? {
+            darkMode: true,
+            background: "transparent",
+            primaryColor: "#172554",
+            primaryTextColor: "#f1f5f9",
+            primaryBorderColor: "#60a5fa",
+            lineColor: "#94a3b8",
+            secondaryColor: "#1e293b",
+            tertiaryColor: "#0f172a",
+            actorBkg: "#1e293b",
+            actorBorder: "#60a5fa",
+            actorTextColor: "#f8fafc",
+            actorLineColor: "#64748b",
+            signalColor: "#cbd5e1",
+            signalTextColor: "#f8fafc",
+            labelBoxBkgColor: "#1e293b",
+            labelBoxBorderColor: "#475569",
+            labelTextColor: "#f8fafc",
+            loopTextColor: "#e2e8f0",
+            noteBkgColor: "#1e3a5f",
+            noteBorderColor: "#60a5fa",
+            noteTextColor: "#f8fafc",
+            clusterBkg: "#0b1324",
+            clusterBorder: "#33476b",
+            titleColor: "#f8fafc",
+            edgeLabelBackground: "#0f172a",
+            fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+            fontSize: "14px"
+          }
+        : {
+            darkMode: false,
+            background: "transparent",
+            primaryColor: "#eff6ff",
+            primaryTextColor: "#0f172a",
+            primaryBorderColor: "#2563eb",
+            lineColor: "#475569",
+            secondaryColor: "#f8fafc",
+            tertiaryColor: "#f1f5f9",
+            actorBkg: "#eff6ff",
+            actorBorder: "#2563eb",
+            actorTextColor: "#0f172a",
+            noteBkgColor: "#fef9c3",
+            noteBorderColor: "#eab308",
+            noteTextColor: "#0f172a",
+            clusterBkg: "#f8fafc",
+            clusterBorder: "#cbd5e1",
+            edgeLabelBackground: "#ffffff",
+            fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+            fontSize: "14px"
+          }
     });
   }
 }
@@ -1243,7 +1343,6 @@ function renderQuizSelector() {
     .map(
       (d) => `
       <button class="btn-chip ${STATE.activeQuizDay === d ? "btn-primary" : ""}"
-              style="${STATE.activeQuizDay === d ? "background:#1e3a5f;color:#fff;border-color:#1e3a5f;" : ""}"
               onclick="openDayQuiz(${d})">
         ${quizLabels[d] || "Module " + d}
       </button>
@@ -2503,9 +2602,7 @@ async function runArchitectureOauthSim(scenario, silent = false) {
   document.querySelectorAll(".arch-oauth-scenario-btn").forEach((btn) => {
     const active = btn.dataset.scenario === scenario;
     btn.classList.toggle("btn-primary", active);
-    btn.style.background = active ? "#1e3a5f" : "";
-    btn.style.color = active ? "#fff" : "";
-    btn.style.borderColor = active ? "#1e3a5f" : "";
+    btn.classList.toggle("btn-secondary", !active);
   });
 
   try {
@@ -2562,9 +2659,7 @@ async function loadArchitectureOpenApiCompare(targetFw, silent = false) {
   document.querySelectorAll(".arch-openapi-fw-btn").forEach((btn) => {
     const active = btn.dataset.fw === chosen;
     btn.classList.toggle("btn-primary", active);
-    btn.style.background = active ? "#1e3a5f" : "";
-    btn.style.color = active ? "#fff" : "";
-    btn.style.borderColor = active ? "#1e3a5f" : "";
+    btn.classList.toggle("btn-secondary", !active);
   });
 
   try {
