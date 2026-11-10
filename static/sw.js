@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-trilogy-v32";
+const CACHE_NAME = "isgp-api-trilogy-v38";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",
@@ -19,9 +19,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.map((key) => {
-          return caches.delete(key);
-        })
+        keys
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       )
     )
   );

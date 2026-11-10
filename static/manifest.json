@@ -1,7 +1,7 @@
 {
-  "name": "ISGP API Lab — Développement d'APIs et Services Web (Flask)",
+  "name": "ISGP API Lab — Trilogie Python (Flask • FastAPI • Tornado)",
   "short_name": "ISGP API Lab",
-  "description": "Plateforme PWA interactive pour le bootcamp de 5 jours : Développement d'APIs et services web avec Python & Flask (Zéro Prérequis).",
+  "description": "Plateforme PWA interactive pour le séminaire de 5 jours : Développement d'APIs et services web en Python (Flask WSGI, FastAPI ASGI & Tornado IOLoop).",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

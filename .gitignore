@@ -3,4 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
 .env
