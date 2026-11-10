@@ -1,0 +1,48 @@
+# Fichier : day_4/01_secrets_et_api_key.py
+# Exécution : .venv/bin/python day_4/01_secrets_et_api_key.py
+# Objectif : Protéger une route FastAPI par clé API (Header(alias="X-API-Key")) et comparaison
+#            cryptographique en temps constant (hmac.compare_digest) via Depends().
+
+import hmac
+import os
+import sys
+from typing import Optional
+import uvicorn
+from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.testclient import TestClient
+
+app = FastAPI(title="ISGP - Secrets & Authentification X-API-Key", version="1.0.0")
+
+# 1. Lecture des secrets depuis les variables d'environnement du système
+API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "cle-signature-interne-isgp-2026")
+PARTNER_API_KEY = os.environ.get("PARTNER_API_KEY", "isgp-secret-2026")
+
+
+# 2. Dépendance d'authentification réutilisable (Depends)
+async def verifier_cle_api(x_api_key: Optional[str] = Header(default=None, alias="X-API-Key")) -> str:
+    cle_recue = x_api_key or ""
+    # 3. Comparaison en temps constant (protège contre les attaques temporelles / Timing Attacks)
+    if not hmac.compare_digest(cle_recue, PARTNER_API_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Accès non autorisé (401). En-tête X-API-Key manquant ou invalide.",
+        )
+    return cle_recue
+
+
+@app.get("/api/admin/statistiques")
+async def stats_confidentielles(_cle: str = Depends(verifier_cle_api)):
+    return {
+        "acces": "Autorisé via X-API-Key (Depends + hmac.compare_digest)",
+        "stagiaires_certifies": 148,
+    }
+
+
+if __name__ == "__main__":
+    if "--serve" in sys.argv:
+        uvicorn.run(app, host="0.0.0.0", port=8001)
+    else:
+        client = TestClient(app)
+        print("1. Appel sans clé (401) :", client.get("/api/admin/statistiques").status_code, client.get("/api/admin/statistiques").json())
+        r_ok = client.get("/api/admin/statistiques", headers={"X-API-Key": "isgp-secret-2026"})
+        print("2. Appel avec X-API-Key (200) :", r_ok.status_code, r_ok.json())

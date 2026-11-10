@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calculateur TVA (Formulaire Tornado) — ISGP</title>
+</head>
+<body>
+  <h1>Calculateur Fiscal ISGP (Tornado)</h1>
+  <form method="POST" action="/formulaire-taxe">
+    <input type="number" step="0.01" name="montant_ht" required />
+    <button type="submit">Calculer TTC</button>
+  </form>
+  {% if resultat %}
+  <div class="resultat-ttc">Montant TTC : {{ resultat["montant_ttc"] }} DZD (TVA : {{ resultat["tva_19"] }} DZD)</div>
+  {% end %}
+</body>
+</html>

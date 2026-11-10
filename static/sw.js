@@ -1,12 +1,11 @@
-const CACHE_NAME = "isgp-api-lab-v21";
+const CACHE_NAME = "isgp-api-trilogy-v31";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",
   "/static/icon.svg",
   "/static/styles.css",
   "/static/app.js",
-  "/static/mermaid.min.js",
-  "/api/course-data"
+  "/static/mermaid.min.js"
 ];
 
 self.addEventListener("install", (event) => {
@@ -21,9 +20,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+          return caches.delete(key);
         })
       )
     )
@@ -33,11 +30,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  // Ne jamais mettre en cache le flux SSE temps réel ou les requêtes POST/PUT/DELETE
+  // Toujours passer par le réseau en direct pour les routes dynamiques /api/ et /cours/
   if (
     event.request.method !== "GET" ||
-    url.pathname.startsWith("/api/classroom/") ||
-    url.pathname.startsWith("/api/sandbox/")
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/cours/")
   ) {
     return;
   }

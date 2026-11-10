@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Atelier Formulaire HTML &amp; Templates Tornado (Jour 2.5)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      line-height: 1.6;
+    }
+    .topbar {
+      background: #1e3a5f;
+      color: #ffffff;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid #2563eb;
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .topbar a {
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 13.5px;
+      background: rgba(255,255,255,0.14);
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .container {
+      max-width: 1180px;
+      margin: 24px auto;
+      padding: 0 20px;
+    }
+    .intro-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #1e3a5f;
+      padding: 16px 20px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 20px;
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 17px;
+      color: #1e3a5f;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 5px;
+      color: #1e293b;
+    }
+    input, select {
+      width: 100%;
+      padding: 9px 11px;
+      font-size: 14.5px;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .btn {
+      background: #1e3a5f;
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      font-size: 14.5px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #162c49; }
+    .alert-error {
+      background: #fef2f2;
+      border: 1px solid #f87171;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+    .alert-success {
+      background: #f0fdf4;
+      border: 1px solid #4ade80;
+      color: #166534;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #e2e8f0;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 13px;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>ISGP — Atelier Interactif : Templates Tornado (<code>self.render</code>) &amp; Formulaires HTML (<code>self.get_body_argument</code>)</h1>
+    <a href="/">Retourner au Portail de Cours</a>
+  </div>
+
+  <div class="container">
+    <div class="intro-card">
+      <strong>Chapitre 2.5 — Différence entre Formulaire HTML (<code>self.get_body_argument</code>) et API JSON (<code>json_decode(self.request.body)</code>) :</strong><br />
+      Cette page est rendue côté serveur avec <code>self.render(...)</code>. Lorsque vous soumettez le formulaire ci-dessous, le navigateur envoie une requête
+      <code>POST /sandbox/formulaire-jinja</code> avec l'en-tête <code>Content-Type: application/x-www-form-urlencoded</code>.
+      Dans Tornado, on lit ces champs avec <code>self.get_body_argument("titre")</code> !
+    </div>
+
+    {% if erreurs %}
+      <div class="alert-error">
+        <strong>Validation refusée côté serveur (HTTP 422) :</strong>
+        <ul style="margin: 6px 0 0 0; padding-left: 20px;">
+          {% for err in erreurs %}
+            <li>{{ err }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if message_succes %}
+      <div class="alert-success">
+        <strong>Succès (HTTP 201) :</strong> {{ message_succes }}
+        {% if raw_form_payload %}
+          <div style="margin-top: 6px; font-size: 13px;">
+            Corps brut <code>application/x-www-form-urlencoded</code> reçu par Tornado :
+            <code>{{ raw_form_payload }}</code>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="grid">
+      <!-- COLONNE 1 : FORMULAIRE HTML -->
+      <div class="card">
+        <h2>1. Formulaire HTML (<code>method="POST"</code> &rarr; <code>self.get_body_argument</code>)</h2>
+        <form method="POST" action="/sandbox/formulaire-jinja">
+          <div class="form-group">
+            <label for="titre">Intitulé de la formation (<code>name="titre"</code>) :</label>
+            <input type="text" id="titre" name="titre" value="{{ valeurs_saisies.get('titre', '') }}" placeholder="Ex: Sécurité des APIs REST avec Tornado" required />
+          </div>
+
+          <div class="form-group">
+            <label for="formateur">Formateur (<code>name="formateur"</code>) :</label>
+            <input type="text" id="formateur" name="formateur" value="{{ valeurs_saisies.get('formateur', 'Intervenant ISGP') }}" />
+          </div>
+
+          <div class="form-group">
+            <label for="duree_jours">Durée en jours (<code>name="duree_jours"</code>, de 1 à 30) :</label>
+            <input type="number" id="duree_jours" name="duree_jours" value="{{ valeurs_saisies.get('duree_jours', '5') }}" min="1" max="30" required />
+          </div>
+
+          <div class="form-group">
+            <label for="salle">Salle de cours (<code>name="salle"</code>) :</label>
+            <select id="salle" name="salle">
+              <option value="Salle A">Salle A</option>
+              <option value="Salle B">Salle B</option>
+              <option value="Labo 1">Labo 1</option>
+              <option value="Labo 2">Labo 2</option>
+              <option value="Amphithéâtre ISGP">Amphithéâtre ISGP</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn">Envoyer le Formulaire HTML (POST)</button>
+        </form>
+
+        <h2 style="margin-top: 24px;">Code Python Tornado exécuté par ce formulaire</h2>
+        <pre><code>class FormulaireFormationHandler(tornado.web.RequestHandler):
+    def get(self):
+        # 1. Rendu du template HTML avec échappement auto-XSS :
+        self.render("formations.html", formations=CATALOGUE)
+
+    def post(self):
+        # 2. Lecture des champs &lt;input name="..."&gt; via self.get_body_argument :
+        titre = self.get_body_argument("titre", default="").strip()
+        duree = int(self.get_body_argument("duree_jours", default="5"))
+        salle = self.get_body_argument("salle", default="Salle A")
+        self.set_status(201)
+        self.render("formations.html", formations=CATALOGUE)</code></pre>
+      </div>
+
+      <!-- COLONNE 2 : TABLEAU RENDU PAR TEMPLATE -->
+      <div class="card">
+        <h2>2. Catalogue SQLite rendu par boucle de Template (<code>{{ formations|length }}</code> formations)</h2>
+        <p style="font-size: 13.5px; color: #475569; margin-top: 0;">
+          Chaque ligne ci-dessous est générée côté serveur et protégée contre les injections XSS par l'échappement automatique de Tornado :
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Intitulé (<code>{{ "{{ f.titre }}" }}</code>)</th>
+              <th>Formateur</th>
+              <th>Durée</th>
+              <th>Salle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in formations %}
+              <tr>
+                <td><strong>#{{ f.id }}</strong></td>
+                <td>{{ f.titre }}</td>
+                <td>{{ f.formateur }}</td>
+                <td>{{ f.duree_jours }} jours</td>
+                <td>{{ f.salle }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h2 style="margin-top: 24px;">3. Tester aussi en ligne de commande avec <code>curl -d</code></h2>
+        <p style="font-size: 13.5px; color: #475569; margin-top: 0;">
+          Sans <code>-H "Content-Type: application/json"</code>, l'option <code>-d</code> de <code>curl</code> envoie exactement un formulaire <code>application/x-www-form-urlencoded</code> lu par <code>self.get_body_argument(...)</code> :
+        </p>
+        <pre><code>curl -i -X POST http://127.0.0.1:8888/api/sandbox/formulaire-formation \
+  -d "titre=Formation+Tornado+Templates&amp;duree_jours=4&amp;salle=Salle+B"</code></pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+# ==============================================================================
+# FICHIER : deploy_nginx_cluster/docker-compose.yml
+# OBJECTIF : Déployer en 1 commande (`docker compose up -d`) :
+#   - 4 conteneurs Tornado HTTPServer (tornado_node_1 à tornado_node_4 sur 8001..8004)
+#   - 1 conteneur Nginx Load Balancer & Static File Server (port 80)
+# ==============================================================================
+services:
+  tornado_node_1:
+    build: ..
+    environment:
+      - INSTANCE_ID=tornado-node-1
+      - PORT=8001
+    command: python deploy_nginx_cluster/instance_tornado.py
+
+  tornado_node_2:
+    build: ..
+    environment:
+      - INSTANCE_ID=tornado-node-2
+      - PORT=8002
+    command: python deploy_nginx_cluster/instance_tornado.py
+
+  tornado_node_3:
+    build: ..
+    environment:
+      - INSTANCE_ID=tornado-node-3
+      - PORT=8003
+    command: python deploy_nginx_cluster/instance_tornado.py
+
+  tornado_node_4:
+    build: ..
+    environment:
+      - INSTANCE_ID=tornado-node-4
+      - PORT=8004
+    command: python deploy_nginx_cluster/instance_tornado.py
+
+  nginx_lb:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx_isgp_cluster.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../static:/home/abdelouahab/isgp-api/tornado-version/static:ro
+    depends_on:
+      - tornado_node_1
+      - tornado_node_2
+      - tornado_node_3
+      - tornado_node_4

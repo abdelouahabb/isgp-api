@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e3a5f" />
+  <title>ISGP — Développement d'APIs et services web</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
+  <link rel="stylesheet" href="/static/styles.css?v=31" />
+  <script src="/static/mermaid.min.js"></script>
+</head>
+<body>
+  <!-- Barre de navigation compacte (type documentation technique) -->
+  <div class="doc-topbar">
+    <div class="doc-topbar-left">
+      <button id="toggle-sidebar-btn" class="btn-sidebar-toggle" onclick="toggleCourseSidebar()" title="Masquer ou afficher le sommaire latéral">
+        Masquer le sommaire
+      </button>
+      <span class="doc-brand">ISGP</span>
+      <span class="doc-divider">/</span>
+      <span class="doc-title">Développement d'APIs et services web (Python &amp; Flask)</span>
+    </div>
+
+    <nav class="doc-nav-right">
+      <button class="tab-btn active" data-tab="course" onclick="switchTab('course')">
+        Support de Cours
+      </button>
+      <button class="tab-btn" data-tab="sandbox" onclick="switchTab('sandbox')">
+        Client HTTP &amp; Inspecteur
+      </button>
+      <button class="tab-btn" data-tab="curl" onclick="switchTab('curl')">
+        curl, Postman &amp; Swagger
+      </button>
+      <button class="tab-btn" data-tab="runner" onclick="switchTab('runner')">
+        Atelier Python
+      </button>
+      <button class="tab-btn" data-tab="nginx" onclick="switchTab('nginx')">
+        Déploiement &amp; Load Balancing
+      </button>
+      <button class="tab-btn" data-tab="glossary" onclick="switchTab('glossary')">
+        Référentiel
+      </button>
+      <button class="tab-btn" data-tab="quiz" onclick="switchTab('quiz')">
+        Évaluations
+      </button>
+      <button id="install-pwa-btn" class="btn-xs hidden" onclick="installPWA()">
+        Installer PWA
+      </button>
+    </nav>
+  </div>
+
+  <!-- Conteneur principal pleine largeur -->
+  <main class="app-main">
+
+    <!-- ONGLET 1 : SUPPORT DE COURS -->
+    <section id="tab-course" class="tab-section active">
+      <div id="course-layout" class="course-layout">
+        <!-- Sommaire latéral rétractable -->
+        <aside id="course-sidebar" class="course-sidebar">
+          <div class="sidebar-header">
+            <h2>Sommaire (Jours 0 à 5)</h2>
+            <p class="muted-small">Cliquez sur un jour pour afficher ou masquer ses chapitres.</p>
+          </div>
+          <div id="days-nav-container" class="days-nav"></div>
+        </aside>
+
+        <!-- Contenu principal du cours -->
+        <div class="course-content">
+          <div id="day-header-banner" class="day-banner"></div>
+          <div id="lesson-detail-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET 2 : CLIENT HTTP & INSPECTEUR SERVEUR -->
+    <section id="tab-sandbox" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Client de Test HTTP &amp; Analyse d'Exécution Flask</h2>
+          <p>
+            Exécutez des requêtes HTTP réelles vers le serveur Flask et inspectez simultanément la requête émise,
+            le code Python exécuté côté serveur et la réponse JSON (avec en-têtes Rate Limit et Bearer Token).
+          </p>
+        </div>
+        <div class="preset-buttons">
+          <span class="muted-small">Requêtes types :</span>
+          <button class="btn-chip" onclick="loadSandboxPreset('POST', '/api/sandbox/auth/token', JSON.stringify({identifiant: 'stagiaire', mot_de_passe: 'isgp2026'}, null, 2))"><span class="verb-tag verb-post">POST</span> /auth/token (Émettre Token)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/auth/profil', '')"><span class="verb-tag verb-get">GET</span> /auth/profil (AuthN Bearer)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/authz-demo', '')"><span class="verb-tag verb-get">GET</span> /authz-demo (AuthN 401 vs AuthZ 403)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/ratelimit-demo', '')"><span class="verb-tag verb-get">GET</span> /ratelimit-demo (Quota / 429)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/admin-stats', '', {'X-API-Key': 'isgp-secret-2026'})"><span class="verb-tag verb-get">GET</span> /admin-stats (X-API-Key)</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/formations', '')"><span class="verb-tag verb-get">GET</span> /formations</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('POST', '/api/sandbox/formations', JSON.stringify({titre: 'API REST avec Flask', formateur: 'Intervenant ISGP', duree_jours: 5, salle: 'Salle B'}, null, 2))"><span class="verb-tag verb-post">POST</span> /formations</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('PUT', '/api/sandbox/formations/1', JSON.stringify({titre: 'Architecture API REST (Avancé)', salle: 'Salle Conférence'}, null, 2))"><span class="verb-tag verb-put">PUT</span> /formations/1</button>
+          <button class="btn-chip" onclick="loadSandboxPreset('GET', '/api/sandbox/formations/999', '')"><span class="verb-tag verb-get">GET</span> /formations/999 (404)</button>
+        </div>
+      </div>
+
+      <div class="sandbox-grid">
+        <!-- Panneau 1 : Construction de la requête -->
+        <div class="card sandbox-card">
+          <div class="card-header">
+            <span class="step-badge">1. REQUÊTE CLIENT (HTTP REQUEST)</span>
+          </div>
+
+          <div class="http-bar">
+            <select id="http-method" class="method-select" onchange="onMethodChange()">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+            <input type="text" id="http-url" class="url-input" value="/api/sandbox/formations" />
+            <button class="btn-primary" onclick="sendSandboxRequest()">
+              Envoyer
+            </button>
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label>Jeton d'accès <code>Authorization: Bearer &lt;token&gt;</code> (AuthN &amp; AuthZ) :</label>
+              <div class="btn-group">
+                <button class="btn-xs" onclick="quickGenerateAndInjectToken('stagiaire')">Token Stagiaire (Rôle limité)</button>
+                <button class="btn-xs" onclick="quickGenerateAndInjectToken('directeur')">Token Directeur (Admin)</button>
+                <button class="btn-xs" onclick="document.getElementById('http-header-bearer').value=''; updateCurlPreview();">Vider (401)</button>
+              </div>
+            </div>
+            <input type="text" id="http-header-bearer" class="input-full" oninput="updateCurlPreview()" placeholder="Jeton signé obtenu via POST /api/sandbox/auth/token" />
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label>Clé d'API machine <code>X-API-Key</code> (Jour 4) :</label>
+              <button class="btn-xs" onclick="document.getElementById('http-header-apikey').value='isgp-secret-2026'; updateCurlPreview();">Injecter isgp-secret-2026</button>
+            </div>
+            <input type="text" id="http-header-apikey" class="input-full" oninput="updateCurlPreview()" placeholder="Valeur attendue : isgp-secret-2026" />
+          </div>
+
+          <div id="http-body-group" class="form-group">
+            <div class="label-row">
+              <label>Corps de la requête (Payload JSON — requis pour <code>POST</code> / <code>PUT</code>) :</label>
+              <button class="btn-xs" onclick="formatSandboxJson()">Formater JSON</button>
+            </div>
+            <textarea id="http-body" rows="6" class="code-textarea" placeholder='{"titre": "Intitulé de la formation", "duree_jours": 5}'></textarea>
+          </div>
+
+          <div class="curl-preview-box">
+            <div class="label-row">
+              <span class="muted-small">Commande <code>curl</code> équivalente :</span>
+              <button class="btn-xs" onclick="copyText(document.getElementById('http-curl-preview').innerText)">Copier</button>
+            </div>
+            <pre id="http-curl-preview" class="code-block-mini"></pre>
+          </div>
+        </div>
+
+        <!-- Panneau 2 : Traitement Serveur Flask -->
+        <div class="card sandbox-card">
+          <div class="card-header">
+            <span class="step-badge step-server">2. TRAITEMENT SERVEUR (PYTHON / FLASK)</span>
+          </div>
+          <div id="flask-trace-steps" class="trace-steps-list">
+            <div class="trace-step">Exécutez une requête pour afficher le journal de traitement du serveur Flask.</div>
+          </div>
+          <div class="form-group">
+            <label>Gestionnaire de route (Handler) exécuté sur le serveur :</label>
+            <pre id="flask-handler-code" class="code-block">@app.route("/api/sandbox/formations", methods=["GET"])
+def lister_formations():
+    # En attente d'exécution d'une requête...</pre>
+          </div>
+        </div>
+
+        <!-- Panneau 3 : Réponse HTTP -->
+        <div class="card sandbox-card">
+          <div class="card-header">
+            <span class="step-badge step-response">3. RÉPONSE SERVEUR (HTTP RESPONSE)</span>
+            <span id="http-status-badge" class="status-pill status-neutral">En attente</span>
+          </div>
+          <div class="response-meta">
+            <span id="http-time-meta">Temps de réponse : -- ms</span>
+            <span>Content-Type: <code>application/json</code></span>
+          </div>
+          <div class="form-group">
+            <label>En-têtes HTTP de la réponse (Quotas Rate Limit, Auth, Content-Type) :</label>
+            <pre id="http-response-headers" class="code-block-mini">content-type: application/json</pre>
+          </div>
+          <div class="form-group">
+            <label>Charge utile JSON retournée :</label>
+            <pre id="http-response-json" class="code-block response-block">// Le corps JSON de la réponse s'affichera ici.</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- État de la base SQLite -->
+      <div class="card">
+        <div class="card-header">
+          <h3>État en Direct de la Table SQLite <code>formations</code> (<code>sandbox_isgp.db</code>)</h3>
+          <div class="btn-group">
+            <button class="btn-xs" onclick="refreshLiveTables()">Actualiser</button>
+            <button class="btn-xs" onclick="resetSandboxDB()">Réinitialiser la base et les compteurs Rate Limit</button>
+          </div>
+        </div>
+        <div id="live-formations-table" class="table-wrapper"></div>
+      </div>
+    </section>
+
+    <!-- ONGLET 3 : ATELIER PYTHON -->
+    <section id="tab-runner" class="tab-section">
+      <div class="runner-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Environnement d'Exécution Python</h3>
+              <p class="muted-small">Testez directement du code Python (structures de données, JSON, SQLite, tokens signés, appels HTTP) ou ouvrez les dossiers <code>day_0/</code> à <code>day_5/</code> dans votre éditeur.</p>
+            </div>
+            <div class="btn-group">
+              <button class="btn-secondary btn-sm" onclick="copyText(document.getElementById('studio-python-editor').value)">Copier le code</button>
+              <button class="btn-primary btn-sm" onclick="runStudioPython()">Exécuter le script</button>
+            </div>
+          </div>
+
+          <div class="preset-buttons" style="margin-bottom: 12px;">
+            <span class="muted-small">Modèles :</span>
+            <button class="btn-chip" onclick="loadStudioTemplate('dict')">Dictionnaires &amp; Listes</button>
+            <button class="btn-chip" onclick="loadStudioTemplate('json')">Sérialisation JSON</button>
+            <button class="btn-chip" onclick="loadStudioTemplate('sqlite')">Requêtes SQLite</button>
+            <button class="btn-chip" onclick="loadStudioTemplate('call_api')">Client Python avec Bearer Token</button>
+          </div>
+
+          <textarea id="studio-python-editor" rows="16" class="code-textarea"># Exécution directe d'un script Python côté serveur
+import json
+
+stagiaire = {
+    "prenom": "Amine",
+    "formation": "Développement d'APIs et services web",
+    "jour": 1,
+    "competences": ["HTTP", "JSON", "Flask", "Tokens", "Rate Limit"]
+}
+
+print("1. Lecture d'une clé :", stagiaire["prenom"])
+print("\n2. Sérialisation au format JSON :")
+print(json.dumps(stagiaire, indent=2, ensure_ascii=False))
+</textarea>
+
+          <div class="runner-output-box">
+            <div class="label-row" style="margin-top: 10px;">
+              <strong>Sortie standard (stdout / stderr) :</strong>
+              <span id="studio-run-status" class="muted-small">Prêt</span>
+            </div>
+            <pre id="studio-python-output" class="terminal-output">En attente d'exécution.</pre>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Arborescence des Fichiers Python du Cours</h3>
+              <p class="muted-small">Tous les exercices sont rangés par dossier journalier dans le répertoire du projet pour une ouverture directe dans VS Code ou Antigravity IDE.</p>
+            </div>
+          </div>
+
+          <div id="project-files-tree" class="files-tree-box"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET : LABORATOIRE CURL, POSTMAN, SWAGGER UI, HTTPIE & REST CLIENT -->
+    <section id="tab-curl" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Laboratoire <code>curl</code>, Postman, Swagger UI (OpenAPI 3.0), HTTPie &amp; VS Code REST Client</h2>
+          <p>
+            En production, sur un serveur Linux en SSH ou dans un pipeline CI/CD, <code>curl</code> est l'outil universel pour diagnostiquer une API.
+            En développement et intégration, on l'associe au portail interactif <strong>Swagger UI (<code>/api/docs</code>)</strong>, à <strong>Postman</strong>, <strong>HTTPie</strong> ou <strong>REST Client (<code>.http</code>)</strong>.
+          </p>
+        </div>
+        <div class="btn-group">
+          <a class="btn-primary" href="/api/docs" target="_blank">
+            Ouvrir Swagger UI Interactif (/api/docs)
+          </a>
+          <a class="btn-secondary" href="/sandbox/formulaire-jinja" target="_blank">
+            Ouvrir Atelier Formulaire HTML &amp; Jinja2
+          </a>
+          <a class="btn-secondary" href="/api/download/openapi-spec" download>
+            Télécharger Contrat OpenAPI 3.0 (.json)
+          </a>
+          <a class="btn-secondary" href="/api/download/postman-collection" download>
+            Télécharger Collection Postman (.json)
+          </a>
+          <a class="btn-secondary" href="/api/download/http-requests" download>
+            Télécharger Fichier VS Code (.http)
+          </a>
+        </div>
+      </div>
+
+      <!-- Partie 1 : Exécuteur curl en direct -->
+      <div class="runner-grid" style="margin-bottom: 18px;">
+        <div class="card">
+          <div class="card-header">
+            <h3>1. Terminal d'Exécution <code>curl</code> en Direct</h3>
+            <div class="btn-group">
+              <button class="btn-xs" onclick="copyText(document.getElementById('curl-lab-input').value)">Copier</button>
+              <button class="btn-primary btn-sm" onclick="executeLiveCurlCommand()">Exécuter la commande curl</button>
+            </div>
+          </div>
+
+          <p class="muted-small" style="margin-top:0;">
+            Sélectionnez un scénario ci-dessous ou modifiez librement la commande <code>curl</code> (ciblant <code>http://127.0.0.1:5000/api/...</code>) :
+          </p>
+
+          <div class="preset-buttons" style="margin-bottom: 12px;">
+            <button class="btn-chip" onclick="loadCurlPreset('get_list')"><span class="verb-tag verb-get">GET</span> 1. Lister + Pagination (-i)</button>
+            <button class="btn-chip" onclick="loadCurlPreset('post_create')"><span class="verb-tag verb-post">POST</span> 2. Créer JSON (-X POST -H -d)</button>
+            <button class="btn-chip" onclick="loadCurlPreset('put_update')"><span class="verb-tag verb-put">PUT</span> 3. Remplacer #1 (-X PUT)</button>
+            <button class="btn-chip" onclick="loadCurlPreset('patch_partial')"><span class="verb-tag verb-put">PATCH</span> 4. Modifier salle #1 (-X PATCH)</button>
+            <button class="btn-chip" onclick="loadCurlPreset('apikey_auth')"><span class="verb-tag verb-get">AUTH</span> 5. Clé X-API-Key (-H)</button>
+            <button class="btn-chip" onclick="loadCurlPreset('bearer_issue')"><span class="verb-tag verb-post">TOKEN</span> 6. Émettre Bearer Token</button>
+            <button class="btn-chip" onclick="loadCurlPreset('ratelimit_429')"><span class="verb-tag verb-get">429</span> 7. Tester Rate Limit</button>
+            <button class="btn-chip" onclick="loadCurlPreset('verbose_trace')"><span class="verb-tag verb-get">-v</span> 8. Mode Verbeux (-v)</button>
+          </div>
+
+          <textarea id="curl-lab-input" rows="6" class="code-textarea">curl -i -X GET "http://127.0.0.1:5000/api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc" \
+  -H "Accept: application/json"</textarea>
+
+          <div class="info-box" style="margin-top: 12px; margin-bottom: 0;">
+            <div class="info-box-title">Référence Complète des Options (Flags) <code>curl</code></div>
+            <table class="data-table" style="margin-top: 8px; background: #fff;">
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Forme longue</th>
+                  <th>Rôle technique exact</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>-i</code></td><td><code>--include</code></td><td>Inclut la ligne de statut (<code>HTTP/1.1 200 OK</code>) et les en-têtes HTTP de réponse.</td></tr>
+                <tr><td><code>-I</code></td><td><code>--head</code></td><td>Envoie une requête <code>HEAD</code> et affiche uniquement les en-têtes sans le corps.</td></tr>
+                <tr><td><code>-v</code></td><td><code>--verbose</code></td><td>Mode diagnostic : affiche la connexion TCP, les en-têtes envoyés (<code>&gt;</code>) et reçus (<code>&lt;</code>).</td></tr>
+                <tr><td><code>-s</code> / <code>-S</code></td><td><code>--silent</code> / <code>--show-error</code></td><td>Masque la barre de progression mais affiche les erreurs (idéal avec <code>| jq</code>).</td></tr>
+                <tr><td><code>-X VERBE</code></td><td><code>--request</code></td><td>Spécifie la méthode HTTP (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>, <code>OPTIONS</code>).</td></tr>
+                <tr><td><code>-H "K: V"</code></td><td><code>--header</code></td><td>Ajoute un en-tête HTTP (répétable pour plusieurs en-têtes).</td></tr>
+                <tr><td><code>-d '...'</code></td><td><code>--data</code></td><td>Envoie un corps de requête (<code>@fichier.json</code> pour lire depuis un fichier).</td></tr>
+                <tr><td><code>--json</code></td><td><code>--json '...'</code></td><td>Raccourci moderne (<code>curl 7.82+</code>) : définit <code>POST</code> + <code>Content-Type</code> + <code>Accept: application/json</code>.</td></tr>
+                <tr><td><code>-G</code></td><td><code>--get</code></td><td>Convertit les paramètres <code>-d</code> / <code>--data-urlencode</code> en Query String URL (<code>?cle=val</code>).</td></tr>
+                <tr><td><code>-F "k=@f"</code></td><td><code>--form</code></td><td>Envoie un formulaire <code>multipart/form-data</code> (upload de fichiers binaires/PDF/images).</td></tr>
+                <tr><td><code>-u u:p</code></td><td><code>--user</code></td><td>Authentification <code>HTTP Basic</code> (encode <code>u:p</code> en Base64).</td></tr>
+                <tr><td><code>-c</code> / <code>-b</code></td><td><code>--cookie-jar</code> / <code>--cookie</code></td><td>Enregistre les cookies reçus dans un fichier (<code>-c</code>) ou les renvoie au serveur (<code>-b</code>).</td></tr>
+                <tr><td><code>-L</code></td><td><code>--location</code></td><td>Suit automatiquement les redirections HTTP <code>301</code> / <code>302</code> / <code>307</code>.</td></tr>
+                <tr><td><code>-o fichier</code></td><td><code>--output</code></td><td>Écrit la réponse dans un fichier (ou <code>-o /dev/null</code> pour ignorer le corps).</td></tr>
+                <tr><td><code>-w "fmt"</code></td><td><code>--write-out</code></td><td>Extrait des métriques en fin d'appel (<code>%{http_code}</code>, <code>%{time_total}</code>, <code>%{size_download}</code>).</td></tr>
+                <tr><td><code>-m SEC</code></td><td><code>--max-time</code></td><td>Timeout maximal total en secondes (et <code>--connect-timeout</code> pour l'ouverture TCP).</td></tr>
+                <tr><td><code>--retry N</code></td><td><code>--retry</code></td><td>Réessaie automatiquement <code>N</code> fois en cas d'erreur transitoire (<code>429</code>, <code>502</code>, <code>503</code>, <code>504</code>).</td></tr>
+                <tr><td><code>-k</code></td><td><code>--insecure</code></td><td>Autorise les certificats HTTPS auto-signés en environnement de développement local.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>2. Sortie Brute de <code>curl</code> (Headers HTTP + Corps JSON)</h3>
+            <button class="btn-xs" onclick="document.getElementById('curl-lab-output').textContent='Prêt.'">Effacer</button>
+          </div>
+          <pre id="curl-lab-output" class="terminal-output" style="min-height: 580px;">Cliquez sur « Exécuter la commande curl » ou sur un bouton « Tester » de l'aide-mémoire ci-dessous pour observer la trame HTTP réelle (Status Line + Headers + Body JSON).</pre>
+        </div>
+      </div>
+
+      <!-- Partie 2 : CHEATSHEET EXHAUSTIVE CURL (26 COMMANDES CLASSÉES) -->
+      <div class="card" style="margin-bottom: 18px;">
+        <div class="section-intro" style="margin-bottom: 14px;">
+          <div>
+            <h3>3. Aide-Mémoire Exhaustif <code>curl</code> (Cheatsheet Complète — 26 Commandes Types)</h3>
+            <p class="muted-small" style="margin: 4px 0 0 0;">
+              Toutes les commandes <code>curl</code> essentielles pour tester, déboguer, authentifier et chronométrer une API REST. Cliquez sur <strong>Tester en direct</strong> pour charger et exécuter la commande dans le terminal ci-dessus, ou sur <strong>Copier</strong> pour votre terminal Linux/macOS/Windows.
+            </p>
+          </div>
+          <div class="glossary-filters">
+            <input
+              type="search"
+              id="curl-cheatsheet-search"
+              class="search-input"
+              placeholder="Rechercher (ex: Bearer, POST, timeout, fichier, 429, jq, cookie, CORS...)"
+              oninput="renderCurlCheatsheet()"
+            />
+            <select id="curl-cheatsheet-category" class="select-input" onchange="renderCurlCheatsheet()">
+              <option value="ALL">Toutes les catégories (26 commandes)</option>
+              <option value="1. Inspection & Diagnostic HTTP">1. Inspection &amp; Diagnostic HTTP</option>
+              <option value="2. Opérations CRUD & Envoi JSON">2. Opérations CRUD &amp; Envoi JSON</option>
+              <option value="3. Authentification & Sécurité">3. Authentification &amp; Sécurité</option>
+              <option value="4. Fichiers, Formulaires & Téléchargement">4. Fichiers, Formulaires &amp; Téléchargement</option>
+              <option value="5. Performance, Timeouts, Retries & Scripting">5. Performance, Timeouts, Retries &amp; Scripting</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="curl-cheatsheet-grid" class="glossary-grid"></div>
+      </div>
+
+      <!-- Partie 3 : Comparatif et Guides Postman / HTTPie / REST Client -->
+      <div class="live-tables-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3>4. Guide Méthodique : Tester avec Postman (ou Bruno / Insomnia)</h3>
+          </div>
+          <div class="explanation-list">
+            <div class="explanation-item">
+              <strong>Étape 1 — Importer la Collection du Bootcamp</strong> : Cliquez sur le bouton <em>« Télécharger Collection Postman (.json) »</em> en haut à droite, ouvrez Postman &rarr; bouton <strong>Import</strong> &rarr; sélectionnez le fichier <code>isgp_api_bootcamp.postman_collection.json</code>. Les 8 requêtes du cours apparaissent prêtes à l'emploi.
+            </div>
+            <div class="explanation-item">
+              <strong>Étape 2 — Envoyer un Corps JSON (<code>POST</code> / <code>PUT</code> / <code>PATCH</code>)</strong> : Dans Postman, après avoir choisi la méthode <code>POST</code> et saisi l'URL <code>http://127.0.0.1:5000/api/sandbox/formations</code> :<br/>
+              1. Ouvrez l'onglet <strong>Body</strong> sous la barre d'URL.<br/>
+              2. Cochez l'option <strong>raw</strong>.<br/>
+              3. Dans la liste déroulante à droite (qui affiche <em>Text</em> par défaut), sélectionnez <strong>JSON</strong> (cela injecte automatiquement l'en-tête <code>Content-Type: application/json</code>).
+            </div>
+            <div class="explanation-item">
+              <strong>Étape 3 — Configurer un <code>Bearer Token</code> ou une <code>X-API-Key</code></strong> :<br/>
+              - Pour un <strong>Bearer Token</strong> : Ouvrez l'onglet <strong>Authorization</strong> &rarr; Type = <strong>Bearer Token</strong> &rarr; collez votre jeton dans le champ <em>Token</em>.<br/>
+              - Pour une <strong>Clé API</strong> : Ouvrez l'onglet <strong>Headers</strong> &rarr; Key = <code>X-API-Key</code>, Value = <code>isgp-secret-2026</code>.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>5. Alternatives Modernes : <code>HTTPie</code> &amp; Fichiers <code>.http</code> (VS Code)</h3>
+          </div>
+          <div class="explanation-list">
+            <div class="explanation-item">
+              <strong>A. <code>HTTPie</code> (Commande <code>http</code>) — Le <code>curl</code> ergonomique</strong> :<br/>
+              Conçu spécifiquement pour les APIs JSON, <code>HTTPie</code> formate et colore automatiquement les réponses et simplifie l'envoi de JSON sans guillemets imbriqués :
+              <pre class="code-block" style="margin-top:8px;"># 1. GET sur localhost:5000
+http GET :5000/api/sandbox/formations page==1 limit==2
+
+# 2. POST JSON automatique (:= pour les nombres/booléens, = pour les chaînes)
+http POST :5000/api/sandbox/formations titre="API Flask" duree_jours:=5
+
+# 3. En-tête personnalisé (avec un seul deux-points :)
+http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
+            </div>
+            <div class="explanation-item">
+              <strong>B. Extension <code>REST Client</code> dans VS Code / Antigravity (Fichiers <code>.http</code>)</strong> :<br/>
+              En téléchargeant le fichier <code>isgp_api_bootcamp.http</code> ci-dessus et en l'ouvrant dans votre éditeur, un bouton <em>« Send Request »</em> apparaît directement au-dessus de chaque requête séparée par <code>###</code>. Vos tests d'API sont ainsi versionnés dans Git avec votre code Python !
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Partie 4 : SWAGGER UI & CONTRAT OPENAPI 3.0 -->
+      <div class="card" style="margin-top: 18px;">
+        <div class="card-header">
+          <div>
+            <h3>6. Documentation Interactive : Swagger UI (<code>/api/docs</code>) &amp; Contrat OpenAPI 3.0 (<code>/api/openapi.json</code>)</h3>
+            <p class="muted-small" style="margin: 2px 0 0 0;">
+              Standard mondial de documentation et de test interactif d'API REST (Chapitre 5.4 — <code>day_5/05_swagger_openapi_ui.py</code>).
+            </p>
+          </div>
+          <div class="btn-group">
+            <a class="btn-primary btn-sm" href="/api/docs" target="_blank">Ouvrir Swagger UI (/api/docs)</a>
+            <a class="btn-secondary btn-sm" href="/api/openapi.json" target="_blank">Inspecter /api/openapi.json</a>
+            <a class="btn-secondary btn-sm" href="/api/download/openapi-spec" download>Télécharger openapi.json</a>
+          </div>
+        </div>
+        <div class="explanation-list">
+          <div class="explanation-item">
+            <strong>1. Différence entre <code>OpenAPI 3.0</code> et <code>Swagger</code></strong> :
+            <strong>OpenAPI Specification (OAS 3.0.3)</strong> est la norme officielle (format du fichier <code>/api/openapi.json</code> ou <code>openapi.yaml</code> décrivant les <code>paths</code>, les paramètres <code>{id}</code>, les modèles <code>components.schemas</code> et les sécurités <code>securitySchemes</code>). <strong>Swagger UI</strong> est le portail Web interactif qui lit ce fichier JSON et génère automatiquement la page de test pour les développeurs.
+          </div>
+          <div class="explanation-item">
+            <strong>2. Comment utiliser le bouton cadenas <em>« Authorize »</em> et <em>« Try it out »</em> dans Swagger UI</strong> :<br/>
+            1. Cliquez sur <strong>Ouvrir Swagger UI (/api/docs)</strong> ci-dessus.<br/>
+            2. Cliquez sur le bouton vert <strong>Authorize</strong> en haut à droite : saisissez <code>isgp-secret-2026</code> dans <em>ApiKeyAuth (X-API-Key)</em> ou collez un jeton obtenu via <code>POST /api/sandbox/auth/token</code> dans <em>BearerAuth</em>.<br/>
+            3. Dépliez n'importe quelle route, cliquez sur <strong>Try it out</strong> puis sur <strong>Execute</strong> : Swagger UI forge et exécute l'appel HTTP réel et affiche même la commande <code>curl</code> correspondante !
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET 4 : RÉFÉRENTIEL & ADDENDUM TECHNIQUE (OPENSSL, LINUX & CONCEPTS) -->
+    <section id="tab-glossary" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Référentiel &amp; Addendum Technique : Cryptographie OpenSSL, Commandes Linux &amp; Architecture API</h2>
+          <p>Manuel complémentaire de l'ingénieur backend : différences exactes entre Encodage, Hachage, Signature HMAC et Chiffrement (AES / RSA), aide-mémoire complet <code>openssl</code>, commandes Linux de diagnostic réseau/production et fiches de synthèse.</p>
+        </div>
+        <div class="glossary-filters">
+          <input
+            type="search"
+            id="glossary-search"
+            class="search-input"
+            placeholder="Filtrer (ex. openssl, AES, RSA, sha256, ss, lsof, jq, systemd, chmod, 429...)"
+            oninput="renderGlossary()"
+          />
+          <select id="glossary-category" class="select-input" onchange="renderGlossary()">
+            <option value="ALL">Toutes les catégories (40 fiches)</option>
+            <option value="Cryptographie & OpenSSL">Addendum 1 — Cryptographie &amp; OpenSSL (Hachage, AES, RSA, TLS)</option>
+            <option value="Linux & Réseau Prod">Addendum 2 — Commandes Linux, Réseau, Logs &amp; Production</option>
+            <option value="Types MIME & Flask">Addendum 3 — Types MIME (Content-Type / Accept) &amp; Flask</option>
+            <option value="Sécurité & Architecture API">Sécurité, Tokens, AuthN/AuthZ &amp; Rate Limit</option>
+            <option value="Architecture Web">Architecture Web, REST &amp; HTTP</option>
+            <option value="Flask">Framework Flask, Blueprints &amp; WSGI</option>
+            <option value="Données">Données (JSON &amp; SQLite ACID)</option>
+            <option value="Bases Python">Fondations Python</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ADDENDUM PARTIE 1 : MATRICE CRYPTOGRAPHIQUE & AIDE-MÉMOIRE OPENSSL -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Addendum I — Cryptographie Appliquée &amp; Aide-Mémoire <code>openssl</code> (Hachage, HMAC, Chiffrement AES/RSA &amp; Certificats TLS)</h3>
+          <span class="step-badge">Cryptographie &amp; Sécurité</span>
+        </div>
+
+        <div class="doc-context-box" style="margin-bottom: 16px;">
+          <h4>Comprendre sans confusion : Encodage vs Hachage vs Signature HMAC vs Chiffrement</h4>
+          <div class="doc-context-text">
+            En sécurité des APIs et administration système Linux, confondre ces cinq opérations conduit à des failles critiques. Voici la matrice de décision exacte à conserver en permanence :
+          </div>
+          <div class="table-wrapper" style="margin-top: 12px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Opération</th>
+                  <th>Est-ce Réversible ?</th>
+                  <th>Utilise une Clé Secrète ?</th>
+                  <th>Objectif Exact</th>
+                  <th>Outils Standards (OpenSSL / Python)</th>
+                  <th>Cas d'Usage en API Web</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>1. Encodage</strong><br/>(<code>Base64</code>, <code>Hex</code>, <code>UTF-8</code>)</td>
+                  <td><strong>Oui, par tout le monde</strong> (0 sécurité)</td>
+                  <td>Non</td>
+                  <td>Transporter des octets binaires dans un canal texte (HTTP/JSON)</td>
+                  <td><code>base64</code>, <code>openssl base64</code>, <code>base64.b64encode()</code></td>
+                  <td>En-tête <code>Authorization: Basic</code>, segments d'un jeton JWT</td>
+                </tr>
+                <tr>
+                  <td><strong>2. Hachage Rapide</strong><br/>(<code>SHA-256</code>, <code>SHA-512</code>)</td>
+                  <td><strong>Non (Irréversible)</strong></td>
+                  <td>Non</td>
+                  <td>Garantir l'intégrité d'un fichier ou calculer l'empreinte d'une clé haute entropie</td>
+                  <td><code>openssl dgst -sha256</code>, <code>sha256sum</code>, <code>hashlib.sha256()</code></td>
+                  <td>Vérifier qu'une archive n'est pas altérée, stocker l'empreinte d'une <code>API Key</code></td>
+                </tr>
+                <tr>
+                  <td><strong>3. Hachage Lent Salé (KDF)</strong><br/>(<code>Scrypt</code>, <code>PBKDF2</code>, <code>Argon2</code>)</td>
+                  <td><strong>Non (Irréversible + Lent)</strong></td>
+                  <td>Non (Sel aléatoire public inclus)</td>
+                  <td>Protéger les mots de passe humains contre le cassage par GPU</td>
+                  <td><code>openssl passwd -6</code>, <code>generate_password_hash()</code></td>
+                  <td>Colonne <code>password_hash</code> de la table <code>users</code> en base SQL</td>
+                </tr>
+                <tr>
+                  <td><strong>4. Signature HMAC</strong><br/>(<code>HMAC-SHA256</code>)</td>
+                  <td><strong>Non</strong> (Vérifié par recalcul)</td>
+                  <td><strong>Oui</strong> (Clé secrète partagée)</td>
+                  <td>Prouver à la fois l'intégrité ET l'authenticité de l'émetteur</td>
+                  <td><code>openssl dgst -sha256 -hmac</code>, <code>hmac.new()</code></td>
+                  <td>Signature des jetons Bearer/JWT (<code>HS256</code>) et des Webhooks (<code>X-Webhook-Signature</code>)</td>
+                </tr>
+                <tr>
+                  <td><strong>5. Chiffrement Symétrique</strong><br/>(<code>AES-256-CBC</code> / <code>GCM</code>)</td>
+                  <td><strong>Oui</strong> (Avec la même clé secrète)</td>
+                  <td><strong>Oui</strong> (1 clé secrète unique pour chiffrer et déchiffrer)</td>
+                  <td>Rendre un fichier ou une colonne illisible aux tiers tout en pouvant le restaurer</td>
+                  <td><code>openssl enc -aes-256-cbc -pbkdf2</code>, <code>cryptography.fernet</code></td>
+                  <td>Chiffrer une sauvegarde SQLite (<code>.db.enc</code>), un fichier <code>.env</code> ou un secret bancaire</td>
+                </tr>
+                <tr>
+                  <td><strong>6. Chiffrement Asymétrique</strong><br/>(<code>RSA-4096</code>, <code>Ed25519</code>)</td>
+                  <td><strong>Oui / Vérifiable</strong> (Paire Privée / Publique)</td>
+                  <td><strong>Oui</strong> (Clé Privée secrète + Clé Publique distribuée)</td>
+                  <td>Signer avec la clé privée et permettre à tous de vérifier avec la clé publique</td>
+                  <td><code>openssl genpkey</code>, <code>openssl pkey</code>, <code>ssh-keygen</code></td>
+                  <td>Certificats HTTPS/TLS, clés SSH, jetons JWT inter-microservices (<code>RS256</code> / <code>EdDSA</code>)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-title">Arbre de Décision Cryptographique : Quelle Opération Choisir en Architecture d'API ?</div>
+          <pre class="mermaid">flowchart TD
+    Goal["Quel est votre besoin de sécurité sur la donnée ?"]
+    Goal -->|"Transporter des octets en texte ASCII\n(0 confidentialité)"| Enc["1. Encodage\nBase64 / Hex / URL-Encoding"]
+    Goal -->|"Vérifier l'intégrité d'un fichier\n(Irréversible, sans clé)"| Hash["2. Hachage Rapide\nSHA-256 / SHA-512"]
+    Goal -->|"Stocker un mot de passe utilisateur\nen base SQL (Irréversible + Lent)"| KDF["3. Hachage KDF Salé\nArgon2id / PBKDF2 / scrypt"]
+    Goal -->|"Prouver l'authenticité d'un Token JWT\nou d'un Webhook (Clé secrète)"| Sign["4. Signature Cryptographique\nHMAC-SHA256 (Symétrique) ou Ed25519/RSA (Asymétrique)"]
+    Goal -->|"Cacher un secret ou une sauvegarde\npour pouvoir le déchiffrer plus tard"| Cipher["5. Chiffrement Réversible\nAES-256-GCM/CBC (Symétrique) ou TLS 1.3"]</pre>
+        </div>
+
+        <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Les 14 Commandes <code>openssl</code> Indispensables en Terminal Linux</h4>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Besoin Opérationnel</th>
+                <th style="width: 48%;">Commande Exacte à Exécuter sous Linux</th>
+                <th>Explication Technique &amp; Précautions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Générer une <code>SECRET_KEY</code></strong><br/>(256 bits en Hexadécimal)</td>
+                <td><code>openssl rand -hex 32</code></td>
+                <td>Produit 64 caractères hexadécimaux (32 octets d'entropie pure) parfaits pour <code>FLASK_SECRET_KEY</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Générer une clé aléatoire</strong><br/>(Format Base64)</td>
+                <td><code>openssl rand -base64 32</code></td>
+                <td>Produit une chaîne aléatoire compacte idéale pour une clé d'API (<code>X-API-Key</code>) ou un mot de passe BDD.</td>
+              </tr>
+              <tr>
+                <td><strong>3. Hacher un texte en SHA-256</strong><br/>(Sans saut de ligne <code>\n</code>)</td>
+                <td><code>printf '%s' "mon_texte" | openssl dgst -sha256</code></td>
+                <td>Toujours utiliser <code>printf '%s'</code> (et non <code>echo</code> qui ajoute un <code>\n</code> invisible modifiant le hash !).</td>
+              </tr>
+              <tr>
+                <td><strong>4. Hacher un fichier en SHA-256</strong><br/>(Contrôle d'intégrité)</td>
+                <td><code>openssl dgst -sha256 ecole_isgp.db</code></td>
+                <td>Calcule l'empreinte SHA-256 d'un fichier SQLite ou d'une archive (équivalent à <code>sha256sum</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>5. Signer en <code>HMAC-SHA256</code></strong><br/>(Test de Webhook / JWT)</td>
+                <td><code>printf '%s' '{"id":1}' | openssl dgst -sha256 -hmac "cle_secrete"</code></td>
+                <td>Calcule exactement la signature attendue dans l'en-tête <code>X-Webhook-Signature</code> de votre API Flask.</td>
+              </tr>
+              <tr>
+                <td><strong>6. Encoder / Décoder en Base64</strong></td>
+                <td><code>printf '%s' "admin:pass" | openssl base64 -A</code><br/><code>echo "YWRtaW46cGFzcw==" | openssl base64 -d</code></td>
+                <td>L'option <code>-A</code> garde la sortie sur une seule ligne ; <code>-d</code> décode le Base64 vers le texte d'origine.</td>
+              </tr>
+              <tr>
+                <td><strong>7. Chiffrer un fichier en <code>AES-256</code></strong><br/>(Sauvegarde sécurisée)</td>
+                <td><code>openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 -in base.db -out base.db.enc</code></td>
+                <td>Chiffre <code>base.db</code> avec AES-256, un sel aléatoire et 600 000 itérations PBKDF2 (demande un mot de passe).</td>
+              </tr>
+              <tr>
+                <td><strong>8. Déchiffrer un fichier <code>AES-256</code></strong></td>
+                <td><code>openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in base.db.enc -out base.db</code></td>
+                <td>L'option <code>-d</code> (*decrypt*) restaure le fichier original à l'octet près à partir du mot de passe.</td>
+              </tr>
+              <tr>
+                <td><strong>9. Générer une clé privée <code>RSA 4096</code></strong></td>
+                <td><code>openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out private.pem</code></td>
+                <td>Crée une clé privée asymétrique RSA de 4096 bits. Toujours protéger par <code>chmod 600 private.pem</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>10. Extraire la clé publique <code>RSA</code></strong></td>
+                <td><code>openssl pkey -in private.pem -pubout -out public.pem</code></td>
+                <td>Extrait la clé publique <code>public.pem</code> qui peut être partagée sans risque avec tous les microservices.</td>
+              </tr>
+              <tr>
+                <td><strong>11. Générer une clé <code>Ed25519</code></strong><br/>(Courbe elliptique moderne)</td>
+                <td><code>openssl genpkey -algorithm Ed25519 -out ed_priv.pem &amp;&amp; openssl pkey -in ed_priv.pem -pubout -out ed_pub.pem</code></td>
+                <td>Algorithme asymétrique moderne : clés ultra-courtes, signatures ultra-rapides et sécurité maximale.</td>
+              </tr>
+              <tr>
+                <td><strong>12. Créer un certificat HTTPS/TLS</strong><br/>(Auto-signé 365 jours)</td>
+                <td><code>openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj "/CN=localhost"</code></td>
+                <td>Génère <code>key.pem</code> et <code>cert.pem</code> pour tester HTTPS en local (ex: Nginx ou Gunicorn <code>--certfile</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>13. Inspecter un certificat <code>.pem</code></strong></td>
+                <td><code>openssl x509 -in cert.pem -noout -subject -issuer -dates -fingerprint -sha256</code></td>
+                <td>Affiche le propriétaire (<code>subject</code>), l'autorité émettrice (<code>issuer</code>) et les dates d'expiration du certificat.</td>
+              </tr>
+              <tr>
+                <td><strong>14. Tester le TLS d'une API distante</strong></td>
+                <td><code>openssl s_client -connect api.domaine.dz:443 -servername api.domaine.dz &lt;/dev/null</code></td>
+                <td>Se connecte en TLS au port 443 pour diagnostiquer la chaîne de certificats et la version TLS (TLS 1.2 / 1.3).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADDENDUM PARTIE 2 : COMMANDES LINUX & RÉSEAU POUR L'INGÉNIEUR API -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Addendum II — Commandes Linux, Réseau, Diagnostic &amp; Exploitation Serveur pour APIs en Production</h3>
+          <span class="step-badge">Administration Linux &amp; DevOps</span>
+        </div>
+
+        <p style="margin: 0 0 12px 0; font-size: 15.5px; color: #374151; line-height: 1.65;">
+          Lorsqu'une API est déployée sur un serveur Linux (Ubuntu, Debian, RHEL/Rocky), l'ingénieur backend utilise quotidiennement ces commandes pour diagnostiquer les ports, filtrer les réponses JSON, analyser les logs d'erreurs et sécuriser les processus :
+        </p>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Catégorie &amp; Action</th>
+                <th style="width: 46%;">Commande Linux de Référence</th>
+                <th>Utilité en Développement &amp; Production d'API</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Réseau — Voir les ports ouverts</strong></td>
+                <td><code>sudo ss -tulpn | grep -E "5000|8000|80|443"</code></td>
+                <td>Affiche tous les processus en écoute TCP/UDP avec leur numéro de processus (<code>PID</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Identifier qui bloque un port</strong></td>
+                <td><code>lsof -i :5000</code> &nbsp;ou&nbsp; <code>fuser 5000/tcp</code></td>
+                <td>Indispensable face à l'erreur <code>OSError: [Errno 98] Address already in use</code> au lancement de Flask.</td>
+              </tr>
+              <tr>
+                <td><strong>Processus — Arrêter proprement</strong></td>
+                <td><code>kill -15 &lt;PID&gt;</code> &nbsp;(ou <code>kill -9 &lt;PID&gt;</code> si figé)</td>
+                <td><code>-15</code> (<code>SIGTERM</code>) permet à Flask/Gunicorn de terminer les requêtes SQL en cours avant de s'éteindre.</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Tester un port TCP</strong></td>
+                <td><code>nc -zv 127.0.0.1 5000</code></td>
+                <td>Vérifie avec Netcat si le port TCP 5000 (ou 5432 pour PostgreSQL) est ouvert à travers le pare-feu.</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Diagnostic DNS &amp; IP</strong></td>
+                <td><code>dig +short api.domaine.dz</code> &nbsp;|&nbsp; <code>ip -br a</code></td>
+                <td>Vérifie la résolution DNS d'un nom de domaine et liste les adresses IP des cartes réseau du serveur.</td>
+              </tr>
+              <tr>
+                <td><strong>Réseau — Capturer les paquets HTTP</strong></td>
+                <td><code>sudo tcpdump -i lo -A -s 0 'tcp port 5000'</code></td>
+                <td>Capture et affiche en ASCII (<code>-A</code>) les trames TCP/HTTP brutes circulant sur le port 5000.</td>
+              </tr>
+              <tr>
+                <td><strong>JSON — Formater &amp; Filtrer avec <code>jq</code></strong></td>
+                <td><code>curl -s http://127.0.0.1:5000/api/sandbox/formations | jq '.data[] | {id, titre}'</code></td>
+                <td>Extrait, colorise et transforme les réponses JSON directement dans un pipeline Bash.</td>
+              </tr>
+              <tr>
+                <td><strong>Logs — Surveillance temps réel</strong></td>
+                <td><code>tail -f access.log | grep --line-buffered -E " (401|403|429|500) "</code></td>
+                <td>Affiche en direct uniquement les requêtes en échec ou bloquées par la sécurité.</td>
+              </tr>
+              <tr>
+                <td><strong>Logs — Top 10 des IP (Anti-DoS)</strong></td>
+                <td><code>awk '{print $1}' access.log | sort | uniq -c | sort -nr | head -n 10</code></td>
+                <td>Compte le nombre de requêtes par adresse IP cliente dans les journaux Nginx/Apache pour repérer un abus.</td>
+              </tr>
+              <tr>
+                <td><strong>Sécurité — Verrouiller <code>.env</code> et clés</strong></td>
+                <td><code>chmod 600 .env private.pem</code></td>
+                <td>Interdit la lecture du fichier de secrets à tout autre compte utilisateur de la machine Linux (<code>-rw-------</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Sécurité — Pare-feu Linux <code>ufw</code></strong></td>
+                <td><code>sudo ufw allow 22/tcp &amp;&amp; sudo ufw allow 443/tcp &amp;&amp; sudo ufw enable</code></td>
+                <td>Ferme tous les ports entrants du serveur sauf SSH (22) et HTTPS (443), rendant le port Gunicorn 8000 inaccessible de l'extérieur.</td>
+              </tr>
+              <tr>
+                <td><strong>Prod — Gérer le démon <code>systemd</code></strong></td>
+                <td><code>sudo systemctl restart isgp-api &amp;&amp; sudo journalctl -u isgp-api -f</code></td>
+                <td>Redémarre les workers Gunicorn de production et affiche leurs journaux système en continu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADDENDUM PARTIE 3 : RÉFÉRENTIEL DES TYPES MIME & IMPLÉMENTATION DANS FLASK -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Addendum III — Référentiel des Types MIME (<code>Content-Type</code> / <code>Accept</code>) &amp; Comment les Utiliser dans Flask</h3>
+          <span class="step-badge">Types MIME &amp; Négociation HTTP</span>
+        </div>
+
+        <div class="doc-context-box" style="margin-bottom: 16px;">
+          <h4>Anatomie d'un Type MIME (<code>type/sous-type; paramètre=valeur</code> — RFC 6838 / IANA)</h4>
+          <div class="doc-context-text">
+            Sur le réseau HTTP, le corps d'un message (<code>Body</code>) n'est qu'une suite d'octets. C'est le <strong>Type MIME (*Multipurpose Internet Mail Extensions*)</strong> qui indique au destinataire comment interpréter ces octets :
+            <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+              <li><strong><code>Content-Type</code> (En-tête descriptif du corps envoyé)</strong> : Indique le format du corps actuel (ex: le client envoie <code>Content-Type: application/json</code> ou <code>application/x-www-form-urlencoded</code> dans son <code>POST</code> ; Flask répond avec <code>Content-Type: application/json</code> ou <code>text/html; charset=utf-8</code>).</li>
+              <li><strong><code>Accept</code> (En-tête de négociation du client)</strong> : Le client indique à Flask sous quel format il souhaite recevoir la réponse (ex: <code>Accept: application/json</code> pour un client mobile vs <code>Accept: text/html</code> pour un navigateur Web).</li>
+              <li><strong><code>Content-Disposition</code> (Comportement d'affichage vs téléchargement)</strong> : <code>inline</code> affiche le document (PDF, image) directement dans l'onglet du navigateur, tandis que <code>attachment; filename="rapport.pdf"</code> ouvre la boîte de dialogue de téléchargement.</li>
+              <li><strong><code>X-Content-Type-Options: nosniff</code> (Sécurité)</strong> : Interdit au navigateur de deviner le type d'un fichier par son contenu (*MIME Sniffing*), bloquant l'exécution de scripts malveillants déguisés en image ou en fichier texte.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 16px;">
+          <div class="mermaid-title">Cycle de Négociation des Types MIME dans Flask : Décodage Entrant (Content-Type) &amp; Sérialisation Sortante (Accept)</div>
+          <pre class="mermaid">flowchart LR
+    subgraph Entree["1. Requête Entrante (En-tête Content-Type)"]
+        CT_JSON["application/json"]
+        CT_FORM["application/x-www-form-urlencoded"]
+        CT_MULTI["multipart/form-data"]
+    end
+    subgraph FlaskCore["2. Extraction dans la Route Flask"]
+        R_JSON["request.get_json(silent=True)"]
+        R_FORM["request.form.get('champ')"]
+        R_FILES["request.form + request.files.get('doc')"]
+    end
+    subgraph Sortie["3. Réponse Sortante selon l'en-tête Accept"]
+        OUT_JSON["jsonify(data) -> application/json"]
+        OUT_HTML["render_template('page.html') -> text/html"]
+        OUT_CSV["Response(csv, mimetype='text/csv')"]
+        OUT_PDF["send_file(buf, mimetype='application/pdf')"]
+    end
+    CT_JSON --> R_JSON
+    CT_FORM --> R_FORM
+    CT_MULTI --> R_FILES
+    R_JSON --> Sortie
+    R_FORM --> Sortie
+    R_FILES --> Sortie</pre>
+        </div>
+
+        <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Matrice des 12 Types MIME Incontournables &amp; Leur Manipulation dans Flask</h4>
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Type MIME Officiel (IANA)</th>
+                <th style="width: 26%;">Lecture Entrante dans Flask (Requête Client &rarr; Serveur)</th>
+                <th style="width: 28%;">Émission Sortante par Flask (Réponse Serveur &rarr; Client)</th>
+                <th>Cas d'Usage en Architecture Web &amp; API</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. <code>application/json</code></strong><br/>(Standard API REST)</td>
+                <td><code>request.get_json(silent=True)</code><br/><span class="muted-small">(Vérifier avec <code>request.is_json</code>)</span></td>
+                <td><code>return jsonify(donnees), 200</code></td>
+                <td>Échange de données structurées entre API REST, applications mobiles, React/Vue et microservices.</td>
+              </tr>
+              <tr>
+                <td><strong>2. <code>application/problem+json</code></strong><br/>(Standard RFC 7807)</td>
+                <td><code>request.get_json(silent=True)</code></td>
+                <td><code>Response(json.dumps(err), status=422, mimetype="application/problem+json")</code></td>
+                <td>Format international normalisé pour les erreurs d'API (<code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>3. <code>application/x-www-form-urlencoded</code></strong><br/>(Formulaire HTML classique)</td>
+                <td><code>request.form.get("champ")</code><br/><code>request.form.getlist("choix")</code></td>
+                <td>Envoyé par <code>&lt;form method="POST"&gt;</code> ou <code>curl -d "a=1&amp;b=2"</code></td>
+                <td>Soumission de formulaires Web HTML (sans fichier) et requêtes de jetons OAuth2 (<code>grant_type=password</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>4. <code>multipart/form-data</code></strong><br/>(Formulaire + Upload Fichier)</td>
+                <td>Texte : <code>request.form.get("...")</code><br/>Fichier : <code>request.files.get("doc")</code></td>
+                <td>Envoyé par <code>&lt;form enctype="multipart/form-data"&gt;</code> ou <code>curl -F</code></td>
+                <td>Téléversement de fichiers (PDF, images, Excel) accompagnés de champs de formulaire texte.</td>
+              </tr>
+              <tr>
+                <td><strong>5. <code>text/html; charset=utf-8</code></strong><br/>(Page Web Jinja2)</td>
+                <td>N/A (Généré côté serveur)</td>
+                <td><code>return render_template("page.html", ...)</code></td>
+                <td>Pages Web rendues par le moteur de templates <strong>Jinja2</strong>, portails documentaires (Swagger UI).</td>
+              </tr>
+              <tr>
+                <td><strong>6. <code>text/plain; charset=utf-8</code></strong><br/>(Texte brut)</td>
+                <td><code>request.get_data(as_text=True)</code></td>
+                <td><code>Response("OK", mimetype="text/plain; charset=utf-8")</code></td>
+                <td>Journaux de logs (<code>.log</code>), collections <code>.http</code>, sondes de santé minimalistes (<code>/ping</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>7. <code>text/csv; charset=utf-8</code></strong><br/>(Tableur CSV)</td>
+                <td><code>csv.DictReader(io.StringIO(request.get_data(as_text=True)))</code></td>
+                <td><code>Response(csv_texte, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=export.csv"})</code></td>
+                <td>Export et import de tableaux comptables, listes d'inscriptions ou rapports compatibles Excel.</td>
+              </tr>
+              <tr>
+                <td><strong>8. <code>text/event-stream</code></strong><br/>(Flux temps réel SSE)</td>
+                <td>Connexion persistante ouverte par <code>new EventSource("/api/flux")</code></td>
+                <td><code>Response(generateur_sse(), mimetype="text/event-stream")</code></td>
+                <td>Notifications serveur temps réel (<strong>Server-Sent Events</strong>), progression de tâches ou streaming IA.</td>
+              </tr>
+              <tr>
+                <td><strong>9. <code>application/xml</code></strong><br/>(et <code>application/soap+xml</code>)</td>
+                <td><code>ElementTree.fromstring(request.data)</code></td>
+                <td><code>Response(xml_str, mimetype="application/xml")</code></td>
+                <td>Services Web historiques <strong>SOAP / WSDL</strong>, virements bancaires SEPA ISO 20022, flux RSS.</td>
+              </tr>
+              <tr>
+                <td><strong>10. <code>application/pdf</code></strong><br/>(Document PDF)</td>
+                <td><code>f = request.files.get("pdf")</code></td>
+                <td><code>send_file("attestation.pdf", mimetype="application/pdf", as_attachment=True)</code></td>
+                <td>Génération et téléchargement de factures, attestations de stage et convocations officielles.</td>
+              </tr>
+              <tr>
+                <td><strong>11. <code>image/png</code>, <code>image/jpeg</code>, <code>image/svg+xml</code></strong></td>
+                <td><code>img = request.files.get("photo")</code></td>
+                <td><code>send_file(buffer_img, mimetype="image/png")</code></td>
+                <td>Affichage d'avatars, graphiques statistiques générés à la volée, badges ou QR codes 2FA.</td>
+              </tr>
+              <tr>
+                <td><strong>12. <code>application/octet-stream</code></strong><br/>(Binaire générique)</td>
+                <td><code>octets = request.get_data()</code> (<code>bytes</code>)</td>
+                <td><code>Response(octets, mimetype="application/octet-stream")</code></td>
+                <td>Flux binaire brut (archives <code>.zip</code>, sauvegardes SQLite chiffrées <code>.db.enc</code>) forçant le téléchargement.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 style="margin: 14px 0 8px 0; font-size: 16px; color: #0f172a;">Modèles d'Implémentation Python / Flask : Lire, Négocier et Renvoyer chaque Type MIME</h4>
+        <pre class="code-block" style="margin: 0; font-size: 13.5px;">import csv, io, json
+from flask import Flask, Response, jsonify, render_template, request, send_file
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+
+# 1. INSPECTION DU TYPE MIME ENTRANT (POST : JSON vs Formulaire HTML vs Multipart vs Binaire)
+@app.route("/api/v1/ingestion-universelle", methods=["POST"])
+def ingerer_donnees_selon_mimetype():
+    # request.mimetype contient le type MIME pur sans les paramètres '; charset=utf-8' ou '; boundary=...'
+    mime_entrant = request.mimetype  # ex: "application/json", "application/x-www-form-urlencoded", "multipart/form-data"
+
+    if mime_entrant == "application/json":
+        donnees = request.get_json(silent=True) or {}
+        return jsonify({"source": "JSON", "recu": donnees}), 201
+
+    elif mime_entrant == "application/x-www-form-urlencoded":
+        # Envoyé par un <form method="POST"> HTML standard
+        donnees = dict(request.form)
+        return jsonify({"source": "Formulaire HTML (request.form)", "recu": donnees}), 201
+
+    elif mime_entrant == "multipart/form-data":
+        # Envoyé par un <form method="POST" enctype="multipart/form-data"> avec fichier
+        champ_titre = request.form.get("titre", "")
+        fichier = request.files.get("document")
+        nom_sain = secure_filename(fichier.filename) if fichier and fichier.filename else None
+        return jsonify({
+            "source": "Multipart (request.form + request.files)",
+            "titre": champ_titre,
+            "fichier_nom": nom_sain,
+            "fichier_mimetype": fichier.mimetype if fichier else None,
+        }), 201
+
+    return jsonify({"erreur": f"Type MIME '{mime_entrant}' non supporté (415 Unsupported Media Type)"}), 415
+
+
+# 2. NÉGOCIATION DE CONTENU (Header 'Accept') : Répondre en JSON, HTML (Jinja2) ou CSV sur la même route !
+@app.route("/api/v1/export-formations", methods=["GET"])
+def exporter_formations_multi_formats():
+    formations = [
+        {"id": 1, "titre": "Architecture API REST", "duree_jours": 5, "salle": "Salle A"},
+        {"id": 2, "titre": "Templates Jinja2 & Formulaires", "duree_jours": 3, "salle": "Salle B"},
+    ]
+    # Flask compare l'en-tête 'Accept' du client avec les formats que notre serveur sait produire :
+    meilleur_format = request.accept_mimetypes.best_match(
+        ["application/json", "text/csv", "text/html"], default="application/json"
+    )
+
+    if meilleur_format == "text/csv":
+        tampon = io.StringIO()
+        ecrivain = csv.DictWriter(tampon, fieldnames=["id", "titre", "duree_jours", "salle"])
+        ecrivain.writeheader()
+        ecrivain.writerows(formations)
+        return Response(
+            tampon.getvalue(),
+            status=200,
+            mimetype="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="formations_isgp.csv"'},
+        )
+
+    elif meilleur_format == "text/html":
+        return render_template("formations.html", formations=formations), 200
+
+    # Par défaut : application/json
+    return jsonify({"total": len(formations), "data": formations}), 200
+
+
+# 3. ENVOYER UN FICHIER BINAIRE (PDF, Image, Archive) EN MÉMOIRE AVEC send_file()
+@app.route("/api/v1/attestation.pdf", methods=["GET"])
+def telecharger_attestation_pdf():
+    octets_pdf = b"%PDF-1.4\n% Attestation officielle de reussite ISGP..."
+    flux_memoire = io.BytesIO(octets_pdf)
+    return send_file(
+        flux_memoire,
+        mimetype="application/pdf",
+        as_attachment=True,                  # True -> Content-Disposition: attachment (Télécharger)
+        download_name="attestation_isgp.pdf" # Nom du fichier proposé à l'utilisateur
+    )</pre>
+      </div>
+
+      <!-- ADDENDUM IV : INGÉNIERIE APPROFONDIE DU CYCLE DE VIE DES APIs (/api/v1 vs /api/v2, BREAKING CHANGES, RFC 8594) -->
+      <div class="card" style="margin-bottom: 18px; border-left: 4px solid #7c3aed;">
+        <div class="card-header">
+          <div>
+            <h3>Addendum IV — Cycle de Vie d'une API : Pourquoi voit-on presque toujours <code>/api/v1</code> et si rarement <code>/api/v2</code> ?</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Loi de Postel (<em>Tolerant Reader</em>), Changements Rétrocompatibles vs <em>Breaking Changes</em>, Coexistence Multi-Versions par Blueprints Flask, En-têtes de Dépréciation <strong>IETF RFC 8594 (<code>Deprecation</code> &amp; <code>Sunset</code>)</strong> et Enveloppe de Pagination
+            </p>
+          </div>
+          <span class="step-badge">Architecture &amp; Cycle de Vie API</span>
+        </div>
+
+        <!-- DIAGRAMME MERMAID : ARBRE DE DÉCISION ÉVOLUTION v1 VS CRÉATION v2 & TRANSITION RFC 8594 -->
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Arbre de Décision Architecturale : Rester sur /api/v1 (Additive Change) vs Créer /api/v2 (Breaking Change) &amp; Cycle RFC 8594</span>
+            <span class="mermaid-badge">Diagramme Vectoriel Mermaid</span>
+          </div>
+          <pre class="mermaid">flowchart LR
+    Change["Évolution demandée sur l'API"]
+    Check{"Les clients v1 existants\n(Apps Mobiles, Partenaires)\nvont-ils planter ?"}
+    StayV1["ÉVOLUTION RÉTROCOMPATIBLE (90% des cas)\n- Ajout d'un champ JSON optionnel\n- Ajout d'une nouvelle route (/api/v1/certificats)\n- Nouveau paramètre query optionnel (?lang=fr)\n-> ON RESTE SUR /api/v1 !"]
+    CreateV2["RUPTURE DE CONTRAT (Breaking Change)\n- Champ renommé ('intitule' -> 'titre') ou supprimé\n- Type modifié ('duree': 5 -> {'valeur': 5, 'unite': 'jours'})\n- Nouveau champ obligatoire en POST\n-> CRÉATION DU BLUEPRINT /api/v2 !"]
+    Coexist["Période de Coexistence (6 à 12 mois)\n/api/v1 (Headers Deprecation + Sunset RFC 8594)\n+ /api/v2 (Nouveau contrat) actifs en parallèle"]
+    Gone["Extinction de /api/v1 après la date Sunset\n-> Renvoie HTTP 410 Gone"]
+    Change --> Check
+    Check -->|"Non (Loi de Postel)"| StayV1
+    Check -->|"Oui (Rupture)"| CreateV2
+    CreateV2 --> Coexist --> Gone</pre>
+        </div>
+
+        <div class="two-col" style="margin-bottom: 14px; gap: 14px;">
+          <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px;">
+            <strong style="font-size: 14px; color: #0f172a; display: block; margin-bottom: 6px;">
+              1. Pourquoi <code>/api/v1</code> dure souvent 5 à 10 ans sans jamais passer en <code>v2</code> ?
+            </strong>
+            <p style="font-size: 13.5px; color: #334155; margin: 0 0 8px 0; line-height: 1.55;">
+              Dans les grandes APIs mondiales (OpenAI <code>/v1/chat/completions</code>, Stripe <code>/v1/charges</code>, Kubernetes <code>/apis/apps/v1</code>), on voit presque toujours <code>v1</code> parce que <strong>90 % de la vie d'une API se fait par ajouts rétrocompatibles (<em>Additive / Non-Breaking Changes</em>)</strong> :
+            </p>
+            <ul style="font-size: 13px; color: #334155; margin: 0; padding-left: 18px; line-height: 1.55;">
+              <li><strong>Loi de Postel (<em>Tolerant Reader Pattern</em>)</strong> : Lorsqu'on ajoute un nouveau champ <code>"certifiant": true</code> dans le JSON de <code>/api/v1/formations</code>, une application mobile codée il y a 2 ans qui lit uniquement <code>formation.intitule</code> ignore simplement la nouvelle clé sans planter.</li>
+              <li><strong>Pourquoi écrire <code>/api/v1</code> dès le Jour 1 alors ?</strong> C'est une <strong>assurance-vie architecturale</strong> : si vous publiez <code>/api/formations</code> sans <code>/v1</code> dans 50 000 téléphones et qu'un jour vous devez changer le type d'un champ, vous êtes bloqué. Avec <code>/api/v1</code> présent dès l'origine, vous montez <code>/api/v2</code> à côté sans casser <code>/api/v1</code> !</li>
+            </ul>
+          </div>
+
+          <div style="background: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 6px; padding: 12px 14px;">
+            <strong style="font-size: 14px; color: #4c1d95; display: block; margin-bottom: 6px;">
+              2. Quand faut-il obligatoirement créer <code>/api/v2</code> et comment déprécier <code>/api/v1</code> ?
+            </strong>
+            <p style="font-size: 13.5px; color: #334155; margin: 0 0 8px 0; line-height: 1.55;">
+              On ne crée <code>/api/v2</code> que lorsqu'une modification <strong>casse le code des clients existants (<em>Breaking Change</em>)</strong> : changement de type (<code>5</code> devient <code>{"valeur": 5, "unite": "jours"}</code>), renommage/suppression de clé, ou nouveau champ requis en <code>POST</code>.
+            </p>
+            <ul style="font-size: 13px; color: #334155; margin: 0; padding-left: 18px; line-height: 1.55;">
+              <li><strong>Coexistence par Blueprints Flask</strong> : Les deux Blueprints <code>bp_v1</code> et <code>bp_v2</code> tournent simultanément sur la même base SQLite/SQL.</li>
+              <li><strong>En-têtes HTTP de Dépréciation (Norme IETF RFC 8594)</strong> : Tant que <code>v1</code> est en sursis, le serveur injecte dans ses réponses : <code>Deprecation: true</code>, <code>Sunset: Thu, 31 Dec 2026 23:59:59 GMT</code> et <code>Link: &lt;/api/v2/formations&gt;; rel="successor-version"</code>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Nature du Changement</th>
+                <th style="width: 28%;">Exemples Concrets en JSON / HTTP</th>
+                <th style="width: 22%;">Impact sur les Clients <code>v1</code></th>
+                <th style="width: 28%;">Décision Architecturale</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ajout Rétrocompatible</strong><br><span class="muted">(Non-Breaking / Additive)</span></td>
+                <td>
+                  • Ajouter une clé JSON en sortie (<code>"niveau": "Avancé"</code>)<br>
+                  • Créer une nouvelle route <code>GET /api/v1/certificats</code><br>
+                  • Ajouter un filtre optionnel <code>?salle=Alger</code>
+                </td>
+                <td><strong>Aucun impact</strong> : les clients existants ignorent les clés/routes qu'ils n'utilisent pas.</td>
+                <td><strong>Rester sur <code>/api/v1</code></strong> (Ne jamais créer une <code>v2</code> pour un simple ajout !)</td>
+              </tr>
+              <tr>
+                <td><strong>Rupture de Contrat</strong><br><span class="muted">(Breaking Change)</span></td>
+                <td>
+                  • Renommer <code>"intitule"</code> en <code>"titre"</code><br>
+                  • Changer <code>"duree": 5</code> (int) en <code>"duree": {"valeur": 5, "unite": "jours"}</code><br>
+                  • Rendre un nouveau champ obligatoire dans <code>POST</code>
+                </td>
+                <td><strong>Crash immédiat</strong> (<code>KeyError</code>, <code>TypeError</code> ou rejet <code>422</code> sur les apps mobiles en production).</td>
+                <td><strong>Créer un Blueprint <code>/api/v2</code></strong> et maintenir <code>/api/v1</code> avec en-têtes <code>Deprecation</code> + <code>Sunset</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Piège de la Racine JSON</strong><br><span class="muted">(Liste brute vs Enveloppe)</span></td>
+                <td>
+                  • Mauvais : Renvoyer une liste brute <code>[ {...}, {...} ]</code><br>
+                  • Bon : Renvoyer <code>{"meta": {"total": 42, "page": 1}, "data": [...]}</code>
+                </td>
+                <td>Si la racine est une liste <code>[...]</code>, impossible d'ajouter <code>total</code> ou <code>next_cursor</code> sans casser la racine !</td>
+                <td>Toujours utiliser une <strong>enveloppe objet <code>{"meta": ..., "data": [...]}</code></strong> dès <code>/api/v1</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Les 4 Stratégies de Versioning</strong><br><span class="muted">(Où placer le numéro ?)</span></td>
+                <td>
+                  1. <strong>URI Path</strong> : <code>/api/v1/formations</code> (80 % des APIs)<br>
+                  2. <strong>Header Date</strong> : <code>X-API-Version: 2026-11-01</code> (Stripe)<br>
+                  3. <strong>MIME Accept</strong> : <code>Accept: application/vnd.isgp.v2+json</code><br>
+                  4. <strong>Query Param</strong> : <code>?version=2</code>
+                </td>
+                <td>Le versioning dans l'URI (<code>/api/v1/</code>) est le plus lisible dans <code>curl</code>, Swagger UI et les blocs <code>location</code> de Nginx.</td>
+                <td>Utiliser <strong><code>/api/v1/</code> dans l'URL</strong> pour les versions majeures, et un en-tête pour les sous-versions mineures.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Comparaison en Direct sur ce Serveur : Testez <code>GET /api/v1/sandbox/formations</code> vs <code>GET /api/v2/sandbox/formations</code>
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none;"># 1. Interroger la version historique v1 (Observez les en-têtes RFC 8594 Deprecation, Sunset et Link) :
+curl -i http://127.0.0.1:5000/api/v1/sandbox/formations
+# HTTP/1.1 200 OK
+# X-API-Version: 1.0
+# Deprecation: true
+# Sunset: Thu, 31 Dec 2026 23:59:59 GMT
+# Link: &lt;/api/v2/sandbox/formations&gt;; rel="successor-version"
+# {"version": "v1", "items": [{"id": 1, "intitule": "Architecture API REST", "duree": 5, "salle": "Salle A"}]}
+
+# 2. Interroger la nouvelle version v2 (Enveloppe meta/data/links + objet structuré 'duree' + pagination) :
+curl -i "http://127.0.0.1:5000/api/v2/sandbox/formations?page=1&amp;per_page=2"
+# HTTP/1.1 200 OK
+# X-API-Version: 2.0
+# {"meta": {"version": "v2", "page": 1, "per_page": 2, "total_items": 4},
+#  "data": [{"id": 1, "titre": "Architecture API REST",
+#            "duree": {"valeur": 5, "unite": "jours", "heures_pedagogiques": 35},
+#            "localisation": {"salle": "Salle A", "campus": "ISGP Alger"}}]}</pre>
+      </div>
+
+      <!-- ADDENDUM V : INGÉNIERIE & SÉCURITÉ DES COOKIES HTTP (SET-COOKIE, HTTPONLY, SECURE, SAMESITE & SESSION HMAC) -->
+      <div class="card" style="margin-bottom: 18px; border-left: 4px solid #dc2626;">
+        <div class="card-header">
+          <div>
+            <h3>Addendum V — Sécurité des Cookies en API &amp; Web : <code>Set-Cookie</code>, Sessions Signées HMAC &amp; Drapeaux <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite</code></h3>
+            <p class="muted" style="margin-top: 2px;">
+              Pourquoi <code>localStorage</code> est vulnérable au vol de jeton par XSS, comment blinder un cookie d'authentification (RFC 6265) et comment signer les sessions côté serveur
+            </p>
+          </div>
+          <span class="step-badge">Sécurité Cookies &amp; Anti-XSS/CSRF</span>
+        </div>
+
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Architecture de Défense par Cookie Sécurisé : Boucliers HttpOnly (Anti-XSS), SameSite (Anti-CSRF) &amp; Signature HMAC</span>
+            <span class="mermaid-badge">Diagramme Vectoriel Mermaid</span>
+          </div>
+          <pre class="mermaid">flowchart LR
+    API["Serveur API (POST /login)\nSet-Cookie: isgp_auth_token=eyJ...Sig;\nHttpOnly; Secure; SameSite=Strict; Max-Age=3600"]
+    Vault["Coffre-Fort Réseau du Navigateur\n(Envoi auto dans l'en-tête HTTP Cookie)"]
+    XSS["Attaque XSS (Script JS injecté)\nTente de lire document.cookie"]
+    CSRF["Attaque CSRF (Site tiers evil.com)\nTente un POST inter-sites"]
+    MITM["Écoute Réseau Wi-Fi (http:// non chiffré)"]
+    API -->|"Émission Set-Cookie"| Vault
+    XSS -.->|"BLOQUÉ par HttpOnly"| Vault
+    CSRF -.->|"BLOQUÉ par SameSite=Strict/Lax"| Vault
+    MITM -.->|"BLOQUÉ par Secure (HTTPS seul)"| Vault</pre>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 18%;">Attribut / Mécanisme</th>
+                <th style="width: 26%;">Syntaxe Python / HTTP</th>
+                <th style="width: 24%;">Attaque Neutralisée</th>
+                <th style="width: 32%;">Explication d'Ingénierie</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong><code>HttpOnly</code></strong></td>
+                <td><code>httponly=True</code><br><span class="muted"><code>Set-Cookie: ...; HttpOnly</code></span></td>
+                <td><strong>Vol de jeton par XSS</strong><br><span class="muted">(Cross-Site Scripting)</span></td>
+                <td>Rend le cookie <strong>totalement invisible pour JavaScript (<code>document.cookie</code>)</strong>. Contrairement à <code>localStorage</code>, un script malveillant injecté dans la page ne peut pas voler le jeton.</td>
+              </tr>
+              <tr>
+                <td><strong><code>Secure</code></strong></td>
+                <td><code>secure=True</code><br><span class="muted"><code>Set-Cookie: ...; Secure</code></span></td>
+                <td><strong>Interception Réseau (MitM)</strong><br><span class="muted">(Sniffing sur HTTP clair)</span></td>
+                <td>Le navigateur refuse de transmettre le cookie sur une connexion <code>http://</code> non chiffrée ; il exige un canal <strong>HTTPS (TLS)</strong>.</td>
+              </tr>
+              <tr>
+                <td><strong><code>SameSite</code></strong></td>
+                <td><code>samesite="Strict"</code> ou <code>"Lax"</code><br><span class="muted"><code>Set-Cookie: ...; SameSite=Strict</code></span></td>
+                <td><strong>Requête Forgée (CSRF)</strong><br><span class="muted">(Cross-Site Request Forgery)</span></td>
+                <td>Empêche un site externe piégé (<code>evil.com</code>) d'envoyer automatiquement vos cookies lors d'une requête <code>POST</code> silencieuse vers votre API.</td>
+              </tr>
+              <tr>
+                <td><strong>Signature HMAC</strong></td>
+                <td><code>session["user"] = "amine"</code><br><span class="muted">ou <code>URLSafeTimedSerializer</code></span></td>
+                <td><strong>Falsification Client (F12)</strong><br><span class="muted">(Élévation de privilèges)</span></td>
+                <td>Un cookie standard (<code>set_cookie</code>) est modifiable par l'utilisateur. Un cookie signé par HMAC avec <code>secret_key</code> devient infalsifiable : modifier un seul octet invalide la signature.</td>
+              </tr>
+              <tr>
+                <td><strong>Révocation</strong></td>
+                <td><code>resp.delete_cookie("nom")</code><br><span class="muted"><code>Max-Age=0; Expires=1970...</code></span></td>
+                <td><strong>Session fantôme après Logout</strong></td>
+                <td>Émet un en-tête <code>Set-Cookie</code> avec une durée de vie nulle (<code>Max-Age=0</code>), forçant le navigateur à supprimer immédiatement le cookie.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Testez le Cycle Complet des Cookies en Direct sur ce Serveur (<code>/api/sandbox/cookies/*</code>) :
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none;"># 1. Se connecter et enregistrer les cookies (HttpOnly + Session HMAC) dans un fichier cookies.txt :
+curl -i -c cookies.txt -X POST http://127.0.0.1:5000/api/sandbox/cookies/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifiant": "yasmine.merabet", "theme": "sombre"}'
+
+# 2. Renvoyer les cookies (-b cookies.txt) pour inspecter le décodage HMAC côté serveur :
+curl -i -b cookies.txt http://127.0.0.1:5000/api/sandbox/cookies/inspect
+
+# 3. Se déconnecter et révoquer les cookies (Max-Age=0) :
+curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:5000/api/sandbox/cookies/logout</pre>
+      </div>
+
+      <!-- GRILLE INTERACTIVE DES FICHES DU RÉFÉRENTIEL -->
+      <div id="glossary-grid" class="glossary-grid"></div>
+    </section>
+
+    <!-- ONGLET DÉDIÉ : ARCHITECTURE DE PRODUCTION, REVERSE PROXY NGINX & LOAD BALANCING -->
+    <section id="tab-nginx" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Architecture de Production : Reverse Proxy Nginx, Répartition de Charge (Load Balancing) &amp; Haute Disponibilité</h2>
+          <p>
+            En production, on n'expose jamais un serveur Python unique directement sur Internet. <strong>Nginx</strong> est placé en frontal (Port 80/443) pour remplir deux missions critiques :
+            <strong>1) Servir directement les fichiers statiques (<code>/static/</code>)</strong> via le noyau Linux (<code>sendfile</code>) sans solliciter Python, et
+            <strong>2) Répartir les requêtes dynamiques (<code>/api/...</code> et Jinja2)</strong> entre <strong>4 instances Flask/Gunicorn (ports <code>8001</code> à <code>8004</code>)</strong> avec tolérance aux pannes automatique (<em>Zero-Downtime Failover</em>).
+          </p>
+        </div>
+      </div>
+
+      <!-- 1. DIAGRAMMES D'ARCHITECTURE MERMAID & RÈGLES D'INGÉNIERIE -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>1. Topologie d'Aiguillage Nginx : Délestage Statique (<code>location /static/</code>) vs Load Balancing (<code>upstream</code> 4 Nœuds WSGI)</h3>
+          <span class="step-badge">Architecture Production Linux</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="mermaid-container" style="margin-bottom: 0;">
+            <div class="mermaid-title">A. Topologie Reverse Proxy, Délestage Statique &amp; Pool Upstream (4 Instances)</div>
+            <pre class="mermaid">flowchart LR
+    Clients["Clients Web, Mobiles &amp; curl\n(HTTPS :443 / HTTP :80)"]
+    Nginx["NGINX FRONTAL\nReverse Proxy &amp; Load Balancer"]
+    StaticDisk[("Disque /static/\nstyles.css, app.js, images\n(Noyau Linux sendfile < 0.5ms)")]
+    subgraph Cluster["Pool Upstream : isgp_flask_cluster (4 Instances WSGI)"]
+        N1["Instance Flask #1\n127.0.0.1:8001 (Gunicorn)"]
+        N2["Instance Flask #2\n127.0.0.1:8002 (Gunicorn)"]
+        N3["Instance Flask #3\n127.0.0.1:8003 (Gunicorn)"]
+        N4["Instance Flask #4\n127.0.0.1:8004 (Gunicorn)"]
+    end
+    DB[("Base de Données\nSQLite WAL / PostgreSQL")]
+    Clients --> Nginx
+    Nginx -->|"Chemin A : GET /static/*\n(0% CPU Python sollicité)"| StaticDisk
+    Nginx -->|"Chemin B : /api/* &amp; Jinja2\n(least_conn / round-robin)"| N1
+    Nginx --> N2
+    Nginx --> N3
+    Nginx --> N4
+    N1 --> DB
+    N2 --> DB
+    N3 --> DB
+    N4 --> DB</pre>
+          </div>
+
+          <div class="mermaid-container" style="margin-bottom: 0;">
+            <div class="mermaid-title">B. Séquence de Basculement Automatique sur Panne (Zero-Downtime Failover)</div>
+            <pre class="mermaid">sequenceDiagram
+    participant C as Client HTTP
+    participant LB as Nginx (max_fails=3)
+    participant N1 as Node #1 (:8001)
+    participant N2 as Node #2 (:8002)
+    C->>LB: 1. GET /static/styles.css
+    LB-->>C: 200 OK direct depuis disque (sendfile, 0.4ms)
+    C->>LB: 2. GET /api/v1/formations
+    LB->>N1: proxy_pass (X-Forwarded-For, X-Real-IP)
+    N1--xLB: Panne / Timeout sur :8001 !
+    Note over LB,N2: proxy_next_upstream : Nginx bascule en transparence sur :8002
+    LB->>N2: Rejoue GET /api/v1/formations sur :8002
+    N2-->>LB: HTTP 200 OK (X-Flask-Instance: flask-node-2)
+    LB-->>C: HTTP 200 OK (Zéro erreur visible côté client !)</pre>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Algorithme Nginx (<code>upstream</code>)</th>
+                <th style="width: 26%;">Directive dans <code>nginx.conf</code></th>
+                <th>Principe d'Aiguillage &amp; Cas d'Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Round-Robin (Tourniquet)</strong></td>
+                <td><em>(Par défaut, aucune directive)</em></td>
+                <td>Distribue les requêtes séquentiellement dans l'ordre exact : <code>:8001</code> &rarr; <code>:8002</code> &rarr; <code>:8003</code> &rarr; <code>:8004</code> &rarr; <code>:8001</code>. Idéal lorsque toutes les requêtes ont un temps d'exécution similaire.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Least Connections</strong></td>
+                <td><code>least_conn;</code></td>
+                <td>Envoie chaque nouvelle requête à l'instance ayant actuellement <strong>le moins de connexions actives</strong>. <strong>Recommandé pour les APIs REST</strong> où certaines requêtes SQL sont plus longues que d'autres.</td>
+              </tr>
+              <tr>
+                <td><strong>3. IP Hash (Affinité client)</strong></td>
+                <td><code>ip_hash;</code></td>
+                <td>Calcule un hachage de l'adresse IP du client pour qu'un même utilisateur atterrisse toujours sur la même instance (utile uniquement si l'application stocke un état en mémoire locale).</td>
+              </tr>
+              <tr>
+                <td><strong>4. Weighted (Pondéré)</strong></td>
+                <td><code>server 127.0.0.1:8001 weight=3;</code></td>
+                <td>Attribue 3 fois plus de requêtes à l'instance <code>:8001</code> qu'aux autres (utile lors d'un déploiement progressif <em>Canary</em> ou sur des serveurs de puissances différentes).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. SIMULATEUR INTERACTIF DU CLUSTER NGINX + 4 INSTANCES FLASK -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>2. Simulateur Interactif de Répartition de Charge (4 Instances Flask <code>:8001..:8004</code>), Délestage Statique &amp; Pannes (Failover)</h3>
+          <div class="btn-group">
+            <button class="btn-secondary btn-sm" onclick="resetNginxCluster()">Réinitialiser le Cluster</button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; border-radius: 4px;">
+          <div style="flex: 1; min-width: 220px;">
+            <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px;">Algorithme de Load Balancing Nginx :</label>
+            <select id="nginx-algo-select" class="select-input input-full" onchange="simulateNginxTraffic('dynamic', 0)">
+              <option value="round_robin">Round-Robin (Tourniquet 8001 &rarr; 8002 &rarr; 8003 &rarr; 8004)</option>
+              <option value="least_conn">least_conn (Instance la moins chargée)</option>
+              <option value="weighted">Weighted Round-Robin (Node 1 :8001 avec weight=3)</option>
+              <option value="ip_hash">ip_hash (Affinité selon l'IP cliente)</option>
+            </select>
+          </div>
+          <div style="width: 190px;">
+            <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px;">IP Cliente simulée (<code>X-Real-IP</code>) :</label>
+            <input type="text" id="nginx-client-ip" class="input-full" value="197.204.12.88" />
+          </div>
+          <div class="btn-group" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="btn-primary" onclick="simulateNginxTraffic('dynamic', 1)">
+              Envoyer 1 Requête API (/api/v1/formations)
+            </button>
+            <button class="btn-primary" onclick="simulateNginxTraffic('dynamic', 12)">
+              Rafale de 12 Requêtes API (Load Balancing)
+            </button>
+            <button class="btn-secondary" onclick="simulateNginxTraffic('static', 4)">
+              Envoyer 4 Requêtes Statiques (/static/styles.css)
+            </button>
+          </div>
+        </div>
+
+        <!-- Compteurs globaux Nginx + Cartes des 4 instances -->
+        <div id="nginx-summary-banner" style="margin-bottom: 14px;"></div>
+        <div id="nginx-nodes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 16px;"></div>
+
+        <div>
+          <div class="label-row" style="margin-bottom: 6px;">
+            <h4 style="margin:0; font-size:15px;">Journal en direct de Nginx (<code>/var/log/nginx/isgp_cluster_access.log</code> — variable <code>$upstream_addr</code>)</h4>
+            <span class="muted-small">Cliquez sur « Simuler Panne (DOWN) » sur une instance ci-dessus pour observer le basculement automatique Nginx</span>
+          </div>
+          <pre id="nginx-live-logs" class="code-block" style="max-height: 210px; overflow-y: auto; margin: 0; font-size: 13px;"></pre>
+        </div>
+      </div>
+
+      <!-- 3. LES 4 FICHIERS RÉELS DE DÉPLOIEMENT (DANS deploy_nginx_cluster/) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>3. Fichiers Réels de Production Générés dans le Projet (<code>deploy_nginx_cluster/</code>)</h3>
+          <span class="step-badge">Prêt à déployer sous Linux &amp; Docker</span>
+        </div>
+
+        <p style="font-size: 15.5px; color: #374151; line-height: 1.65; margin: 0 0 14px 0;">
+          Les 4 fichiers complets ci-dessous sont présents dans le dossier <code>deploy_nginx_cluster/</code> de votre espace de travail. Vous pouvez les tester immédiatement sur votre machine Linux :
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">A. Configuration Nginx (<code>deploy_nginx_cluster/nginx_isgp_cluster.conf</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-conf')">Copier nginx.conf</button>
+            </div>
+            <pre id="code-nginx-conf" class="code-block" style="max-height: 420px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">B. Instance Flask + <code>ProxyFix</code> (<code>deploy_nginx_cluster/instance_flask.py</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-flask')">Copier instance_flask.py</button>
+            </div>
+            <pre id="code-nginx-flask" class="code-block" style="max-height: 420px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">C. Script Bash de Lancement des 4 Instances (<code>deploy_nginx_cluster/start_4_instances.sh</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-sh')">Copier start_4_instances.sh</button>
+            </div>
+            <pre id="code-nginx-sh" class="code-block" style="max-height: 340px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+
+          <div>
+            <div class="label-row" style="margin-bottom: 6px;">
+              <h4 style="margin:0; font-size:15px;">D. Orchestration Multi-Conteneurs (<code>deploy_nginx_cluster/docker-compose.yml</code>)</h4>
+              <button class="btn-secondary btn-sm" onclick="copyTextById('code-nginx-compose')">Copier docker-compose.yml</button>
+            </div>
+            <pre id="code-nginx-compose" class="code-block" style="max-height: 340px; overflow-y: auto; font-size: 12.8px; margin: 0;"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET 5 : ÉVALUATIONS PAR MODULE -->
+    <section id="tab-quiz" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Évaluations Formatives &amp; Validation des Acquis</h2>
+          <p>Questionnaires d'auto-évaluation par module avec corrigés détaillés permettant d'assurer un socle de connaissances homogène.</p>
+        </div>
+        <div id="quiz-day-selector" class="preset-buttons"></div>
+      </div>
+
+      <div id="quiz-container" class="quiz-container"></div>
+    </section>
+  </main>
+
+  <!-- Notification système -->
+  <div id="toast-notification" class="toast hidden"></div>
+
+  <script src="/static/app.js?v=31"></script>
+</body>
+</html>

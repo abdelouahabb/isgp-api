@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Volume II (FastAPI) : Atelier Formulaire HTML (Form) &amp; Moteur de Templates Jinja2</title>
+  <link rel="stylesheet" href="/static/styles.css?v=19" />
+  <style>
+    .jinja-demo-wrapper {
+      max-width: 1180px;
+      margin: 24px auto;
+      padding: 0 18px;
+    }
+    .jinja-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .jinja-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1e3a5f;
+      border: 1px solid #bfdbfe;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .alert-box {
+      padding: 14px 18px;
+      border-radius: 4px;
+      margin-bottom: 18px;
+      font-size: 15.5px;
+      line-height: 1.6;
+    }
+    .alert-success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #15803d;
+      color: #14532d;
+    }
+    .alert-error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-left: 4px solid #b91c1c;
+      color: #7f1d1d;
+    }
+    @media (max-width: 960px) {
+      .jinja-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-topbar">
+    <div class="doc-topbar-left">
+      <span class="doc-brand">ISGP</span>
+      <span class="doc-divider">/</span>
+      <span class="doc-title">Volume II (FastAPI) — Atelier Pratique : Formulaire Web HTML (<code>Form(...)</code>) &amp; Rendu Serveur (<code>Jinja2Templates</code>)</span>
+    </div>
+    <div class="doc-nav-right">
+      <a class="btn-secondary btn-sm" href="/api/docs" target="_blank">Swagger UI (/api/docs)</a>
+      <a class="btn-primary btn-sm" href="/">Retour au Cours</a>
+    </div>
+  </div>
+
+  <main class="jinja-demo-wrapper">
+    <div class="doc-context-box">
+      <h4>Comment fonctionne cette page dans FastAPI ? (Rendu Serveur <code>Jinja2Templates</code> + Décodage de Formulaire <code>Form(...)</code>)</h4>
+      <div class="doc-context-text">
+        Cette page est rendue côté serveur via <code>templates.TemplateResponse(request=request, name="demo_formulaire_jinja.html", context={...})</code>.
+        Lorsque vous cliquez sur <strong>« Envoyer le Formulaire (POST) »</strong>, le navigateur n'envoie <strong>pas</strong> du JSON, mais un corps encodé en
+        <code>Content-Type: application/x-www-form-urlencoded</code> (ex: <code>titre=API+FastAPI&amp;formateur=Dr+Benali&amp;duree_jours=5&amp;salle=Salle+A</code>).
+        FastAPI extrait et valide chaque champ grâce aux paramètres déclarés avec <code>Form(...)</code> (<code>python-multipart</code>), insère la formation dans SQLite et régénère le tableau HTML avec une boucle Jinja2 <code>&#123;% for f in formations %&#125;</code>.
+      </div>
+    </div>
+
+    {# Bloc conditionnel Jinja2 : affichage du message de succès #}
+    {% if message_succes %}
+    <div class="alert-box alert-success">
+      <strong>Opération réussie (HTTP 201 / Rendu Jinja2Templates) :</strong> {{ message_succes }}
+      {% if raw_form_payload %}
+      <div style="margin-top: 8px; font-family: monospace; font-size: 13.5px; background: rgba(255,255,255,0.7); padding: 8px 10px; border-radius: 4px;">
+        <strong>Trame brute reçue (<code>application/x-www-form-urlencoded</code>) :</strong> {{ raw_form_payload }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Bloc conditionnel Jinja2 : affichage des erreurs de validation #}
+    {% if erreurs %}
+    <div class="alert-box alert-error">
+      <strong>Erreur de validation du formulaire (HTTP 422 Unprocessable Entity) :</strong>
+      <ul style="margin: 6px 0 0 0; padding-left: 20px;">
+        {% for err in erreurs %}
+        <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="jinja-grid">
+      <!-- COLONNE GAUCHE : FORMULAIRE HTML (<form method="POST">) -->
+      <div class="card">
+        <div class="card-header">
+          <h3>1. Formulaire HTML (<code>&lt;form method="POST"&gt;</code>)</h3>
+          <span class="jinja-badge">application/x-www-form-urlencoded</span>
+        </div>
+
+        <form method="POST" action="/sandbox/formulaire-jinja">
+          <div class="form-group">
+            <label for="champ-titre">Intitulé de la formation (attribut <code>name="titre"</code>) *</label>
+            <input
+              type="text"
+              id="champ-titre"
+              name="titre"
+              class="input-full"
+              placeholder="Ex: Développement d'APIs Web avec FastAPI &amp; Jinja2"
+              value="{{ valeurs_saisies.get('titre', '') }}"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="champ-formateur">Nom du formateur (attribut <code>name="formateur"</code>) *</label>
+            <input
+              type="text"
+              id="champ-formateur"
+              name="formateur"
+              class="input-full"
+              placeholder="Ex: Équipe Pédagogique ISGP"
+              value="{{ valeurs_saisies.get('formateur', 'Intervenant ISGP') }}"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="champ-duree">Durée en jours (attribut <code>name="duree_jours"</code>, de 1 à 30) *</label>
+            <input
+              type="number"
+              id="champ-duree"
+              name="duree_jours"
+              class="input-full"
+              min="1"
+              max="30"
+              value="{{ valeurs_saisies.get('duree_jours', '5') }}"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="champ-salle">Salle de cours (attribut <code>name="salle"</code>)</label>
+            <select id="champ-salle" name="salle" class="select-input input-full">
+              {% for option_salle in ["Salle A", "Salle B", "Salle Conférence", "Labo Informatique 1"] %}
+              <option value="{{ option_salle }}" {% if valeurs_saisies.get('salle') == option_salle %}selected{% endif %}>
+                {{ option_salle }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div style="margin-top: 16px; display: flex; gap: 10px; align-items: center;">
+            <button type="submit" class="btn-primary" style="font-size: 14.5px; padding: 9px 16px;">
+              Envoyer le Formulaire (POST Form(...))
+            </button>
+          </div>
+        </form>
+
+        <div class="analogy-box" style="margin-top: 18px; margin-bottom: 0;">
+          <h4>Équivalent exact en ligne de commande <code>curl</code></h4>
+          <p style="font-size: 14px; margin-bottom: 8px;">
+            Avec <code>curl</code>, l'option <code>-d "cle=valeur"</code> sans en-tête JSON envoie exactement le même format <code>application/x-www-form-urlencoded</code> qu'un formulaire HTML :
+          </p>
+          <pre class="code-block-mini">curl -i -X POST "http://127.0.0.1:8000/api/sandbox/formulaire-formation" \
+  -d "titre=Formation+Jinja2&amp;formateur=ISGP&amp;duree_jours=4&amp;salle=Salle+B"</pre>
+        </div>
+      </div>
+
+      {# COLONNE DROITE : TABLEAU RENDU PAR BOUCLE JINJA2 #}
+      <div class="card">
+        <div class="card-header">
+          <h3>2. Catalogue SQLite rendu par Jinja2 (<code>&#123;% for f in formations %&#125;</code>)</h3>
+          <span class="jinja-badge">{{ formations | length }} enregistrements</span>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Intitulé (<code>&#123;&#123; f.titre &#125;&#125;</code>)</th>
+                <th>Formateur</th>
+                <th>Durée</th>
+                <th>Salle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in formations %}
+              <tr>
+                <td><code>#{{ f.id }}</code></td>
+                <td><strong>{{ f.titre }}</strong></td>
+                <td>{{ f.formateur }}</td>
+                <td>{{ f.duree_jours }} jours</td>
+                <td><span class="category-tag">{{ f.salle }}</span></td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="5">Aucune formation enregistrée en base.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #1e293b;">Code Python/FastAPI &amp; Template Jinja2 exécutés sur cette route :</h4>
+          <pre class="code-block" style="font-size: 13px;"># Côté Python (FastAPI) — Extraction déclarative Form(...) et rendu Jinja2Templates :
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory="templates")
+
+@app.post("/sandbox/formulaire-jinja", response_class=HTMLResponse)
+def traiter_formulaire_jinja(
+    request: Request,
+    titre: str = Form(..., min_length=3),
+    formateur: str = Form("Intervenant ISGP"),
+    duree_jours: int = Form(..., ge=1, le=30),
+    salle: str = Form("Salle A"),
+):
+    # ... Validation + INSERT INTO formations ...
+    return templates.TemplateResponse(
+        request=request,
+        name="demo_formulaire_jinja.html",
+        context={"formations": formations},
+        status_code=201,
+    )</pre>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Portail Cookies &amp; Session Signée — ISGP</title>
+</head>
+<body>
+  <h1>Portail Sécurisé par Cookies HttpOnly &amp; Session Signée</h1>
+  <p>Utilisateur connecté (Session HMAC) : <strong>{{ utilisateur }}</strong> (Rôle : <code>{{ role }}</code>)</p>
+  <p>Préférence visuelle (Cookie standard <code>isgp_theme</code>) : <code>{{ theme }}</code></p>
+  <p>Protection anti-XSS : Le jeton <code>isgp_auth_token</code> possède le drapeau <code>HttpOnly</code> (invisible dans <code>document.cookie</code>).</p>
+</body>
+</html>

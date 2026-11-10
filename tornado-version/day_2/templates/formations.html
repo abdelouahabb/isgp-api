@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ titre_page }} — ISGP</title>
+</head>
+<body>
+  <h1>{{ titre_page }}</h1>
+
+  {# Affichage conditionnel du message de confirmation après soumission du formulaire #}
+  {% if message_confirmation %}
+    <div class="succes">{{ message_confirmation }}</div>
+  {% end %}
+
+  {# Affichage conditionnel de la liste des erreurs de validation #}
+  {% if erreurs %}
+    <ul class="erreurs">
+      {% for err in erreurs %}
+        <li>{{ err }}</li>
+      {% end %}
+    </ul>
+  {% end %}
+
+  <!-- Formulaire HTML standard envoyant ses données via self.get_body_argument -->
+  <form method="POST" action="/formations">
+    <label>Intitulé : <input type="text" name="titre" required /></label>
+    <label>Durée (jours) : <input type="number" name="duree_jours" value="5" required /></label>
+    <label>Salle : <input type="text" name="salle" value="Salle A" /></label>
+    <button type="submit">Enregistrer la formation</button>
+  </form>
+
+  <!-- Boucle tornado.template générant une ligne <tr> par formation -->
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Titre</th><th>Durée</th><th>Salle</th></tr>
+    </thead>
+    <tbody>
+      {% for f in formations %}
+      <tr>
+        <td>#{{ f["id"] }}</td>
+        <td>{{ f["titre"] }}</td>
+        <td>{{ f["duree_jours"] }} jours</td>
+        <td>{{ f["salle"] }}</td>
+      </tr>
+      {% end %}
+    </tbody>
+  </table>
+</body>
+</html>

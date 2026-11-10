@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ organisme }} — {{ intitule }}</title>
+</head>
+<body>
+  <header>
+    <h1>{{ organisme }} : {{ intitule }}</h1>
+    <p>Version de l'API : <strong>{{ version_api }}</strong></p>
+  </header>
+  <main>
+    <h2>Modules du séminaire (rendus par boucle tornado.template) :</h2>
+    <ul>
+      {% for mod in modules %}
+      <li>{{ mod }}</li>
+      {% end %}
+    </ul>
+  </main>
+</body>
+</html>

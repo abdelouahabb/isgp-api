@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catalogue SQLite &amp; Formulaire Jinja2Templates — ISGP</title>
+</head>
+<body>
+  <h1>Catalogue SQLite des Formations ISGP</h1>
+
+  {% if message %}
+    <div class="notification-succes">{{ message }}</div>
+  {% endif %}
+
+  <!-- Formulaire HTML envoyant ses champs dans Form(...) FastAPI vers SQLite -->
+  <form method="POST" action="/formations-sqlite">
+    <input type="text" name="titre" placeholder="Intitulé de la formation" required />
+    <input type="number" name="duree_jours" value="5" min="1" max="30" required />
+    <input type="text" name="salle" value="Salle A" />
+    <button type="submit">Ajouter dans SQLite (POST Form FastAPI)</button>
+  </form>
+
+  <!-- Tableau alimenté depuis SQLite et rendu par boucle Jinja2 -->
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Titre</th><th>Durée</th><th>Salle</th></tr>
+    </thead>
+    <tbody>
+      {% for f in formations %}
+      <tr>
+        <td>#{{ f.id }}</td>
+        <td>{{ f.titre }}</td>
+        <td>{{ f.duree_jours }} jours</td>
+        <td>{{ f.salle }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

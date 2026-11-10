@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Météo {{ meteo.ville }} — ISGP</title>
+</head>
+<body>
+  <div class="carte-meteo">
+    <h1>Ville : {{ meteo.ville }}</h1>
+    <p>Température : {{ meteo.temperature_celsius }} °C ({{ meteo.condition }})</p>
+    <p>Humidité : {{ meteo.humidite_pourcent }} %</p>
+  </div>
+</body>
+</html>

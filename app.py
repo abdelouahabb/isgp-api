@@ -2,6 +2,7 @@ import hmac
 import json
 import os
 import queue
+import re
 import socket
 import sqlite3
 import subprocess
@@ -9,14 +10,44 @@ import sys
 import tempfile
 import time
 from datetime import datetime
-from flask import Flask, Response, jsonify, render_template, request, send_from_directory
+from flask import Flask, Response, jsonify, make_response, redirect, render_template, render_template_string, request, send_from_directory, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from data.curriculum import DAYS_CURRICULUM, STARTER_FILES_CONTENT
-from data.glossary import GLOSSARY_TERMS
-from data.quizzes import QUIZZES
-
 app = Flask(__name__)
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+VALID_FRAMEWORKS = ("flask", "fastapi", "tornado")
+
+
+def _load_framework_bundle(fw: str) -> dict:
+    fw_dir = os.path.join(ROOT_DIR, f"{fw}-version")
+    loader_code = (
+        "import json\n"
+        "from data.curriculum import DAYS_CURRICULUM, STARTER_FILES_CONTENT\n"
+        "from data.glossary import GLOSSARY_TERMS\n"
+        "from data.quizzes import QUIZZES\n"
+        "print(json.dumps({\n"
+        "    'days': DAYS_CURRICULUM,\n"
+        "    'starter_files': {str(k): v for k, v in STARTER_FILES_CONTENT.items()},\n"
+        "    'glossary': GLOSSARY_TERMS,\n"
+        "    'quizzes': {int(k) if str(k).isdigit() else k: v for k, v in QUIZZES.items()},\n"
+        "}))\n"
+    )
+    out = subprocess.check_output([sys.executable, "-c", loader_code], cwd=fw_dir, text=True)
+    return json.loads(out)
+
+
+FRAMEWORK_BUNDLES = {fw: _load_framework_bundle(fw) for fw in VALID_FRAMEWORKS}
+
+
+def _resolve_active_framework() -> str:
+    fw = (
+        request.args.get("framework")
+        or request.headers.get("X-Active-Framework")
+        or session.get("active_framework")
+        or "flask"
+    ).strip().lower()
+    return fw if fw in VALID_FRAMEWORKS else "flask"
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "sandbox_isgp.db")
 TEACHER_PIN = os.environ.get("TEACHER_PIN", "isgp")
@@ -25,6 +56,13 @@ TEACHER_PIN = os.environ.get("TEACHER_PIN", "isgp")
 API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "secret-signature-interne-isgp-2026")
 PARTNER_API_KEY = os.environ.get("PARTNER_API_KEY", "isgp-secret-2026")
 TOKEN_EXPIRATION_SECONDS = 300  # 5 minutes
+
+app.secret_key = API_SECRET_KEY
+app.config.update(
+    SESSION_COOKIE_NAME="isgp_session",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
 
 token_signer = URLSafeTimedSerializer(API_SECRET_KEY)
 
@@ -156,12 +194,61 @@ def get_local_ip():
 
 
 # ==============================================================================
-# 3. ROUTES PRINCIPALES DE LA PWA & CONTENU PÉDAGOGIQUE
+# 3. ROUTES PRINCIPALES DE LA PWA, PORTAIL TRILOGIE (/) & COURS PAR FRAMEWORK
 # ==============================================================================
+def _render_framework_course_page(framework: str):
+    fw = framework.lower().strip()
+    if fw not in VALID_FRAMEWORKS:
+        return redirect("/")
+    session["active_framework"] = fw
+    local_ip = get_local_ip()
+
+    tpl_path = os.path.join(ROOT_DIR, f"{fw}-version", "templates", "index.html")
+    if not os.path.isfile(tpl_path):
+        tpl_path = os.path.join(ROOT_DIR, "templates", "index.html")
+
+    with open(tpl_path, encoding="utf-8") as f:
+        raw_html = f.read()
+
+    switcher_bar = f"""
+    <div style="background: #0f172a; color: #f8fafc; padding: 6px 18px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <a href="/" style="color: #93c5fd; text-decoration: none; font-weight: 700; padding: 3px 8px; border: 1px solid #1d4ed8; border-radius: 4px; background: #1e293b;">
+          &larr; Portail d'Accueil Trilogie
+        </a>
+        <span style="color: #94a3b8;">| Basculer d'édition :</span>
+        <a href="/cours/flask" style="text-decoration: none; padding: 3px 10px; border-radius: 4px; font-weight: 700; {'background:#1d4ed8;color:#fff;' if fw == 'flask' else 'color:#cbd5e1;background:#1e293b;'}">
+          Vol. I — Flask (WSGI)
+        </a>
+        <a href="/cours/fastapi" style="text-decoration: none; padding: 3px 10px; border-radius: 4px; font-weight: 700; {'background:#059669;color:#fff;' if fw == 'fastapi' else 'color:#cbd5e1;background:#1e293b;'}">
+          Vol. II — FastAPI (ASGI)
+        </a>
+        <a href="/cours/tornado" style="text-decoration: none; padding: 3px 10px; border-radius: 4px; font-weight: 700; {'background:#7c3aed;color:#fff;' if fw == 'tornado' else 'color:#cbd5e1;background:#1e293b;'}">
+          Vol. III — Tornado (IOLoop)
+        </a>
+      </div>
+      <div style="color: #cbd5e1; font-size: 12px;">
+        Framework actif : <strong style="color: #fff; text-transform: uppercase;">{fw}</strong> (Dossier <code>{fw}-version/</code>)
+      </div>
+    </div>
+    <script>window.ACTIVE_FRAMEWORK = "{fw}";</script>
+    """
+    raw_html = raw_html.replace("<body>", "<body>\n" + switcher_bar, 1)
+    return render_template_string(raw_html, local_ip=local_ip, active_framework=fw)
+
+
 @app.route("/")
 def index():
+    requested_fw = request.args.get("framework", "").strip().lower()
+    if requested_fw in VALID_FRAMEWORKS:
+        return _render_framework_course_page(requested_fw)
     local_ip = get_local_ip()
-    return render_template("index.html", local_ip=local_ip)
+    return render_template("landing.html", local_ip=local_ip)
+
+
+@app.route("/cours/<framework>")
+def cours_par_framework(framework):
+    return _render_framework_course_page(framework)
 
 
 @app.route("/manifest.json")
@@ -178,11 +265,14 @@ def service_worker():
 
 @app.route("/api/course-data")
 def get_course_data():
+    fw = _resolve_active_framework()
+    bundle = FRAMEWORK_BUNDLES.get(fw, FRAMEWORK_BUNDLES["flask"])
     return jsonify(
         {
-            "days": DAYS_CURRICULUM,
-            "glossary": GLOSSARY_TERMS,
-            "quizzes": QUIZZES,
+            "framework": fw,
+            "days": bundle["days"],
+            "glossary": bundle["glossary"],
+            "quizzes": bundle["quizzes"],
             "classroom": CLASSROOM_STATE,
             "server_ip": get_local_ip(),
         }
@@ -191,9 +281,12 @@ def get_course_data():
 
 @app.route("/api/download/day/<int:day_id>")
 def download_starter_file(day_id):
-    code = STARTER_FILES_CONTENT.get(day_id, STARTER_FILES_CONTENT[0])
-    filename = f"isgp_jour{day_id}_starter.py"
-    for d in DAYS_CURRICULUM:
+    fw = _resolve_active_framework()
+    bundle = FRAMEWORK_BUNDLES.get(fw, FRAMEWORK_BUNDLES["flask"])
+    starters = bundle["starter_files"]
+    code = starters.get(str(day_id), starters.get("0", ""))
+    filename = f"isgp_{fw}_jour{day_id}_starter.py"
+    for d in bundle["days"]:
         if d["day_number"] == day_id:
             filename = os.path.basename(d["starter_filename"])
             break
@@ -205,10 +298,14 @@ def download_starter_file(day_id):
 
 
 @app.route("/api/day-file/<int:day_id>/<path:filename>")
+@app.route("/api/day-file/day_<int:day_id>/<path:filename>")
 def get_day_file(day_id, filename):
     if day_id not in (0, 1, 2, 3, 4, 5):
         return jsonify({"erreur": "Jour invalide"}), 404
-    folder = os.path.join(os.path.dirname(__file__), f"day_{day_id}")
+    fw = _resolve_active_framework()
+    folder = os.path.join(ROOT_DIR, f"{fw}-version", f"day_{day_id}")
+    if not os.path.isdir(folder):
+        folder = os.path.join(ROOT_DIR, f"day_{day_id}")
     safe_name = os.path.basename(filename)
     full_path = os.path.join(folder, safe_name)
     if not os.path.isfile(full_path):
@@ -216,7 +313,7 @@ def get_day_file(day_id, filename):
     if request.args.get("download") == "1":
         return send_from_directory(folder, safe_name, as_attachment=True)
     with open(full_path, encoding="utf-8") as f:
-        return jsonify({"path": f"day_{day_id}/{safe_name}", "code": f.read()})
+        return jsonify({"framework": fw, "path": f"{fw}-version/day_{day_id}/{safe_name}", "code": f.read()})
 
 
 # ==============================================================================
@@ -294,9 +391,68 @@ def update_student_status():
 
 
 # ==============================================================================
-# 5. SANDBOX HTTP ÉDUCATIF (ROUTES FLASK AVEC TRACE D'EXÉCUTION SERVEUR)
+# 5. SANDBOX HTTP ÉDUCATIF (AVEC TRACE D'EXÉCUTION ADAPTÉE AU FRAMEWORK ACTIF)
 # ==============================================================================
+def _adapt_trace_for_framework(fw, payload, handler_code, trace_steps):
+    if fw == "fastapi":
+        if isinstance(payload, dict) and payload.get("message") == "Service Flask ISGP opérationnel":
+            payload = dict(payload, message="Service FastAPI ISGP opérationnel")
+        code = handler_code
+        code = re.sub(r'@app\.route\("([^"]+)",\s*methods=\["GET"\]\)', r'@app.get("\1")', code)
+        code = re.sub(r'@app\.route\("([^"]+)",\s*methods=\["POST"\]\)', r'@app.post("\1")', code)
+        code = re.sub(r'@app\.route\("([^"]+)",\s*methods=\["PUT"\]\)', r'@app.put("\1")', code)
+        code = re.sub(r'@app\.route\("([^"]+)",\s*methods=\["DELETE"\]\)', r'@app.delete("\1")', code)
+        code = re.sub(r'@app\.route\("([^"]+)"\)', r'@app.get("\1")', code)
+        code = code.replace("<int:code>", "{code}").replace("<int:id>", "{id}")
+        code = re.sub(r"^def ", "async def ", code, flags=re.MULTILINE)
+        code = code.replace("request.args.get", "request.query_params.get")
+        code = code.replace("request.get_json()", "await request.json()")
+        code = code.replace("Service Flask ISGP opérationnel", "Service FastAPI ISGP opérationnel")
+        code = code.replace("jsonify(", "JSONResponse(content=")
+        steps = [
+            s.replace("@app.route déclenche la fonction Python", "Le routeur ASGI FastAPI déclenche la coroutine")
+            .replace("jsonify()", "JSONResponse / Pydantic v2")
+            .replace("request.args.get", "Query(...) / request.query_params.get")
+            .replace("request.get_json()", "Schéma Pydantic / await request.json()")
+            for s in trace_steps
+        ]
+        return payload, code, steps
+
+    if fw == "tornado":
+        if isinstance(payload, dict) and payload.get("message") == "Service Flask ISGP opérationnel":
+            payload = dict(payload, message="Service Tornado ISGP opérationnel")
+        code = handler_code
+        code = re.sub(
+            r'@app\.route\("([^"]+)",\s*methods=\["(GET|POST|PUT|DELETE)"\]\)\ndef\s+\w+\(([^)]*)\):',
+            lambda m: f'# Route Tornado : (r"{m.group(1)}", SandboxHandler)\nclass SandboxHandler(tornado.web.RequestHandler):\n    async def {m.group(2).lower()}(self{", " + m.group(3) if m.group(3) else ""}):',
+            code,
+        )
+        code = re.sub(
+            r'@app\.route\("([^"]+)"\)\ndef\s+\w+\(([^)]*)\):',
+            lambda m: f'# Route Tornado : (r"{m.group(1)}", SandboxHandler)\nclass SandboxHandler(tornado.web.RequestHandler):\n    async def get(self{", " + m.group(2) if m.group(2) else ""}):',
+            code,
+        )
+        code = code.replace("request.args.get", "self.get_query_argument")
+        code = code.replace("request.get_json()", "tornado.escape.json_decode(self.request.body)")
+        code = code.replace("request.headers.get", "self.request.headers.get")
+        code = code.replace("Service Flask ISGP opérationnel", "Service Tornado ISGP opérationnel")
+        code = code.replace("return jsonify(", "self.write(")
+        code = code.replace("jsonify(", "self.write(")
+        steps = [
+            s.replace("Le décorateur @app.route déclenche la fonction Python", "L'IOLoop Tornado déclenche la méthode de classe RequestHandler")
+            .replace("jsonify()", "self.write() (Tornado JSON)")
+            .replace("request.args.get", "self.get_query_argument")
+            .replace("request.get_json()", "tornado.escape.json_decode(self.request.body)")
+            for s in trace_steps
+        ]
+        return payload, code, steps
+
+    return payload, handler_code, trace_steps
+
+
 def make_traced_response(payload, status_code, handler_code, trace_steps, extra_headers=None):
+    fw = (request.headers.get("X-Active-Framework") or _resolve_active_framework()).strip().lower()
+    payload, handler_code, trace_steps = _adapt_trace_for_framework(fw, payload, handler_code, trace_steps)
     resp = jsonify(payload)
     resp.status_code = status_code
     resp.headers["X-Flask-Handler-Code"] = json.dumps(handler_code)
@@ -1890,89 +2046,112 @@ def api_sandbox_formulaire_formation():
 
 
 # ==============================================================================
-# 10. LABORATOIRE NGINX LOAD BALANCER (4 INSTANCES FLASK + FICHIERS STATIQUES)
+# 10. LABORATOIRE NGINX LOAD BALANCER (4 INSTANCES PAR FRAMEWORK + STATIQUES)
 # ==============================================================================
-NGINX_CLUSTER_STATE = {
-    "algorithm": "round_robin",
-    "rr_index": 0,
-    "static_requests_served": 0,
-    "dynamic_requests_proxied": 0,
-    "errors_502": 0,
-    "nodes": [
-        {"id": "flask-node-1", "port": 8001, "addr": "127.0.0.1:8001", "pid": 24101, "weight": 3, "status": "UP", "requests": 0, "active_conns": 1},
-        {"id": "flask-node-2", "port": 8002, "addr": "127.0.0.1:8002", "pid": 24102, "weight": 1, "status": "UP", "requests": 0, "active_conns": 2},
-        {"id": "flask-node-3", "port": 8003, "addr": "127.0.0.1:8003", "pid": 24103, "weight": 1, "status": "UP", "requests": 0, "active_conns": 0},
-        {"id": "flask-node-4", "port": 8004, "addr": "127.0.0.1:8004", "pid": 24104, "weight": 1, "status": "UP", "requests": 0, "active_conns": 1},
-    ],
-    "logs": [
-        '[INIT] Nginx Master Process démarré sur 0.0.0.0:80 -> upstream isgp_flask_cluster (127.0.0.1:8001..8004) + alias /static/'
-    ],
-}
+FRAMEWORK_LABELS = {"flask": "Flask", "fastapi": "FastAPI", "tornado": "Tornado"}
 
 
-def _read_cluster_file(filename):
-    path = os.path.join(os.path.dirname(__file__), "deploy_nginx_cluster", filename)
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as f:
+def _build_initial_nginx_state(fw: str) -> dict:
+    return {
+        "framework": fw,
+        "algorithm": "round_robin",
+        "rr_index": 0,
+        "static_requests_served": 0,
+        "dynamic_requests_proxied": 0,
+        "errors_502": 0,
+        "nodes": [
+            {"id": f"{fw}-node-1", "port": 8001, "addr": "127.0.0.1:8001", "pid": 24101, "weight": 3, "status": "UP", "requests": 0, "active_conns": 1},
+            {"id": f"{fw}-node-2", "port": 8002, "addr": "127.0.0.1:8002", "pid": 24102, "weight": 1, "status": "UP", "requests": 0, "active_conns": 2},
+            {"id": f"{fw}-node-3", "port": 8003, "addr": "127.0.0.1:8003", "pid": 24103, "weight": 1, "status": "UP", "requests": 0, "active_conns": 0},
+            {"id": f"{fw}-node-4", "port": 8004, "addr": "127.0.0.1:8004", "pid": 24104, "weight": 1, "status": "UP", "requests": 0, "active_conns": 1},
+        ],
+        "logs": [
+            f'[INIT] Nginx Master Process démarré sur 0.0.0.0:80 -> upstream isgp_{fw}_cluster (127.0.0.1:8001..8004) + alias /static/'
+        ],
+    }
+
+
+NGINX_CLUSTER_STATES = {fw: _build_initial_nginx_state(fw) for fw in VALID_FRAMEWORKS}
+
+
+def _read_cluster_file(fw: str, filename: str) -> str:
+    fw_path = os.path.join(ROOT_DIR, f"{fw}-version", "deploy_nginx_cluster", filename)
+    if os.path.exists(fw_path):
+        with open(fw_path, encoding="utf-8") as f:
+            return f.read().strip()
+    fallback_path = os.path.join(ROOT_DIR, "deploy_nginx_cluster", filename)
+    if os.path.exists(fallback_path):
+        with open(fallback_path, encoding="utf-8") as f:
             return f.read().strip()
     return ""
 
 
 @app.route("/api/nginx-cluster/state", methods=["GET"])
 def get_nginx_cluster_state():
+    fw = _resolve_active_framework()
+    state = NGINX_CLUSTER_STATES.get(fw, NGINX_CLUSTER_STATES["flask"])
     return jsonify({
-        "state": NGINX_CLUSTER_STATE,
+        "framework": fw,
+        "state": state,
         "files": {
-            "nginx_conf": _read_cluster_file("nginx_isgp_cluster.conf"),
-            "instance_py": _read_cluster_file("instance_flask.py"),
-            "start_sh": _read_cluster_file("start_4_instances.sh"),
-            "docker_compose": _read_cluster_file("docker-compose.yml"),
+            "nginx_conf": _read_cluster_file(fw, "nginx_isgp_cluster.conf"),
+            "instance_py": _read_cluster_file(fw, f"instance_{fw}.py"),
+            "start_sh": _read_cluster_file(fw, "start_4_instances.sh"),
+            "docker_compose": _read_cluster_file(fw, "docker-compose.yml"),
         },
     }), 200
 
 
 @app.route("/api/nginx-cluster/toggle-node", methods=["POST"])
 def toggle_nginx_cluster_node():
+    fw = _resolve_active_framework()
+    state = NGINX_CLUSTER_STATES.get(fw, NGINX_CLUSTER_STATES["flask"])
     data = request.get_json(silent=True) or {}
     port = int(data.get("port", 0))
     now_str = datetime.now().strftime("%H:%M:%S")
-    for n in NGINX_CLUSTER_STATE["nodes"]:
+    for n in state["nodes"]:
         if n["port"] == port:
             n["status"] = "DOWN" if n["status"] == "UP" else "UP"
             etat_txt = (
                 f"[{now_str}] [NGINX HEALTHCHECK] Instance {n['id']} ({n['addr']}) marquée {n['status']} "
                 + ("(max_fails=3 atteint -> trafic basculé sur les instances restantes)" if n["status"] == "DOWN" else "(réintégrée dans le pool upstream)")
             )
-            NGINX_CLUSTER_STATE["logs"].insert(0, etat_txt)
-            NGINX_CLUSTER_STATE["logs"] = NGINX_CLUSTER_STATE["logs"][:35]
+            state["logs"].insert(0, etat_txt)
+            state["logs"] = state["logs"][:35]
             break
-    return jsonify({"state": NGINX_CLUSTER_STATE}), 200
+    return jsonify({"state": state}), 200
 
 
 @app.route("/api/nginx-cluster/reset", methods=["POST"])
 def reset_nginx_cluster_state():
-    NGINX_CLUSTER_STATE["rr_index"] = 0
-    NGINX_CLUSTER_STATE["static_requests_served"] = 0
-    NGINX_CLUSTER_STATE["dynamic_requests_proxied"] = 0
-    NGINX_CLUSTER_STATE["errors_502"] = 0
-    for idx, n in enumerate(NGINX_CLUSTER_STATE["nodes"]):
+    fw = _resolve_active_framework()
+    state = NGINX_CLUSTER_STATES.get(fw, NGINX_CLUSTER_STATES["flask"])
+    fw_label = FRAMEWORK_LABELS.get(fw, "Python")
+    state["rr_index"] = 0
+    state["static_requests_served"] = 0
+    state["dynamic_requests_proxied"] = 0
+    state["errors_502"] = 0
+    for idx, n in enumerate(state["nodes"]):
         n["status"] = "UP"
         n["requests"] = 0
         n["active_conns"] = idx % 2
-    NGINX_CLUSTER_STATE["logs"] = [
-        f"[{datetime.now().strftime('%H:%M:%S')}] [RESET] Compteurs remis à zéro et les 4 instances Flask (8001..8004) sont UP."
+    state["logs"] = [
+        f"[{datetime.now().strftime('%H:%M:%S')}] [RESET] Compteurs remis à zéro et les 4 instances {fw_label} (8001..8004) sont UP."
     ]
-    return jsonify({"state": NGINX_CLUSTER_STATE}), 200
+    return jsonify({"state": state}), 200
 
 
 @app.route("/api/nginx-cluster/simulate", methods=["POST"])
 def simulate_nginx_cluster_requests():
+    fw = _resolve_active_framework()
+    state = NGINX_CLUSTER_STATES.get(fw, NGINX_CLUSTER_STATES["flask"])
+    fw_label = FRAMEWORK_LABELS.get(fw, "Python")
     data = request.get_json(silent=True) or {}
     req_type = data.get("type", "dynamic")  # "dynamic" (/api/v1/formations) ou "static" (/static/styles.css)
     count = min(20, max(1, int(data.get("count", 1))))
-    algorithm = data.get("algorithm", NGINX_CLUSTER_STATE["algorithm"])
+    algorithm = data.get("algorithm", state["algorithm"])
     client_ip = data.get("client_ip", "197.204.12.88").strip() or "197.204.12.88"
-    NGINX_CLUSTER_STATE["algorithm"] = algorithm
+    state["algorithm"] = algorithm
 
     last_decision = None
     now_str = datetime.now().strftime("%H:%M:%S")
@@ -1980,12 +2159,12 @@ def simulate_nginx_cluster_requests():
     for i in range(count):
         if req_type == "static":
             path = "/static/styles.css" if i % 2 == 0 else "/static/app.js"
-            NGINX_CLUSTER_STATE["static_requests_served"] += 1
+            state["static_requests_served"] += 1
             log_line = (
                 f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
-                f'served_by=Nginx-Direct-Static-Sendfile (0 instance Flask sollicitée) total_time=0.0004s'
+                f'served_by=Nginx-Direct-Static-Sendfile (0 instance {fw_label} sollicitée) total_time=0.0004s'
             )
-            NGINX_CLUSTER_STATE["logs"].insert(0, log_line)
+            state["logs"].insert(0, log_line)
             last_decision = {
                 "type": "static",
                 "path": path,
@@ -1996,19 +2175,19 @@ def simulate_nginx_cluster_requests():
             }
         else:
             path = "/api/v1/formations"
-            up_nodes = [n for n in NGINX_CLUSTER_STATE["nodes"] if n["status"] == "UP"]
+            up_nodes = [n for n in state["nodes"] if n["status"] == "UP"]
             if not up_nodes:
-                NGINX_CLUSTER_STATE["errors_502"] += 1
+                state["errors_502"] += 1
                 log_line = (
                     f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=502 '
-                    f'error="no live upstreams while connecting to upstream isgp_flask_cluster"'
+                    f'error="no live upstreams while connecting to upstream isgp_{fw}_cluster"'
                 )
-                NGINX_CLUSTER_STATE["logs"].insert(0, log_line)
+                state["logs"].insert(0, log_line)
                 last_decision = {
                     "type": "dynamic",
                     "path": path,
                     "status": 502,
-                    "handled_by": "Erreur 502 Bad Gateway (Les 4 instances Flask sont DOWN !)",
+                    "handled_by": f"Erreur 502 Bad Gateway (Les 4 instances {fw_label} sont DOWN !)",
                     "flask_called": False,
                     "latency_ms": 1.2,
                 }
@@ -2024,22 +2203,22 @@ def simulate_nginx_cluster_requests():
                 weighted_pool = []
                 for n in up_nodes:
                     weighted_pool.extend([n] * n.get("weight", 1))
-                idx = NGINX_CLUSTER_STATE["rr_index"] % len(weighted_pool)
+                idx = state["rr_index"] % len(weighted_pool)
                 chosen = weighted_pool[idx]
-                NGINX_CLUSTER_STATE["rr_index"] += 1
+                state["rr_index"] += 1
             else:
                 # round_robin
-                idx = NGINX_CLUSTER_STATE["rr_index"] % len(up_nodes)
+                idx = state["rr_index"] % len(up_nodes)
                 chosen = up_nodes[idx]
-                NGINX_CLUSTER_STATE["rr_index"] += 1
+                state["rr_index"] += 1
 
             chosen["requests"] += 1
-            NGINX_CLUSTER_STATE["dynamic_requests_proxied"] += 1
+            state["dynamic_requests_proxied"] += 1
             log_line = (
                 f'{client_ip} - [{now_str}] "GET {path} HTTP/1.1" status=200 '
                 f'upstream_node={chosen["addr"]} ({chosen["id"]}, PID {chosen["pid"]}) upstream_time=0.008s'
             )
-            NGINX_CLUSTER_STATE["logs"].insert(0, log_line)
+            state["logs"].insert(0, log_line)
             last_decision = {
                 "type": "dynamic",
                 "path": path,
@@ -2050,8 +2229,8 @@ def simulate_nginx_cluster_requests():
                 "latency_ms": 8.2,
             }
 
-    NGINX_CLUSTER_STATE["logs"] = NGINX_CLUSTER_STATE["logs"][:35]
-    return jsonify({"state": NGINX_CLUSTER_STATE, "last_decision": last_decision}), 200
+    state["logs"] = state["logs"][:35]
+    return jsonify({"state": state, "last_decision": last_decision}), 200
 
 
 # ==============================================================================
@@ -2146,6 +2325,110 @@ def sandbox_formations_v2_current():
     })
     resp.headers["X-API-Version"] = "2.0"
     return resp, 200
+
+
+# ==============================================================================
+# LABORATOIRE DES COOKIES SÉCURISÉS (HttpOnly, Secure, SameSite & Session HMAC)
+# ==============================================================================
+
+@app.route("/api/sandbox/cookies/login", methods=["POST"])
+def sandbox_cookies_login():
+    body = request.get_json(silent=True) or {}
+    identifiant = str(body.get("identifiant", "stagiaire_isgp")).strip() or "stagiaire_isgp"
+    theme = str(body.get("theme", "institutionnel")).strip() or "institutionnel"
+
+    session["utilisateur"] = identifiant
+    session["role"] = "auditeur_api"
+
+    signed_cookie_token = token_signer.dumps({"sub": identifiant, "mode": "httponly_cookie"})
+    handler_code = (
+        '@app.route("/api/sandbox/cookies/login", methods=["POST"])\n'
+        "def cookies_login():\n"
+        '    resp.set_cookie("isgp_auth_token", token, httponly=True, samesite="Strict", max_age=3600)\n'
+        '    return jsonify({"statut": "Cookies sécurisés émis"}), 200'
+    )
+    steps = [
+        f"1. Authentification de '{identifiant}' et génération du jeton signé HMAC.",
+        "2. Ajout de l'en-tête Set-Cookie: isgp_auth_token=...; HttpOnly; SameSite=Strict; Max-Age=3600.",
+        "3. Retour de la réponse 200 OK avec les cookies stockés dans le navigateur.",
+    ]
+    resp = make_traced_response(
+        {
+            "statut": "Cookies sécurisés émis avec succès",
+            "utilisateur": identifiant,
+            "cookies_emis": [
+                {"nom": "isgp_auth_token", "flags": "HttpOnly; SameSite=Strict; Max-Age=3600", "usage": "Jeton d'authentification protégé contre le vol XSS"},
+                {"nom": "isgp_session", "flags": "HttpOnly; SameSite=Lax (Signé HMAC)", "usage": "Session signée cryptographiquement (HMAC-SHA256)"},
+                {"nom": "isgp_theme", "flags": "SameSite=Lax (Non-HttpOnly)", "usage": "Préférence d'affichage lisible par le front"},
+            ],
+        },
+        200,
+        handler_code,
+        steps,
+    )
+    resp.set_cookie("isgp_auth_token", signed_cookie_token, max_age=3600, httponly=True, samesite="Strict", path="/")
+    resp.set_cookie("isgp_theme", theme, max_age=86400 * 30, httponly=False, samesite="Lax", path="/")
+    return resp
+
+
+@app.route("/api/sandbox/cookies/inspect", methods=["GET"])
+def sandbox_cookies_inspect():
+    raw_token = request.cookies.get("isgp_auth_token")
+    decoded_token = None
+    if raw_token:
+        try:
+            decoded_token = token_signer.loads(raw_token, max_age=3600)
+        except Exception:
+            decoded_token = {"erreur": "Signature invalide ou cookie expiré"}
+
+    handler_code = (
+        '@app.route("/api/sandbox/cookies/inspect", methods=["GET"])\n'
+        "def inspect_cookies():\n"
+        '    raw_token = request.cookies.get("isgp_auth_token")\n'
+        "    return jsonify(dict(request.cookies)), 200"
+    )
+    steps = [
+        "1. Lecture de l'en-tête HTTP Cookie envoyé automatiquement par le client.",
+        "2. Vérification de la signature HMAC du cookie HttpOnly 'isgp_auth_token'.",
+        "3. Renvoi de l'état complet des cookies reçus (200 OK).",
+    ]
+    return make_traced_response(
+        {
+            "cookies_recus": dict(request.cookies),
+            "session_signee_hmac": dict(session),
+            "isgp_auth_token_decode": decoded_token,
+            "en_tete_http_cookie": request.headers.get("Cookie", "(Aucun en-tête Cookie reçu)"),
+        },
+        200,
+        handler_code,
+        steps,
+    )
+
+
+@app.route("/api/sandbox/cookies/logout", methods=["POST"])
+def sandbox_cookies_logout():
+    session.clear()
+    handler_code = (
+        '@app.route("/api/sandbox/cookies/logout", methods=["POST"])\n'
+        "def logout_cookies():\n"
+        '    resp.delete_cookie("isgp_auth_token", path="/")\n'
+        '    return jsonify({"statut": "Session purgée"}), 200'
+    )
+    steps = [
+        "1. Purge de la session côté serveur.",
+        "2. Émission de Set-Cookie avec Max-Age=0 pour ordonner au navigateur de supprimer isgp_auth_token.",
+    ]
+    resp = make_traced_response(
+        {
+            "statut": "Session purgée et cookies révoqués (Set-Cookie avec Max-Age=0)",
+        },
+        200,
+        handler_code,
+        steps,
+    )
+    resp.delete_cookie("isgp_auth_token", path="/")
+    resp.delete_cookie("isgp_theme", path="/")
+    return resp
 
 
 if __name__ == "__main__":

@@ -74,9 +74,14 @@ async function renderMermaidDiagrams(rootEl) {
 // ============================================================================
 // 1. CHARGEMENT DES DONNÉES DU COURS
 // ============================================================================
+function getActiveFramework() {
+  return window.ACTIVE_FRAMEWORK || "flask";
+}
+
 async function loadCourseData() {
   try {
-    const res = await fetch("/api/course-data");
+    const fw = encodeURIComponent(getActiveFramework());
+    const res = await fetch(`/api/course-data?framework=${fw}`);
     const data = await res.json();
     COURSE_DATA = data;
     renderDaysSidebar();
@@ -210,7 +215,7 @@ function renderActiveLesson() {
       <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
     </div>
     <div class="btn-group">
-      <a class="btn-secondary" href="/api/day-file/${dayObj.day_number}/${encodeURIComponent(fileBasename)}?download=1" download>
+      <a class="btn-secondary" href="/api/day-file/${dayObj.day_number}/${encodeURIComponent(fileBasename)}?download=1&framework=${encodeURIComponent(getActiveFramework())}" download>
         Télécharger ${escapeHtml(filePath)}
       </a>
       <button class="btn-primary" onclick="openDayQuiz(${dayObj.day_number})">
@@ -578,7 +583,7 @@ function renderFilesTree() {
               <span>${escapeHtml(fp)}</span>
               <div class="btn-group">
                 <button class="btn-xs" onclick="loadDayFileToStudio(${day.day_number}, '${escapeHtml(base)}')">Charger dans l'éditeur</button>
-                <a class="btn-xs" href="/api/day-file/${day.day_number}/${encodeURIComponent(base)}?download=1" download>Télécharger</a>
+                <a class="btn-xs" href="/api/day-file/${day.day_number}/${encodeURIComponent(base)}?download=1&framework=${encodeURIComponent(getActiveFramework())}" download>Télécharger</a>
               </div>
             </div>
           `;
@@ -600,7 +605,8 @@ function renderFilesTree() {
 
 async function loadDayFileToStudio(dayNum, filename) {
   try {
-    const res = await fetch(`/api/day-file/${dayNum}/${encodeURIComponent(filename)}`);
+    const fw = encodeURIComponent(getActiveFramework());
+    const res = await fetch(`/api/day-file/${dayNum}/${encodeURIComponent(filename)}?framework=${fw}`);
     const data = await res.json();
     if (data.code) {
       document.getElementById("studio-python-editor").value = data.code;
@@ -703,7 +709,9 @@ async function sendSandboxRequest() {
   const apiKey = document.getElementById("http-header-apikey")?.value.trim() || "";
   const bodyText = document.getElementById("http-body").value.trim();
 
-  const headers = {};
+  const headers = {
+    "X-Active-Framework": getActiveFramework()
+  };
   if (bearer) {
     headers["Authorization"] = bearer.startsWith("Bearer ") ? bearer : `Bearer ${bearer}`;
   }
@@ -743,6 +751,10 @@ async function sendSandboxRequest() {
 
     const headerKeys = [
       "content-type",
+      "x-api-version",
+      "deprecation",
+      "sunset",
+      "link",
       "x-ratelimit-limit",
       "x-ratelimit-remaining",
       "x-ratelimit-reset",
@@ -876,7 +888,7 @@ import sqlite3
 conn = sqlite3.connect(":memory:")
 conn.row_factory = sqlite3.Row
 conn.execute("CREATE TABLE formations (id INTEGER PRIMARY KEY, titre TEXT, jours INTEGER)")
-conn.execute("INSERT INTO formations (titre, jours) VALUES ('Flask API REST', 5)")
+conn.execute("INSERT INTO formations (titre, jours) VALUES ('Architecture API REST Python', 5)")
 conn.execute("INSERT INTO formations (titre, jours) VALUES ('Secrets, Tokens & Rate Limit', 3)")
 conn.commit()
 
@@ -1175,7 +1187,7 @@ function formatRichText(str) {
 const CURL_PRESETS = {
   get_list: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc" \\\n  -H "Accept: application/json"`,
   post_create: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/formations" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Tests Automatisés avec curl", "formateur": "Formateur ISGP", "duree_jours": 4, "salle": "Labo 2"}'`,
-  put_update: `curl -i -X PUT "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Architecture API REST & Flask (Complet)", "duree_jours": 5, "salle": "Salle Conférence"}'`,
+  put_update: `curl -i -X PUT "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"titre": "Architecture API REST & Python (Complet)", "duree_jours": 5, "salle": "Salle Conférence"}'`,
   patch_partial: `curl -i -X PATCH "http://127.0.0.1:5000/api/sandbox/formations/1" \\\n  -H "Content-Type: application/json" \\\n  -d '{"salle": "Amphithéâtre Principal"}'`,
   apikey_auth: `curl -i -X GET "http://127.0.0.1:5000/api/sandbox/admin-stats" \\\n  -H "X-API-Key: isgp-secret-2026"`,
   bearer_issue: `curl -i -X POST "http://127.0.0.1:5000/api/sandbox/auth/token" \\\n  -H "Content-Type: application/json" \\\n  -d '{"identifiant": "stagiaire", "mot_de_passe": "isgp2026"}'`,
@@ -1512,21 +1524,24 @@ function runCheatsheetItem(idx) {
 }
 
 // ============================================================================
-// 10. LABORATOIRE NGINX LOAD BALANCER & 4 INSTANCES FLASK
+// 10. LABORATOIRE NGINX LOAD BALANCER & 4 INSTANCES PAR FRAMEWORK
 // ============================================================================
 async function loadNginxClusterTab() {
   try {
-    const res = await fetch("/api/nginx-cluster/state");
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/nginx-cluster/state?framework=${encodeURIComponent(fw)}`, {
+      headers: { "X-Active-Framework": fw }
+    });
     const data = await res.json();
     if (data.files) {
       const confEl = document.getElementById("code-nginx-conf");
       const pyEl = document.getElementById("code-nginx-flask");
       const shEl = document.getElementById("code-nginx-sh");
       const dcEl = document.getElementById("code-nginx-compose");
-      if (confEl && !confEl.textContent) confEl.textContent = data.files.nginx_conf;
-      if (pyEl && !pyEl.textContent) pyEl.textContent = data.files.instance_py;
-      if (shEl && !shEl.textContent) shEl.textContent = data.files.start_sh;
-      if (dcEl && !dcEl.textContent) dcEl.textContent = data.files.docker_compose;
+      if (confEl) confEl.textContent = data.files.nginx_conf;
+      if (pyEl) pyEl.textContent = data.files.instance_py;
+      if (shEl) shEl.textContent = data.files.start_sh;
+      if (dcEl) dcEl.textContent = data.files.docker_compose;
     }
     if (data.state) {
       renderNginxClusterUI(data.state);
@@ -1626,9 +1641,10 @@ async function simulateNginxTraffic(type, count) {
     return;
   }
   try {
-    const res = await fetch("/api/nginx-cluster/simulate", {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/nginx-cluster/simulate?framework=${encodeURIComponent(fw)}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
       body: JSON.stringify({ type, count, algorithm: algo, client_ip: clientIp })
     });
     const data = await res.json();
@@ -1642,9 +1658,10 @@ async function simulateNginxTraffic(type, count) {
 
 async function toggleNginxNode(port) {
   try {
-    const res = await fetch("/api/nginx-cluster/toggle-node", {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/nginx-cluster/toggle-node?framework=${encodeURIComponent(fw)}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
       body: JSON.stringify({ port })
     });
     const data = await res.json();
@@ -1658,7 +1675,11 @@ async function toggleNginxNode(port) {
 
 async function resetNginxCluster() {
   try {
-    const res = await fetch("/api/nginx-cluster/reset", { method: "POST" });
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/nginx-cluster/reset?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "X-Active-Framework": fw }
+    });
     const data = await res.json();
     if (data.state) {
       renderNginxClusterUI(data.state);
