@@ -132,6 +132,9 @@ function switchTab(tabName) {
   if (tabName === "sqlite") {
     loadSqliteLabTab();
   }
+  if (tabName === "realtime") {
+    loadAdvancedRealtimeTab();
+  }
   const activeSec = document.getElementById(`tab-${tabName}`);
   if (activeSec) {
     setTimeout(() => renderMermaidDiagrams(activeSec), 20);
@@ -628,6 +631,7 @@ async function probeLivePythonServer(path, targetId) {
   const outEl =
     document.getElementById(`lesson-runner-output-${targetId}`) ||
     (targetId === "sqlite" ? document.getElementById("sqlite-standalone-output") : null) ||
+    (targetId === "realtime" ? document.getElementById("realtime-standalone-output") : null) ||
     document.getElementById("studio-python-output");
   try {
     const res = await fetch("/api/python/probe", {
@@ -650,6 +654,7 @@ async function stopLivePythonServer(targetId) {
   const outEl =
     document.getElementById(`lesson-runner-output-${targetId}`) ||
     (targetId === "sqlite" ? document.getElementById("sqlite-standalone-output") : null) ||
+    (targetId === "realtime" ? document.getElementById("realtime-standalone-output") : null) ||
     document.getElementById("studio-python-output");
   const statusEl = document.getElementById("studio-run-status");
   _clearLivePythonPoll();
@@ -707,34 +712,83 @@ function renderFilesTree() {
   const container = document.getElementById("project-files-tree");
   if (!container) return;
 
-  container.innerHTML = COURSE_DATA.days
-    .map((day) => {
-      const filesList = (day.files || [])
-        .map((fp) => {
-          const base = fp.split("/").pop();
-          return `
-            <div class="file-item-row">
-              <span>${escapeHtml(fp)}</span>
-              <div class="btn-group">
-                <button class="btn-xs" onclick="loadDayFileToStudio(${day.day_number}, '${escapeHtml(base)}')">Charger dans l'éditeur</button>
-                <a class="btn-xs" href="/api/day-file/${day.day_number}/${encodeURIComponent(base)}?download=1&framework=${encodeURIComponent(getActiveFramework())}" download>Télécharger</a>
-              </div>
+  const fw = encodeURIComponent(getActiveFramework());
+  const refFiles = [
+    {
+      name: "sqlite_api_lab.py",
+      label: "sqlite_api_lab.py — Référence SQLite3 WAL, Curseurs & Sécurité SQL"
+    },
+    {
+      name: "advanced_realtime_cache_lab.py",
+      label: "advanced_realtime_cache_lab.py — SSE, Upload Streaming, Jobs 202 & ETag 304/412"
+    }
+  ];
+  const refCardHtml = `
+    <div class="folder-card" style="border-left: 4px solid #0f766e;">
+      <div class="folder-card-title">
+        <span>Laboratoires de Référence Transversaux</span>
+        <span class="muted-small">SQLite3 &amp; Temps Réel / Cache</span>
+      </div>
+      ${refFiles
+        .map(
+          (rf) => `
+          <div class="file-item-row">
+            <span>${escapeHtml(rf.label)}</span>
+            <div class="btn-group">
+              <button class="btn-xs" onclick="loadReferenceFileToStudio('${escapeHtml(rf.name)}')">Charger dans l'éditeur</button>
+              <a class="btn-xs" href="/api/reference-file/${encodeURIComponent(rf.name)}?download=1&framework=${fw}" download>Télécharger</a>
             </div>
-          `;
-        })
-        .join("");
-
-      return `
-        <div class="folder-card">
-          <div class="folder-card-title">
-            <span>Dossier : ${escapeHtml(day.folder)}/</span>
-            <span class="muted-small">${escapeHtml(day.badge)}</span>
           </div>
-          ${filesList}
-        </div>
-      `;
-    })
-    .join("");
+        `
+        )
+        .join("")}
+    </div>
+  `;
+
+  container.innerHTML =
+    refCardHtml +
+    COURSE_DATA.days
+      .map((day) => {
+        const filesList = (day.files || [])
+          .map((fp) => {
+            const base = fp.split("/").pop();
+            return `
+              <div class="file-item-row">
+                <span>${escapeHtml(fp)}</span>
+                <div class="btn-group">
+                  <button class="btn-xs" onclick="loadDayFileToStudio(${day.day_number}, '${escapeHtml(base)}')">Charger dans l'éditeur</button>
+                  <a class="btn-xs" href="/api/day-file/${day.day_number}/${encodeURIComponent(base)}?download=1&framework=${fw}" download>Télécharger</a>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+
+        return `
+          <div class="folder-card">
+            <div class="folder-card-title">
+              <span>Dossier : ${escapeHtml(day.folder)}/</span>
+              <span class="muted-small">${escapeHtml(day.badge)}</span>
+            </div>
+            ${filesList}
+          </div>
+        `;
+      })
+      .join("");
+}
+
+async function loadReferenceFileToStudio(filename) {
+  try {
+    const fw = encodeURIComponent(getActiveFramework());
+    const res = await fetch(`/api/reference-file/${encodeURIComponent(filename)}?framework=${fw}`);
+    const data = await res.json();
+    if (data.code) {
+      document.getElementById("studio-python-editor").value = data.code;
+      showToast(`Fichier ${data.path} chargé dans l'éditeur.`);
+    }
+  } catch (e) {
+    showToast("Impossible de charger le fichier de référence.");
+  }
 }
 
 async function loadDayFileToStudio(dayNum, filename) {
@@ -1170,13 +1224,24 @@ function openDayQuiz(dayNum) {
 function renderQuizSelector() {
   const sel = document.getElementById("quiz-day-selector");
   if (!sel) return;
-  sel.innerHTML = [0, 1, 2, 3, 4, 5]
+  const quizLabels = {
+    0: "Jour 0 — Diagnostic",
+    1: "Module Jour 1",
+    2: "Module Jour 2",
+    3: "Module Jour 3",
+    4: "Module Jour 4",
+    5: "Module Jour 5",
+    6: "Spécial SQLite & Sécurité SQL",
+    7: "Spécial Temps Réel, Upload & Cache"
+  };
+  sel.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7]
+    .filter((d) => COURSE_DATA.quizzes && COURSE_DATA.quizzes[d])
     .map(
       (d) => `
       <button class="btn-chip ${STATE.activeQuizDay === d ? "btn-primary" : ""}"
               style="${STATE.activeQuizDay === d ? "background:#1e3a5f;color:#fff;border-color:#1e3a5f;" : ""}"
               onclick="openDayQuiz(${d})">
-        ${d === 0 ? "Jour 0 — Diagnostic" : "Module Jour " + d}
+        ${quizLabels[d] || "Module " + d}
       </button>
     `
     )
@@ -2076,6 +2141,321 @@ async function runSqliteStandaloneServer() {
     if (data.running) {
       out.textContent = data.output || "(Boucle serveur SQLite démarrée)";
       _startLivePythonPoll("sqlite", out, null);
+    } else if (data.error) {
+      out.textContent = `[Erreur d'exécution — Code ${data.exit_code}]\n${data.error}`;
+    } else {
+      out.textContent = data.output || "(Aucune sortie console)";
+    }
+  } catch (err) {
+    out.textContent = "Erreur réseau : " + err.message;
+  }
+}
+
+// ============================================================================
+// 12. LABORATOIRE AVANCÉ : TEMPS RÉEL (SSE/WS), MULTIPART, JOBS 202 & ETAG
+// ============================================================================
+let _activeSseSource = null;
+let _jobsPollTimer = null;
+let _clientRememberedEtag = "";
+
+async function loadAdvancedRealtimeTab() {
+  const fw = getActiveFramework();
+  try {
+    const res = await fetch(`/api/advanced-lab/state?framework=${encodeURIComponent(fw)}`, {
+      headers: { "X-Active-Framework": fw }
+    });
+    const data = await res.json();
+    const pathEl = document.getElementById("realtime-standalone-path");
+    if (pathEl && data.script_path) {
+      pathEl.textContent = data.script_path;
+    }
+    const codeEl = document.getElementById("realtime-standalone-code");
+    if (codeEl && data.script_code && !codeEl.dataset.edited) {
+      codeEl.value = data.script_code;
+    }
+    if (data.etag && !_clientRememberedEtag) {
+      _clientRememberedEtag = data.etag;
+    }
+    renderAdvancedEtagState(data.etag, data.resource, null);
+    renderAdvancedJobsRows(data.jobs || []);
+  } catch (err) {
+    console.error("Erreur lors du chargement de l'onglet Temps Réel & Cache :", err);
+  }
+}
+
+function stopLiveSseDemo() {
+  if (_activeSseSource) {
+    _activeSseSource.close();
+    _activeSseSource = null;
+  }
+  const statusEl = document.getElementById("realtime-sse-status");
+  if (statusEl) {
+    statusEl.textContent = "Flux SSE arrêté.";
+  }
+}
+
+function startLiveSseDemo() {
+  stopLiveSseDemo();
+  const fw = getActiveFramework();
+  const outEl = document.getElementById("realtime-sse-output");
+  const statusEl = document.getElementById("realtime-sse-status");
+  if (!outEl) return;
+
+  outEl.textContent = `[Connexion EventSource ouverte] GET /api/advanced-lab/sse-demo?framework=${fw}\nAccept: text/event-stream\n------------------------------------------------------------\n`;
+  if (statusEl) {
+    statusEl.textContent = "Canal HTTP text/event-stream actif (réception des trames en direct)...";
+  }
+
+  const es = new EventSource(`/api/advanced-lab/sse-demo?framework=${encodeURIComponent(fw)}`);
+  _activeSseSource = es;
+
+  es.addEventListener("telemetry", (ev) => {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(ev.data);
+    } catch (e) {
+      parsed = { message: ev.data };
+    }
+    const rawWire = `id: ${ev.lastEventId || "sse"}\nevent: telemetry\ndata: ${ev.data}\n\n`;
+    outEl.textContent += rawWire;
+    outEl.scrollTop = outEl.scrollHeight;
+    if (parsed && parsed.id_trame === 5) {
+      es.close();
+      _activeSseSource = null;
+      if (statusEl) {
+        statusEl.textContent = "5/5 trames SSE reçues proprement (Last-Event-ID mémorisé : " + (ev.lastEventId || "sse-5") + ").";
+      }
+      showToast("Flux SSE terminé avec succès (5 événements reçus).");
+    }
+  });
+
+  es.onerror = () => {
+    es.close();
+    _activeSseSource = null;
+    if (statusEl) {
+      statusEl.textContent = "Connexion SSE fermée par le serveur en fin de séquence.";
+    }
+  };
+}
+
+async function runMultipartInspector(scenario) {
+  const fw = getActiveFramework();
+  const wireEl = document.getElementById("realtime-multipart-wire");
+  const verdictEl = document.getElementById("realtime-multipart-verdict");
+  try {
+    const res = await fetch(`/api/advanced-lab/multipart-inspect?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ scenario })
+    });
+    const data = await res.json();
+    if (wireEl) {
+      wireEl.textContent = data.wire_frame || "";
+    }
+    if (verdictEl) {
+      const ok = data.http_status === 201;
+      const bg = ok ? "#f0fdf4" : "#fef2f2";
+      const border = ok ? "#15803d" : "#b91c1c";
+      const textCol = ok ? "#14532d" : "#7f1d1d";
+      verdictEl.innerHTML = `
+        <div style="background:${bg}; border:1px solid ${border}; border-left:5px solid ${border}; padding:12px 14px; border-radius:4px; color:${textCol};">
+          <div style="font-weight:700; font-size:14.5px; margin-bottom:6px;">Code HTTP simulé : ${data.http_status} — ${escapeHtml(data.verdict)}</div>
+          <div style="font-size:13px; line-height:1.55;">
+            <strong>Nom brut envoyé par le client :</strong> <code>${escapeHtml(data.raw_filename)}</code><br/>
+            <strong>Nom stocké après UUID + secure_filename :</strong> <code>${escapeHtml(data.sanitized_filename)}</code><br/>
+            <strong>MIME déclaré vs Magic Bytes inspectés :</strong> <code>${escapeHtml(data.claimed_mime)}</code> | Octets d'en-tête réels : <code>[${escapeHtml(data.magic_bytes_hex)}]</code> | Taille : <strong>${(data.size_bytes / 1024).toFixed(1)} Ko</strong>
+          </div>
+        </div>
+      `;
+    }
+    showToast(`Inspection Multipart -> HTTP ${data.http_status}`);
+  } catch (err) {
+    showToast("Erreur lors de l'inspection Multipart : " + err.message);
+  }
+}
+
+function renderAdvancedJobsRows(jobs) {
+  const tbody = document.getElementById("realtime-jobs-tbody");
+  if (!tbody) return;
+  if (!jobs || jobs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted-small" style="text-align:center; padding:12px;">Aucune tâche d'arrière-plan lancée pour l'instant. Cliquez sur « Déclencher POST -> 202 Accepted » ci-dessus.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = jobs
+    .map((j) => {
+      const done = j.progression >= 100;
+      const badgeBg = done ? "#dcfce7" : "#dbeafe";
+      const badgeCol = done ? "#14532d" : "#1e3a8a";
+      return `
+        <tr>
+          <td><code>${escapeHtml(j.job_id)}</code></td>
+          <td><code>${escapeHtml(j.request_id || "-")}</code></td>
+          <td>${escapeHtml(j.sujet)}</td>
+          <td><span style="font-size:12px; color:#334155;">${escapeHtml(j.moteur)}</span></td>
+          <td>
+            <span style="background:${badgeBg}; color:${badgeCol}; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:700;">
+              ${escapeHtml(j.statut)}
+            </span>
+          </td>
+          <td>${j.resultat ? `<code>${escapeHtml(j.resultat)}</code>` : `<span class="muted-small">Calcul en cours...</span>`}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function pollAsyncJobsTable() {
+  const fw = getActiveFramework();
+  try {
+    const res = await fetch(`/api/advanced-lab/jobs?framework=${encodeURIComponent(fw)}`, {
+      headers: { "X-Active-Framework": fw }
+    });
+    const data = await res.json();
+    const jobs = data.jobs || [];
+    renderAdvancedJobsRows(jobs);
+    const anyRunning = jobs.some((j) => j.progression < 100);
+    if (!anyRunning && _jobsPollTimer) {
+      clearInterval(_jobsPollTimer);
+      _jobsPollTimer = null;
+    }
+  } catch (err) {
+    if (_jobsPollTimer) {
+      clearInterval(_jobsPollTimer);
+      _jobsPollTimer = null;
+    }
+  }
+}
+
+async function triggerAsyncJob202() {
+  const fw = getActiveFramework();
+  const sujetInput = document.getElementById("realtime-job-sujet");
+  const sujet = sujetInput?.value || "Génération PDF & Signature SHA-256 des Attestations ISGP";
+  const bannerEl = document.getElementById("realtime-job-202-banner");
+  try {
+    const res = await fetch(`/api/advanced-lab/jobs?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ sujet })
+    });
+    const data = await res.json();
+    if (bannerEl) {
+      bannerEl.innerHTML = `
+        <div style="background:#eff6ff; border:1px solid #93c5fd; border-left:5px solid #1d4ed8; padding:10px 14px; border-radius:4px; margin-bottom:10px; font-size:13.5px; color:#1e3a8a;">
+          <strong>Réponse HTTP immédiate : ${data.http_status} Accepted</strong> |
+          En-tête <code>Location: ${escapeHtml(data.location)}</code> |
+          Corrélation <code>X-Request-ID: ${escapeHtml(data.request_id)}</code><br/>
+          <span style="color:#334155;">Le worker HTTP est déjà libre pour d'autres clients pendant que la tâche progresse de 0% à 100% ci-dessous :</span>
+        </div>
+      `;
+    }
+    await pollAsyncJobsTable();
+    if (_jobsPollTimer) clearInterval(_jobsPollTimer);
+    _jobsPollTimer = setInterval(pollAsyncJobsTable, 550);
+    showToast(`HTTP 202 Accepted -> ${data.job?.job_id}`);
+  } catch (err) {
+    showToast("Erreur lors du lancement de la tâche 202 : " + err.message);
+  }
+}
+
+function renderAdvancedEtagState(serverEtag, resource, actionResult) {
+  const clientEtagInput = document.getElementById("realtime-client-etag");
+  if (clientEtagInput && _clientRememberedEtag && !clientEtagInput.dataset.manual) {
+    clientEtagInput.value = _clientRememberedEtag;
+  }
+  const serverBox = document.getElementById("realtime-etag-server-box");
+  if (serverBox && resource) {
+    serverBox.innerHTML = `
+      <div style="font-size:13px; line-height:1.6;">
+        <strong>Ressource Serveur (#${resource.id}) :</strong> ${escapeHtml(resource.titre)}<br/>
+        <strong>Salle :</strong> <code>${escapeHtml(resource.salle)}</code> |
+        <strong>Places :</strong> <code>${resource.places}</code> |
+        <strong>Version métier :</strong> <code>v${resource.version_metier}</code><br/>
+        <strong>ETag Serveur actuel (SHA-256) :</strong> <code style="background:#fef3c7; color:#92400e; font-weight:700; padding:2px 6px;">${escapeHtml(serverEtag || "")}</code><br/>
+        <span class="muted-small">${escapeHtml(resource.derniere_modification || "")}</span>
+      </div>
+    `;
+  }
+  const logBox = document.getElementById("realtime-etag-http-log");
+  if (logBox && actionResult) {
+    const code = actionResult.http_status;
+    let color = "#1e3a8a";
+    let bg = "#eff6ff";
+    if (code === 304 || code === 200) {
+      color = "#14532d";
+      bg = "#f0fdf4";
+    } else if (code === 412 || code === 428) {
+      color = "#7f1d1d";
+      bg = "#fef2f2";
+    }
+    logBox.innerHTML = `
+      <div style="background:${bg}; border:1px solid ${color}; border-left:5px solid ${color}; padding:12px 14px; border-radius:4px; color:${color};">
+        <div style="font-weight:700; font-size:14.5px; margin-bottom:4px;">HTTP ${code} — ${escapeHtml(actionResult.status_text || "")}</div>
+        <div style="font-size:13px; margin-bottom:8px;">${escapeHtml(actionResult.explanation || "")}</div>
+        ${actionResult.bytes_transferred !== undefined ? `<div style="font-size:12.5px;"><strong>Octets de corps JSON transférés sur le réseau :</strong> <code>${actionResult.bytes_transferred} octets</code></div>` : ""}
+        ${actionResult.request_headers ? `<pre class="code-block-mini" style="margin-top:8px; margin-bottom:0;">Requête -> ${escapeHtml(JSON.stringify(actionResult.request_headers))}\nRéponse <- ${escapeHtml(JSON.stringify(actionResult.response_headers || {}))}</pre>` : ""}
+      </div>
+    `;
+  }
+}
+
+async function runEtagAction(mode) {
+  const fw = getActiveFramework();
+  const clientInput = document.getElementById("realtime-client-etag");
+  const salleInput = document.getElementById("realtime-etag-salle");
+  const placesInput = document.getElementById("realtime-etag-places");
+  const currentClientEtag = (clientInput?.value || _clientRememberedEtag || "").trim();
+
+  const payload = { mode };
+  if (mode === "get_conditional") {
+    payload.if_none_match = currentClientEtag;
+  } else if (mode === "put_if_match") {
+    payload.if_match = currentClientEtag;
+    payload.salle = salleInput?.value || "Salle Cybersécurité Oran";
+    payload.places = parseInt(placesInput?.value || "35", 10);
+  }
+
+  try {
+    const res = await fetch(`/api/advanced-lab/etag?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    // Si le client fait un GET frais, un GET 200 mis à jour ou un PUT 200 réussi, son cache local mémorise le nouvel ETag.
+    // En revanche, si c'est le Collègue B qui modifie le serveur en arrière-plan ("simulate_concurrent_writer")
+    // ou si le PUT échoue en 412, le client garde exprès son ancien ETag en main jusqu'à ce qu'il refasse un GET !
+    if (mode === "get_fresh" || (mode === "get_conditional" && data.http_status === 200) || (mode === "put_if_match" && data.http_status === 200)) {
+      _clientRememberedEtag = data.etag;
+      if (clientInput) {
+        clientInput.dataset.manual = "";
+        clientInput.value = data.etag;
+      }
+    }
+    renderAdvancedEtagState(data.etag, data.resource, data);
+    showToast(`Simulation ETag -> HTTP ${data.http_status}`);
+  } catch (err) {
+    showToast("Erreur lors du test ETag : " + err.message);
+  }
+}
+
+async function runAdvancedStandaloneServer() {
+  const textarea = document.getElementById("realtime-standalone-code");
+  const out = document.getElementById("realtime-standalone-output");
+  if (!textarea || !out) return;
+  _clearLivePythonPoll();
+  out.textContent = "Démarrage du laboratoire autonome Temps Réel, Upload & Cache...";
+  try {
+    const fw = getActiveFramework();
+    const res = await fetch(`/api/python/run?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ code: textarea.value })
+    });
+    const data = await res.json();
+    _renderLiveLoopBar("realtime", data);
+    if (data.running) {
+      out.textContent = data.output || "(Boucle serveur Temps Réel & Cache démarrée)";
+      _startLivePythonPoll("realtime", out, null);
     } else if (data.error) {
       out.textContent = `[Erreur d'exécution — Code ${data.exit_code}]\n${data.error}`;
     } else {

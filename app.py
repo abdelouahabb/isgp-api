@@ -3020,6 +3020,381 @@ def api_sqlite_lab_execute():
     }), 200
 
 
+# ==============================================================================
+# LABORATOIRE AVANCÉ : TEMPS RÉEL (SSE / WEBSOCKETS), MULTIPART, JOBS 202 & ETAG
+# ==============================================================================
+import hashlib
+import uuid
+from werkzeug.utils import secure_filename
+
+ADVANCED_CATALOGUE_STATE = {
+    "id": 1,
+    "titre": "Architecture Critique & Haute Disponibilité ISGP",
+    "version_metier": 1,
+    "salle": "Amphithéâtre Alger",
+    "places": 40,
+    "derniere_modification": "Initialisation système",
+}
+ADVANCED_JOBS_LIST = []
+ADVANCED_LOCK = threading.Lock()
+
+
+def _compute_advanced_etag(doc: dict) -> str:
+    canonical = json.dumps(doc, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return f'"{hashlib.sha256(canonical).hexdigest()[:16]}"'
+
+
+@app.route("/api/reference-file/<path:filename>", methods=["GET"])
+def get_reference_lab_file(filename: str):
+    """Permet à l'Atelier Python de charger ou télécharger sqlite_api_lab.py et advanced_realtime_cache_lab.py."""
+    allowed = ("sqlite_api_lab.py", "advanced_realtime_cache_lab.py")
+    safe_name = os.path.basename(filename)
+    if safe_name not in allowed:
+        return jsonify({"erreur": "Fichier de référence non autorisé"}), 404
+    fw = _resolve_active_framework()
+    folder = os.path.join(ROOT_DIR, f"{fw}-version")
+    full_path = os.path.join(folder, safe_name)
+    if not os.path.isfile(full_path):
+        return jsonify({"erreur": "Fichier introuvable"}), 404
+    if request.args.get("download") == "1":
+        return send_from_directory(folder, safe_name, as_attachment=True)
+    with open(full_path, encoding="utf-8") as f:
+        return jsonify({"framework": fw, "path": f"{fw}-version/{safe_name}", "code": f.read()})
+
+
+@app.route("/api/advanced-lab/state", methods=["GET"])
+def api_advanced_lab_state():
+    fw = _resolve_active_framework()
+    script_rel = f"{fw}-version/advanced_realtime_cache_lab.py"
+    script_abs = os.path.join(ROOT_DIR, script_rel)
+    script_code = ""
+    if os.path.isfile(script_abs):
+        with open(script_abs, encoding="utf-8") as f:
+            script_code = f.read()
+
+    with ADVANCED_LOCK:
+        doc_copy = dict(ADVANCED_CATALOGUE_STATE)
+        etag = _compute_advanced_etag(doc_copy)
+        jobs_copy = list(ADVANCED_JOBS_LIST[:8])
+
+    return jsonify({
+        "framework": fw,
+        "etag": etag,
+        "resource": doc_copy,
+        "jobs": jobs_copy,
+        "script_path": script_rel,
+        "script_code": script_code,
+    }), 200
+
+
+@app.route("/api/advanced-lab/etag", methods=["POST"])
+def api_advanced_lab_etag():
+    data = request.get_json(silent=True) or {}
+    mode = data.get("mode", "get_fresh")
+    req_id = f"req-{uuid.uuid4().hex[:10]}"
+    t0 = time.perf_counter()
+
+    with ADVANCED_LOCK:
+        current_etag = _compute_advanced_etag(ADVANCED_CATALOGUE_STATE)
+
+        if mode == "get_fresh":
+            body_bytes = len(json.dumps(ADVANCED_CATALOGUE_STATE, ensure_ascii=False).encode("utf-8"))
+            elapsed_ms = round((time.perf_counter() - t0) * 1000.0 + 0.42, 2)
+            return jsonify({
+                "http_status": 200,
+                "status_text": "200 OK (Payload complet transféré + ETag émis)",
+                "request_headers": {"Accept": "application/json", "X-Request-ID": req_id},
+                "response_headers": {
+                    "ETag": current_etag,
+                    "Cache-Control": "private, max-age=30, must-revalidate",
+                    "X-Request-ID": req_id,
+                    "X-Process-Time-Ms": str(elapsed_ms),
+                },
+                "bytes_transferred": body_bytes,
+                "etag": current_etag,
+                "resource": dict(ADVANCED_CATALOGUE_STATE),
+                "explanation": (
+                    f"1er appel GET sans cache : le serveur sérialise toute la ressource ({body_bytes} octets) "
+                    f"et joint l'empreinte SHA-256 ETag: {current_etag}."
+                ),
+            }), 200
+
+        if mode == "get_conditional":
+            client_etag = str(data.get("if_none_match", "")).strip()
+            elapsed_ms = round((time.perf_counter() - t0) * 1000.0 + 0.11, 2)
+            if client_etag == current_etag:
+                return jsonify({
+                    "http_status": 304,
+                    "status_text": "304 Not Modified (Zéro octet de corps transféré !)",
+                    "request_headers": {"If-None-Match": client_etag, "X-Request-ID": req_id},
+                    "response_headers": {
+                        "ETag": current_etag,
+                        "Cache-Control": "private, max-age=30, must-revalidate",
+                        "X-Request-ID": req_id,
+                        "X-Process-Time-Ms": str(elapsed_ms),
+                    },
+                    "bytes_transferred": 0,
+                    "etag": current_etag,
+                    "resource": dict(ADVANCED_CATALOGUE_STATE),
+                    "explanation": (
+                        f"Validation de cache réussie : If-None-Match ({client_etag}) == ETag serveur ({current_etag}). "
+                        f"Le serveur renvoie HTTP 304 avec 0 octet de corps JSON !"
+                    ),
+                }), 200
+            body_bytes = len(json.dumps(ADVANCED_CATALOGUE_STATE, ensure_ascii=False).encode("utf-8"))
+            return jsonify({
+                "http_status": 200,
+                "status_text": "200 OK (Cache client obsolète -> Nouveau payload + nouvel ETag)",
+                "request_headers": {"If-None-Match": client_etag or "(absent)", "X-Request-ID": req_id},
+                "response_headers": {
+                    "ETag": current_etag,
+                    "Cache-Control": "private, max-age=30, must-revalidate",
+                    "X-Request-ID": req_id,
+                    "X-Process-Time-Ms": str(elapsed_ms),
+                },
+                "bytes_transferred": body_bytes,
+                "etag": current_etag,
+                "resource": dict(ADVANCED_CATALOGUE_STATE),
+                "explanation": (
+                    f"L'ETag du client ({client_etag or 'aucun'}) diffère de l'ETag actuel ({current_etag}) : "
+                    f"le serveur renvoie la nouvelle version complète ({body_bytes} octets)."
+                ),
+            }), 200
+
+        if mode == "simulate_concurrent_writer":
+            ADVANCED_CATALOGUE_STATE["places"] = max(10, (ADVANCED_CATALOGUE_STATE["places"] + 5) % 90)
+            ADVANCED_CATALOGUE_STATE["version_metier"] += 1
+            ADVANCED_CATALOGUE_STATE["derniere_modification"] = f"Modifié par Collègue B à {datetime.now().strftime('%H:%M:%S')}"
+            new_etag = _compute_advanced_etag(ADVANCED_CATALOGUE_STATE)
+            return jsonify({
+                "http_status": 200,
+                "status_text": "Modification concurrente effectuée par un autre opérateur (Collègue B)",
+                "etag": new_etag,
+                "previous_etag_now_stale": current_etag,
+                "resource": dict(ADVANCED_CATALOGUE_STATE),
+                "explanation": (
+                    f"Un autre utilisateur (Collègue B) vient de modifier la ressource sur le serveur ! "
+                    f"L'ETag serveur est passé de {current_etag} à {new_etag}. Si vous tentez un PUT avec l'ancien ETag, le serveur renverra 412 !"
+                ),
+            }), 200
+
+        # mode == "put_if_match"
+        if_match = str(data.get("if_match", "")).strip()
+        nouvelle_salle = str(data.get("salle", ADVANCED_CATALOGUE_STATE["salle"])).strip() or "Salle A"
+        try:
+            nouvelles_places = int(data.get("places", ADVANCED_CATALOGUE_STATE["places"]))
+        except (TypeError, ValueError):
+            nouvelles_places = ADVANCED_CATALOGUE_STATE["places"]
+
+        elapsed_ms = round((time.perf_counter() - t0) * 1000.0 + 0.25, 2)
+        if not if_match:
+            return jsonify({
+                "http_status": 428,
+                "status_text": "428 Precondition Required (En-tête If-Match manquant)",
+                "request_headers": {"Content-Type": "application/json", "X-Request-ID": req_id},
+                "response_headers": {"ETag": current_etag, "X-Request-ID": req_id},
+                "bytes_transferred": 98,
+                "etag": current_etag,
+                "resource": dict(ADVANCED_CATALOGUE_STATE),
+                "explanation": "Écriture refusée (428) : l'API exige l'en-tête If-Match contenant l'ETag lu précédemment.",
+            }), 200
+
+        if if_match != current_etag:
+            return jsonify({
+                "http_status": 412,
+                "status_text": "412 Precondition Failed — ÉCRASEMENT CONCURRENT (LOST UPDATE) ÉVITÉ !",
+                "request_headers": {"If-Match": if_match, "Content-Type": "application/json", "X-Request-ID": req_id},
+                "response_headers": {"ETag": current_etag, "X-Request-ID": req_id, "X-Process-Time-Ms": str(elapsed_ms)},
+                "bytes_transferred": 164,
+                "etag": current_etag,
+                "resource": dict(ADVANCED_CATALOGUE_STATE),
+                "explanation": (
+                    f"Protection Optimiste réussie ! Votre If-Match ({if_match}) ne correspond plus à l'ETag serveur actuel ({current_etag}). "
+                    f"Au lieu d'écraser silencieusement le travail de votre collègue, l'API rejette le PUT avec HTTP 412 Precondition Failed."
+                ),
+            }), 200
+
+        ADVANCED_CATALOGUE_STATE["salle"] = nouvelle_salle
+        ADVANCED_CATALOGUE_STATE["places"] = nouvelles_places
+        ADVANCED_CATALOGUE_STATE["version_metier"] += 1
+        ADVANCED_CATALOGUE_STATE["derniere_modification"] = f"Mise à jour validée (If-Match OK) à {datetime.now().strftime('%H:%M:%S')}"
+        new_etag = _compute_advanced_etag(ADVANCED_CATALOGUE_STATE)
+        body_bytes = len(json.dumps(ADVANCED_CATALOGUE_STATE, ensure_ascii=False).encode("utf-8"))
+        return jsonify({
+            "http_status": 200,
+            "status_text": "200 OK (If-Match valide -> Ressource mise à jour & nouvel ETag généré)",
+            "request_headers": {"If-Match": if_match, "Content-Type": "application/json", "X-Request-ID": req_id},
+            "response_headers": {"ETag": new_etag, "X-Request-ID": req_id, "X-Process-Time-Ms": str(elapsed_ms)},
+            "bytes_transferred": body_bytes,
+            "etag": new_etag,
+            "resource": dict(ADVANCED_CATALOGUE_STATE),
+            "explanation": f"Précondition vérifiée ({if_match} == ETag serveur). Mise à jour appliquée -> nouvel ETag = {new_etag}.",
+        }), 200
+
+
+@app.route("/api/advanced-lab/jobs", methods=["GET", "POST"])
+def api_advanced_lab_jobs():
+    fw = _resolve_active_framework()
+    if request.method == "GET":
+        with ADVANCED_LOCK:
+            return jsonify({"jobs": list(ADVANCED_JOBS_LIST[:8])}), 200
+
+    data = request.get_json(silent=True) or {}
+    sujet = str(data.get("sujet", "Export PDF Certificats Promotion 2026")).strip() or "Export PDF Certificats"
+    req_id = data.get("request_id") or f"req-{uuid.uuid4().hex[:8]}"
+    job_id = f"job-{uuid.uuid4().hex[:8]}"
+    engine_label = {
+        "flask": "ThreadPoolExecutor (Worker WSGI)",
+        "fastapi": "BackgroundTasks (ASGI Post-Response)",
+        "tornado": "IOLoop.current().spawn_callback()",
+    }.get(fw, "Background Worker")
+
+    job_entry = {
+        "job_id": job_id,
+        "sujet": sujet,
+        "moteur": engine_label,
+        "request_id": req_id,
+        "statut": "PENDING (0%)",
+        "progression": 0,
+        "created_at": datetime.now().strftime("%H:%M:%S"),
+        "resultat": None,
+    }
+    with ADVANCED_LOCK:
+        ADVANCED_JOBS_LIST.insert(0, job_entry)
+        del ADVANCED_JOBS_LIST[10:]
+
+    def _run_bg_job():
+        for pct, label in [(35, "RUNNING — Requête SQLite par lots (35%)"), (75, "RUNNING — Génération PDF & Signature SHA-256 (75%)"), (100, "COMPLETED (100%)")]:
+            time.sleep(0.75)
+            with ADVANCED_LOCK:
+                job_entry["progression"] = pct
+                job_entry["statut"] = label
+                if pct == 100:
+                    job_entry["resultat"] = f"/downloads/{job_id}.pdf (184 Ko)"
+
+    threading.Thread(target=_run_bg_job, daemon=True).start()
+
+    return jsonify({
+        "http_status": 202,
+        "message": "202 Accepted — Tâche acceptée et déléguée en arrière-plan en 0.4 ms !",
+        "location": f"/api/advanced-lab/jobs/{job_id}",
+        "request_id": req_id,
+        "job": job_entry,
+    }), 202
+
+
+@app.route("/api/advanced-lab/multipart-inspect", methods=["POST"])
+def api_advanced_lab_multipart_inspect():
+    data = request.get_json(silent=True) or {}
+    scenario = data.get("scenario", "valid_pdf")
+    boundary = "----ISGPFormBoundary9f8e7d6c5b"
+
+    if scenario == "traversal_pdf":
+        raw_filename = "../../../etc/cron.d/backdoor_cours.pdf"
+        claimed_mime = "application/pdf"
+        magic_bytes = b"%PDF-1.7\n%Document officiel ISGP..."
+        sim_size = 48_200
+    elif scenario == "spoofed_exe":
+        raw_filename = "facture_fournisseur.pdf"
+        claimed_mime = "application/pdf"
+        magic_bytes = b"MZ\x90\x00\x03\x00\x00\x00_EXECUTABLE_WINDOWS_DEGUISE"
+        sim_size = 112_400
+    elif scenario == "oversized":
+        raw_filename = "archive_complete_4k.pdf"
+        claimed_mime = "application/pdf"
+        magic_bytes = b"%PDF-1.7\n%Archive..."
+        sim_size = 15 * 1024 * 1024  # 15 Mo (> limite 2 Mo)
+    else:
+        raw_filename = "support_architecture_api_2026.pdf"
+        claimed_mime = "application/pdf"
+        magic_bytes = b"%PDF-1.7\n1 0 obj << /Type /Catalog >>..."
+        sim_size = 128_500
+
+    sanitized = secure_filename(raw_filename) or "document.bin"
+    final_stored_name = f"{uuid.uuid4().hex[:8]}_{sanitized}"
+    hex_head = magic_bytes[:8].hex(" ").upper()
+
+    wire_frame = (
+        f"POST /api/lab/upload HTTP/1.1\r\n"
+        f"Host: api.isgp.dz\r\n"
+        f"Content-Length: {sim_size}\r\n"
+        f"Content-Type: multipart/form-data; boundary={boundary}\r\n\r\n"
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="categorie"\r\n\r\n'
+        f"support_pedagogique\r\n"
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="document"; filename="{raw_filename}"\r\n'
+        f"Content-Type: {claimed_mime}\r\n\r\n"
+        f"<FLUX BINAIRE BRUT : Premiers octets Hex = [{hex_head}] | ASCII = {repr(magic_bytes[:18])}>\r\n"
+        f"--{boundary}--\r\n"
+    )
+
+    max_limit = 2 * 1024 * 1024
+    if sim_size > max_limit:
+        http_code = 413
+        verdict = "REJETÉ — HTTP 413 Content Too Large (Protection anti-saturation RAM/Disque : 15 Mo > plafond 2 Mo)"
+    elif not (magic_bytes.startswith(b"%PDF-") or magic_bytes.startswith(b"\x89PNG")):
+        http_code = 415
+        verdict = (
+            f"REJETÉ — HTTP 415 Unsupported Media Type ! Le client prétend envoyer '{claimed_mime}' ({raw_filename}), "
+            f"mais les Magic Bytes réels [{hex_head}] correspondent à un exécutable 'MZ' (usurpation MIME détectée) !"
+        )
+    else:
+        http_code = 201
+        traversal_note = (
+            f" Attaque Path Traversal neutralisée ('{raw_filename}' -> '{final_stored_name}')."
+            if ".." in raw_filename or "/" in raw_filename
+            else ""
+        )
+        verdict = f"ACCEPTÉ — HTTP 201 Created. Signature binaire %PDF- authentique vérifiée en streaming.{traversal_note}"
+
+    return jsonify({
+        "scenario": scenario,
+        "http_status": http_code,
+        "verdict": verdict,
+        "raw_filename": raw_filename,
+        "sanitized_filename": final_stored_name,
+        "claimed_mime": claimed_mime,
+        "magic_bytes_hex": hex_head,
+        "size_bytes": sim_size,
+        "wire_frame": wire_frame,
+    }), 200
+
+
+@app.route("/api/advanced-lab/sse-demo", methods=["GET"])
+def api_advanced_lab_sse_demo():
+    fw = _resolve_active_framework()
+    fw_mechanism = {
+        "flask": "Flask Response(stream_with_context(yield))",
+        "fastapi": "FastAPI StreamingResponse(async generator)",
+        "tornado": "Tornado RequestHandler + await self.flush()",
+    }.get(fw, "SSE Stream")
+
+    def _stream():
+        etapes = [
+            "Connexion HTTP persistante ouverte (Content-Type: text/event-stream)",
+            "Collecte des métriques CPU / Latence SQLite WAL...",
+            "Vérification des quotas Rate-Limiter par fenêtre glissante...",
+            "Synchronisation du cache ETag des 4 nœuds upstream...",
+            "Flux temps réel terminé proprement (reconnexion auto via Last-Event-ID si coupure).",
+        ]
+        for idx, msg in enumerate(etapes, start=1):
+            payload = json.dumps({
+                "id_trame": idx,
+                "moteur": fw_mechanism,
+                "message": msg,
+                "horodatage": datetime.now().strftime("%H:%M:%S.%f")[:-3],
+            }, ensure_ascii=False)
+            yield f"id: sse-{idx}\nevent: telemetry\ndata: {payload}\n\n"
+            time.sleep(0.35)
+
+    return Response(
+        _stream(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True)

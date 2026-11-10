@@ -38,6 +38,9 @@
       <button class="tab-btn" data-tab="sqlite" onclick="switchTab('sqlite')">
         Persistance SQLite &amp; Sécurité SQL
       </button>
+      <button class="tab-btn" data-tab="realtime" onclick="switchTab('realtime')">
+        Temps Réel, Upload &amp; Cache
+      </button>
       <button class="tab-btn" data-tab="nginx" onclick="switchTab('nginx')">
         Déploiement &amp; Load Balancing
       </button>
@@ -2303,6 +2306,797 @@ cur.execute(sql, (salle,))</pre>
       </div>
     </section>
 
+    <!-- ONGLET RÉFÉRENCE AVANCÉE : TEMPS RÉEL (SSE / WEBSOCKETS), UPLOAD MULTIPART, JOBS 202 & CACHE ETAG -->
+    <section id="tab-realtime" class="tab-section">
+      <div class="section-intro">
+        <div>
+          <h2>Manuel de Référence — Temps Réel (SSE &amp; WebSockets), Streaming Multipart, Tâches 202 &amp; Cache HTTP (ETag)</h2>
+          <p>
+            Référence d'ingénierie de production adaptée à <strong>FastAPI (ASGI & Uvicorn)</strong> : comment dépasser le cycle requête-réponse classique
+            sans bloquer vos workers, sécuriser le téléversement binaire contre l'usurpation MIME, tracer chaque requête via <code>X-Request-ID</code>,
+            et éliminer le gaspillage réseau (<code>304 Not Modified</code>) comme les écrasements concurrents (<code>412 Precondition Failed</code>).
+          </p>
+        </div>
+        <div class="preset-buttons">
+          <a class="btn-chip" href="#rt-ch1">1. Polling vs SSE vs WS</a>
+          <a class="btn-chip" href="#rt-ch2">2. Code Temps Réel &amp; C10K</a>
+          <a class="btn-chip" href="#rt-ch3">3. Multipart vs Base64</a>
+          <a class="btn-chip" href="#rt-ch4">4. Streaming &amp; Magic Bytes</a>
+          <a class="btn-chip" href="#rt-ch5">5. Tâches 202 Accepted</a>
+          <a class="btn-chip" href="#rt-ch6">6. Middleware X-Request-ID</a>
+          <a class="btn-chip" href="#rt-ch7">7. Cache &amp; ETag 304</a>
+          <a class="btn-chip" href="#rt-ch8">8. Verrou Optimiste 412</a>
+          <a class="btn-chip" href="#rt-ch9">9. Serveur Live (8001)</a>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 1 : POLLING VS LONG-POLLING VS SSE VS WEBSOCKETS          -->
+      <!-- ================================================================== -->
+      <div id="rt-ch1" class="card" style="margin-bottom: 18px; border-left: 4px solid #1e3a5f;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 1 — Architecture Temps Réel : Pourquoi le HTTP Classique ne suffit plus (Polling vs SSE vs WebSockets)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Comprendre la physique réseau de chaque protocole avant d'écrire une seule ligne de code
+            </p>
+          </div>
+          <span class="step-badge">Partie I — Flux Temps Réel</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          Dans le modèle HTTP/1.1 fondamental, <strong>le serveur ne peut jamais prendre l'initiative de parler au client</strong> : il attend passivement qu'un navigateur ou une application mobile ouvre une requête, renvoie une réponse et referme la transaction. Dès que vous construisez un tableau de bord de supervision, une barre de progression d'export comptable, un flux de génération d'IA mot-à-mot ou une messagerie collaborative, quatre architectures s'offrent à vous :
+        </p>
+
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Comparaison Chronologique sur le Réseau : Short Polling vs Server-Sent Events (SSE) vs WebSocket (RFC 6455)</span>
+            <span class="mermaid-badge">Diagramme de Séquence Mermaid</span>
+          </div>
+          <pre class="mermaid">sequenceDiagram
+    participant C as Navigateur / Client Mobile
+    participant S as Serveur API Python (FASTAPI)
+
+    Note over C,S: 1. SHORT POLLING (Gaspillage : 95% de réponses vides + en-têtes répétés)
+    C->>S: GET /api/statut (t = 0s)
+    S-->>C: 200 OK {"nouveau": false}
+    C->>S: GET /api/statut (t = 2s)
+    S-->>C: 200 OK {"nouveau": false}
+
+    Note over C,S: 2. SERVER-SENT EVENTS — SSE (1 seul GET HTTP ouvert, flux Serveur -> Client)
+    C->>S: GET /api/sse (Accept: text/event-stream)
+    S-->>C: 200 OK (Content-Type: text/event-stream)
+    S-->>C: id: 1 | event: alerte | data: {"cpu": 42}
+    S-->>C: id: 2 | event: alerte | data: {"cpu": 68}
+    Note right of C: Si coupure Wi-Fi -> Reconnexion auto avec Last-Event-ID: 2 !
+
+    Note over C,S: 3. WEBSOCKET RFC 6455 (Mise à niveau HTTP 101 -> Canal TCP Full-Duplex)
+    C->>S: GET /ws (Upgrade: websocket, Connection: Upgrade)
+    S-->>C: HTTP/1.1 101 Switching Protocols
+    C->>S: Trame WS Client -> Serveur (ex: position curseur)
+    S->>C: Trame WS Serveur -> Client (ex: diffusion instantanée)</pre>
+        </div>
+
+        <div class="table-wrap">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 16%;">Architecture</th>
+                <th style="width: 15%;">Sens du Flux</th>
+                <th style="width: 22%;">Mécanisme Réseau</th>
+                <th style="width: 23%;">Forces Majeures</th>
+                <th style="width: 24%;">Limites &amp; Cas d'Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Short Polling</strong><br/>(<code>setInterval</code>)</td>
+                <td>Client &#8594; Serveur (répété)</td>
+                <td>Nouvelle requête <code>GET</code> toutes les <code>N</code> secondes.</td>
+                <td>Trivial à coder, fonctionne derrière 100 % des proxys et CDN.</td>
+                <td><strong>À réserver aux rafraîchissements lents (&gt; 15 s)</strong> : latence élevée et surcharge inutile de requêtes vides.</td>
+              </tr>
+              <tr>
+                <td><strong>2. Long-Polling</strong></td>
+                <td>Simulé Serveur &#8594; Client</td>
+                <td>Le serveur retient le <code>GET</code> en attente jusqu'à ce qu'un événement survienne (ou timeout 25 s), répond, et le client relance aussitôt.</td>
+                <td>Temps réel acceptable même sur de très vieux équipements réseau.</td>
+                <td>Complexe à ordonnancer proprement ; largement supplanté aujourd'hui par <strong>SSE</strong>.</td>
+              </tr>
+              <tr>
+                <td><strong>3. SSE (Server-Sent Events)</strong><br/>Standard HTML5</td>
+                <td><strong>Unidirectionnel</strong><br/>Serveur &#8594; Client</td>
+                <td>Unique requête HTTP <code>Content-Type: text/event-stream</code> maintenue ouverte ; trames texte séparées par <code>
+
+</code>.</td>
+                <td><strong>Reconnexion native automatique</strong> (<code>EventSource</code> + <code>Last-Event-ID</code>), compatible HTTP/2, pare-feux d'entreprise et Bearer/Cookies standards.</td>
+                <td><strong>Le choix roi dans 80 % des APIs métier</strong> : notifications en direct, logs CI/CD, barres de progression, streaming de réponses LLM/IA.</td>
+              </tr>
+              <tr>
+                <td><strong>4. WebSocket</strong><br/>Norme <code>RFC 6455</code></td>
+                <td><strong>Bidirectionnel</strong><br/>(Full-Duplex)</td>
+                <td>Poignée de main <code>HTTP 101 Switching Protocols</code> qui transforme la connexion TCP en tuyau binaire ou texte permanent.</td>
+                <td>Latence minimale (&lt; 2 ms), seulement 2 à 14 octets d'encadrement par trame, binaire natif (audio, vidéo, IoT).</td>
+                <td>Pas de reconnexion native dans <code>new WebSocket()</code> (à coder en JS), configuration Nginx dédiée (<code>Upgrade</code>). Idéal pour <strong>chat collaboratif, jeux, trading, noyaux Jupyter</strong>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 2 : IMPLÉMENTATION PAR FRAMEWORK & LABORATOIRE SSE LIVE   -->
+      <!-- ================================================================== -->
+      <div id="rt-ch2" class="card" style="margin-bottom: 18px; border-left: 4px solid #0284c7;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 2 — Implémentation dans FastAPI (ASGI & Uvicorn) &amp; Le Défi C10K (10 000 Connexions Ouvertes)</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Anatomie d'une trame SSE, reprise sur incident <code>Last-Event-ID</code>, piège du tampon Nginx et exécution en direct
+            </p>
+          </div>
+          <span class="step-badge">SSE, WebSocket &amp; C10K</span>
+        </div>
+
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-left: 4px solid #0284c7; padding: 12px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 14px; line-height: 1.65; color: #0c4a6e;">
+          <strong>Comportement de FastAPI (ASGI & Uvicorn) face aux connexions longues :</strong><br/>
+          Grâce au protocole <strong>ASGI</strong> et à la boucle d'événements d'<strong>Uvicorn</strong> (<code>uvloop</code> / <code>asyncio</code>), FastAPI gère nativement et sur le <strong>même port</strong> à la fois les générateurs asynchrones <strong>SSE</strong> (<code>StreamingResponse</code>) et les canaux bidirectionnels <strong>WebSocket</strong> (<code>@app.websocket</code>). Pendant un <code>await asyncio.sleep()</code> ou <code>await ws.receive_json()</code>, le worker ne consomme aucun thread système : un seul processus Uvicorn maintient aisément des milliers de flux simultanés.
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.65; color: #334155; margin-bottom: 10px;">
+          <strong>Piège de production n°1 derrière un Reverse Proxy Nginx :</strong> Par défaut, Nginx accumule les réponses de votre serveur Python dans un tampon mémoire de 4 Ko ou 8 Ko avant de les expédier au navigateur. Résultat : vos petits événements SSE restent bloqués chez Nginx et arrivent tous d'un seul bloc à la fin ! Pour obtenir un véritable streaming instantané, renvoyez <strong>toujours</strong> l'en-tête <code>X-Accel-Buffering: no</code> (ou configurez <code>proxy_buffering off;</code> sur la route SSE dans <code>nginx.conf</code>).
+        </p>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Implémentation idiomatique de référence (FastAPI (ASGI & Uvicorn)) :
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.3px; max-height: none; margin-bottom: 16px;">import asyncio, json
+from fastapi import FastAPI, Header, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
+
+app = FastAPI()
+
+# 1. FLUX UNIDIRECTIONNEL SSE (Serveur -&gt; Client sur HTTP standard)
+@app.get("/api/v1/flux-evenements")
+async def flux_sse_fastapi(last_event_id: str | None = Header(default=None)):
+    depart = int(last_event_id) if (last_event_id and last_event_id.isdigit()) else 0
+
+    async def generateur_async():
+        yield "retry: 2000\n\n"
+        for seq in range(depart + 1, depart + 6):
+            charge = json.dumps({"seq": seq, "statut": "ACTIF", "moteur": "FastAPI ASGI"}, ensure_ascii=False)
+            yield f"id: {seq}\nevent: progression\ndata: {charge}\n\n"
+            # IMPORTANT : asyncio.sleep libère l'Event Loop Uvicorn pour les 9 999 autres clients !
+            await asyncio.sleep(1.0)
+
+    return StreamingResponse(
+        generateur_async(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+# 2. CANAL BIDIRECTIONNEL WEBSOCKET NATIF (HTTP 101 Switching Protocols)
+@app.websocket("/ws/salle-cours")
+async def canal_websocket(ws: WebSocket):
+    await ws.accept()  # Émet HTTP/1.1 101 Switching Protocols
+    try:
+        while True:
+            msg_client = await ws.receive_json()
+            await ws.send_json({"echo_serveur": msg_client, "mode": "Full-Duplex RFC 6455"})
+    except WebSocketDisconnect:
+        pass  # Déconnexion propre du client</pre>
+
+        <!-- LABORATOIRE INTERACTIF #1 : CONSOLE SSE EN DIRECT -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <strong style="font-size: 14.5px; color: #0f172a;">Laboratoire Interactif #1 — Ouvrir un Flux <code>EventSource</code> SSE Réel</strong>
+              <div id="realtime-sse-status" class="muted-small">Prêt : cliquez sur « Ouvrir le flux SSE en direct » pour observer les trames brutes arriver une par une.</div>
+            </div>
+            <div class="btn-group">
+              <button class="btn-primary btn-sm" onclick="startLiveSseDemo()">Ouvrir le flux SSE en direct</button>
+              <button class="btn-secondary btn-sm" onclick="stopLiveSseDemo()">Fermer le canal</button>
+            </div>
+          </div>
+          <pre id="realtime-sse-output" class="code-block" style="min-height: 150px; max-height: 240px; overflow-y: auto; margin: 0;">En attente d'ouverture du canal GET /api/advanced-lab/sse-demo (Content-Type: text/event-stream)...</pre>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 3 : MULTIPART/FORM-DATA (RFC 7578) VS BASE64 DANS JSON    -->
+      <!-- ================================================================== -->
+      <div id="rt-ch3" class="card" style="margin-bottom: 18px; border-left: 4px solid #7c3aed;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 3 — Téléversement de Fichiers : Pourquoi <code>multipart/form-data</code> écrase le Base64-dans-JSON</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Calcul d'inflation binaire (<code>+33 %</code>), saturation du parseur JSON et anatomie exacte d'une trame <code>RFC 7578</code>
+            </p>
+          </div>
+          <span class="step-badge">Partie II — Fichiers &amp; Binaire</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          Une erreur fréquente chez les développeurs débutants consiste à convertir un fichier PDF ou une photo en texte <strong>Base64</strong> côté navigateur pour l'insérer dans un champ JSON : <code>{"titre": "Support", "fichier_b64": "JVBERi0xLjcK..."}</code>. Dès que les fichiers dépassent quelques centaines de kilo-octets, cette approche provoque deux dégradations sévères en production :
+        </p>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Critère d'Ingénierie</th>
+                <th style="width: 38%;">Anti-Pattern : Base64 dans <code>application/json</code></th>
+                <th style="width: 40%;">Standard Production : <code>multipart/form-data</code> (RFC 7578)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Taille sur le réseau</strong></td>
+                <td><strong>+33 % d'inflation mathématique</strong> (3 octets binaires sont codés sur 4 caractères ASCII) : un fichier de <strong>60 Mo</strong> pèse <strong>80 Mo</strong> sur la 4G !</td>
+                <td><strong>0 % d'inflation</strong> : les octets binaires voyagent tels quels entre deux frontières texte (seulement ~200 octets d'en-tête).</td>
+              </tr>
+              <tr>
+                <td><strong>Empreinte Mémoire RAM Serveur</strong></td>
+                <td><strong>Critique (2,5x à 3x la taille du fichier)</strong> : Python doit d'abord lire tout le corps HTTP en RAM, exécuter <code>json.loads()</code> sur la chaîne géante, puis allouer le tampon décodé par <code>base64.b64decode()</code>.</td>
+                <td><strong>Constante (quelques dizaines de Ko)</strong> : le flux peut être lu et écrit sur disque ou S3 par blocs de <code>64 Ko</code> sans jamais charger le fichier entier en mémoire vive.</td>
+              </tr>
+              <tr>
+                <td><strong>CPU &amp; Latence</strong></td>
+                <td>Double pénalité CPU : encodage JS côté client + décodage Python et parsing JSON côté serveur.</td>
+                <td>Copie directe des tampons kernel TCP vers le descripteur de fichier ou le hacheur <code>hashlib.sha256()</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Anatomie à la loupe d'une requête brute <code>multipart/form-data</code> sur le fil TCP :
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none;">POST /api/v1/documents HTTP/1.1
+Host: api.isgp.dz
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Length: 128940
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="intitule_cours"
+
+Architecture Sécurisée des APIs Python
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="document"; filename="support_isgp_2026.pdf"
+Content-Type: application/pdf
+
+%PDF-1.7
+... [OCTETS BINAIRES PURS DU FICHIER SANS AUCUN ENCODAGE BASE64] ...
+%%EOF
+------WebKitFormBoundary7MA4YWxkTrZu0gW--</pre>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 4 : STREAMING & SÉCURITÉ DES UPLOADS (413 / MAGIC BYTES)  -->
+      <!-- ================================================================== -->
+      <div id="rt-ch4" class="card" style="margin-bottom: 18px; border-left: 4px solid #dc2626;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 4 — Streaming Binaire &amp; Les 4 Boucliers de Sécurité d'un Upload en Production</h3>
+            <p class="muted" style="margin-top: 2px;">
+              Plafond <code>413</code>, vérification des <em>Magic Bytes</em> (<code>415</code>), neutralisation du <em>Path Traversal</em> et écriture par chunks dans FastAPI (ASGI & Uvicorn)
+            </p>
+          </div>
+          <span class="step-badge">Sécurité Fichiers &amp; Streaming</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          Un point d'entrée d'upload mal protégé est l'une des vulnérabilités les plus critiques du Top 10 OWASP. Dans une trame <code>multipart/form-data</code>, <strong>le nom du fichier (<code>filename="..."</code>) et le type MIME (<code>Content-Type: application/pdf</code>) sont écrits librement par le client</strong>. Un attaquant peut renommer un binaire malveillant <code>shell.exe</code> en <code>facture.pdf</code>, ou envoyer <code>filename="../../../etc/cron.d/pirate"</code> pour écraser un fichier système Linux (*Path Traversal*). Voici la table des signatures binaires authentiques (*Magic Bytes*) situées aux tout premiers octets de chaque format :
+        </p>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Format Réel</th>
+                <th style="width: 26%;">Premiers Octets Hexadécimaux (<em>Magic Bytes</em>)</th>
+                <th style="width: 22%;">Représentation Python <code>bytes</code></th>
+                <th style="width: 32%;">Décision du Serveur API</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Document PDF</strong></td>
+                <td><code>25 50 44 46 2D</code></td>
+                <td><code>b"%PDF-"</code></td>
+                <td>Autorisé si PDF attendu (vérifié sur les 5 premiers octets du flux).</td>
+              </tr>
+              <tr>
+                <td><strong>Image PNG</strong></td>
+                <td><code>89 50 4E 47 0D 0A 1A 0A</code></td>
+                <td><code>b"\x89PNG\r\n\x1a\n"</code></td>
+                <td>Autorisé pour les avatars / logos.</td>
+              </tr>
+              <tr>
+                <td><strong>Image JPEG</strong></td>
+                <td><code>FF D8 FF</code></td>
+                <td><code>b"\xff\xd8\xff"</code></td>
+                <td>Autorisé pour les photos (ré-encoder avec Pillow si public pour purger les métadonnées EXIF GPS).</td>
+              </tr>
+              <tr>
+                <td><strong>Exécutable Windows PE (<code>.exe</code> / <code>.dll</code>)</strong></td>
+                <td><code>4D 5A</code></td>
+                <td><code>b"MZ"</code></td>
+                <td><strong>REJET IMMÉDIAT <code>HTTP 415 Unsupported Media Type</code></strong> même si renommé <code>cv.pdf</code> !</td>
+              </tr>
+              <tr>
+                <td><strong>Exécutable Linux ELF</strong></td>
+                <td><code>7F 45 4C 46</code></td>
+                <td><code>b"\x7fELF"</code></td>
+                <td><strong>REJET IMMÉDIAT <code>HTTP 415 Unsupported Media Type</code></strong> + alerte de sécurité dans les logs.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Framework</th>
+                <th style="width: 40%;">Mécanisme Interne de Réception Multipart</th>
+                <th style="width: 40%;">Avantage &amp; Point de Vigilance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Flask (WSGI)</strong></td>
+                <td><code>request.files["doc"]</code> (objet <code>FileStorage</code> Werkzeug) + plafond <code>app.config["MAX_CONTENT_LENGTH"]</code>.</td>
+                <td>Werkzeug bascule automatiquement les fichiers &gt; 500 Ko vers un fichier temporaire disque ; lire par <code>f.stream.read(65536)</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>FastAPI (ASGI)</strong></td>
+                <td><code>document: UploadFile = File(...)</code> (encapsule <code>SpooledTemporaryFile</code>).</td>
+                <td>Ne jamais typer un gros fichier en <code>bytes = File(...)</code> (qui charge tout en RAM !) ; utiliser <code>await document.read(65536)</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Tornado (IOLoop)</strong></td>
+                <td>Décorateur <code>@tornado.web.stream_request_body</code> + callback <code>data_received(self, chunk: bytes)</code>.</td>
+                <td><strong>Streaming pur à empreinte RAM quasi nulle</strong> : les paquets TCP sont traités à la volée avant même l'appel de <code>post()</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Implémentation blindée de l'upload en streaming (FastAPI (ASGI & Uvicorn)) :
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none; margin-bottom: 16px;">import hashlib, os, uuid
+from fastapi import FastAPI, File, HTTPException, UploadFile
+
+app = FastAPI()
+PLAFOND_OCTETS = 5 * 1024 * 1024  # 5 Mo maximum
+DOSSIER_QUARANTAINE = "/tmp/isgp_uploads_securises"
+os.makedirs(DOSSIER_QUARANTAINE, exist_ok=True)
+
+@app.post("/api/v1/documents", status_code=201)
+async def televerser_pdf_securise(document: UploadFile = File(...)):
+    # UploadFile utilise un SpooledTemporaryFile : mémoire vive jusqu'au seuil, puis disque !
+    # Barrière #1 : Inspection des Magic Bytes réels (signature %PDF-)
+    premiers_octets = await document.read(8)
+    await document.seek(0)
+    if not premiers_octets.startswith(b"%PDF-"):
+        raise HTTPException(
+            status_code=415,
+            detail="Signature binaire invalide : fichier rejeté (attendu %PDF-)",
+        )
+
+    # Barrière #2 : Neutralisation du nom client (anti Path Traversal) + préfixe UUID4
+    nom_base = os.path.basename(document.filename or "document.pdf")
+    nom_sain = "".join(c for c in nom_base if c.isalnum() or c in "._-") or "document.pdf"
+    nom_stockage = f"{uuid.uuid4().hex}_{nom_sain}"
+    chemin_cible = os.path.join(DOSSIER_QUARANTAINE, nom_stockage)
+
+    # Barrière #3 : Lecture asynchrone par blocs de 64 Ko + contrôle strict de taille (413)
+    empreinte = hashlib.sha256()
+    taille_totale = 0
+    with open(chemin_cible, "wb") as sortie:
+        while chunk := await document.read(65536):
+            taille_totale += len(chunk)
+            if taille_totale &gt; PLAFOND_OCTETS:
+                sortie.close()
+                os.remove(chemin_cible)
+                raise HTTPException(status_code=413, detail="Plafond de 5 Mo dépassé")
+            empreinte.update(chunk)
+            sortie.write(chunk)
+
+    return {"nom_stocke": nom_stockage, "taille_octets": taille_totale, "sha256": empreinte.hexdigest()}</pre>
+
+        <!-- LABORATOIRE INTERACTIF #2 : INSPECTEUR MULTIPART & MAGIC BYTES -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <strong style="font-size: 14.5px; color: #0f172a;">Laboratoire Interactif #2 — Inspecteur de Trame Multipart &amp; Boucliers Anti-Intrusion</strong>
+              <div class="muted-small">Simulez 4 envois réels et observez la trame RFC 7578 ainsi que la réaction des barrières <code>413</code>, <code>415</code> et <code>UUID + secure_filename</code> :</div>
+            </div>
+            <div class="btn-group" style="flex-wrap: wrap;">
+              <button class="btn-primary btn-sm" onclick="runMultipartInspector('valid_pdf')">1. PDF Authentique (201)</button>
+              <button class="btn-secondary btn-sm" onclick="runMultipartInspector('traversal_pdf')">2. Attaque ../../../etc (Neutralisée)</button>
+              <button class="btn-secondary btn-sm" onclick="runMultipartInspector('spoofed_exe')">3. Virus .exe renommé .pdf (415)</button>
+              <button class="btn-secondary btn-sm" onclick="runMultipartInspector('oversized')">4. Fichier 15 Mo &gt; Plafond (413)</button>
+            </div>
+          </div>
+          <div id="realtime-multipart-verdict" style="margin-bottom: 10px;"></div>
+          <pre id="realtime-multipart-wire" class="code-block" style="min-height: 150px; max-height: 230px; overflow-y: auto; margin: 0;">Cliquez sur l'un des 4 scénarios ci-dessus pour inspecter la trame brute multipart/form-data et les Magic Bytes hexadécimaux.</pre>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 5 : TÂCHES D'ARRIÈRE-PLAN & PATRON HTTP 202 ACCEPTED      -->
+      <!-- ================================================================== -->
+      <div id="rt-ch5" class="card" style="margin-bottom: 18px; border-left: 4px solid #0f766e;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 5 — Tâches Lourdes &amp; Files d'Arrière-Plan : Le Patron <code>HTTP 202 Accepted</code> + <code>Location</code></h3>
+            <p class="muted" style="margin-top: 2px;">
+              Pourquoi une route HTTP ne doit jamais durer plus de 500 ms, et comment éviter la panne en cascade <code>504 Gateway Timeout</code>
+            </p>
+          </div>
+          <span class="step-badge">Partie III — Asynchrone &amp; Observabilité</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          Imaginez qu'un responsable pédagogique clique sur « Générer les 300 attestations PDF signées de la promotion » (durée du calcul : 18 secondes). Si vous exécutez ce calcul <strong>à l'intérieur</strong> de la route <code>POST</code> avant de répondre :
+          <strong>1)</strong> sous Gunicorn WSGI, le worker est gelé pendant 18 secondes (4 clics simultanés paralysent tout le serveur !) ;
+          <strong>2)</strong> sur mobile ou derrière Cloudflare / Nginx, le proxy coupe brutalement la connexion en <code>504 Gateway Timeout</code> pendant que le client ignore si l'opération a réussi ou échoué et reclique trois fois !
+          La solution normalisée par l'IETF (<code>RFC 9110 §15.3.3</code>) est le code <strong><code>202 Accepted</code></strong> :
+        </p>
+
+        <div class="mermaid-container" style="margin-bottom: 14px;">
+          <div class="mermaid-header">
+            <span class="mermaid-title">Découplage Asynchrone par Jeton de Tâche : POST -&gt; 202 Accepted + Suivi d'Avancement Non-Bloquant</span>
+            <span class="mermaid-badge">Diagramme de Séquence Mermaid</span>
+          </div>
+          <pre class="mermaid">sequenceDiagram
+    participant U as Client Web / Mobile
+    participant A as API FASTAPI (Worker HTTP)
+    participant Q as Exécuteur d'Arrière-Plan / File Redis
+
+    U->>A: POST /api/v1/exports-certificats (X-Request-ID: req-7a91)
+    A->>Q: Enregistre job-8f2c (statut = PENDING, 0%)
+    A-->>U: HTTP 202 Accepted (en 0.8 ms !) + Location: /api/v1/jobs/job-8f2c
+    Note right of A: Le Worker HTTP est immédiatement libre !
+    Q->>Q: Calcul SQLite + Génération PDF (35% -> 75% -> 100%)
+    U->>A: GET /api/v1/jobs/job-8f2c
+    A-->>U: 200 OK {"statut": "COMPLETED", "url": "/exports/job-8f2c.pdf"}</pre>
+        </div>
+
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #15803d; padding: 12px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 13.8px; line-height: 1.6; color: #14532d;">
+          <strong>Règle d'architecture — Tâche locale en mémoire vs File distribuée (Celery / RQ / ARQ + Redis) :</strong><br/>
+          &bull; <strong>En mémoire dans le processus API</strong> (<code>ThreadPoolExecutor</code> en Flask, <code>BackgroundTasks</code> en FastAPI, <code>IOLoop.spawn_callback</code> en Tornado) : parfait pour les tâches courtes (&lt; 10 s) non critiques (envoi d'un e-mail de notification, purge d'un fichier temporaire, écriture d'audit). Si le conteneur Docker redémarre au milieu, la tâche en cours est perdue.<br/>
+          &bull; <strong>File persistante externe</strong> (<strong>Celery</strong>, <strong>RQ</strong> ou <strong>ARQ</strong> adossé à <strong>Redis / RabbitMQ</strong> ou table SQLite WAL dédiée) : obligatoire dès que la tâche est critique (facturation, paiement, génération lourde CPU/IA), car elle survit au redémarrage de l'API et offre des tentatives automatiques (*Retries* avec *Exponential Backoff*).
+        </div>
+
+        <!-- LABORATOIRE INTERACTIF #3 : FILE DE TÂCHES 202 ACCEPTED EN DIRECT -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div style="flex: 1; min-width: 260px;">
+              <strong style="font-size: 14.5px; color: #0f172a;">Laboratoire Interactif #3 — Déclencher une Tâche <code>202 Accepted</code> en Direct</strong>
+              <input id="realtime-job-sujet" type="text" value="Génération PDF &amp; Signature SHA-256 — Promotion ISGP 2026"
+                     style="width: 100%; margin-top: 6px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13.5px;" />
+            </div>
+            <div>
+              <button class="btn-primary btn-sm" onclick="triggerAsyncJob202()">Déclencher POST -&gt; 202 Accepted</button>
+            </div>
+          </div>
+          <div id="realtime-job-202-banner"></div>
+          <div class="table-wrap">
+            <table class="http-table">
+              <thead>
+                <tr>
+                  <th>ID Tâche</th>
+                  <th>X-Request-ID</th>
+                  <th>Intitulé du Traitement</th>
+                  <th>Moteur FASTAPI</th>
+                  <th>Progression Live</th>
+                  <th>Livrable</th>
+                </tr>
+              </thead>
+              <tbody id="realtime-jobs-tbody">
+                <tr><td colspan="6" class="muted-small" style="text-align:center; padding:12px;">Aucune tâche lancée. Cliquez sur « Déclencher POST -&gt; 202 Accepted ».</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 6 : MIDDLEWARES D'OBSERVABILITÉ & X-REQUEST-ID            -->
+      <!-- ================================================================== -->
+      <div id="rt-ch6" class="card" style="margin-bottom: 18px; border-left: 4px solid #ca8a04;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 6 — Middlewares d'Observabilité : Corrélation <code>X-Request-ID</code> &amp; Horloge Monotone <code>perf_counter</code></h3>
+            <p class="muted" style="margin-top: 2px;">
+              Relier instantanément le ticket d'erreur d'un utilisateur à la ligne exacte des journaux serveur et mesurer la latence au centième de milliseconde
+            </p>
+          </div>
+          <span class="step-badge">Traçabilité &amp; Latence</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          En production, lorsque 80 utilisateurs appellent votre API dans la même seconde et qu'un client vous signale : <em>« J'ai reçu une erreur à 14h02 »</em>, des journaux texte ordinaires sont inexploitables. Deux règles d'ingénierie transforment le diagnostic :
+          <strong>1) Corrélation <code>X-Request-ID</code></strong> : dès l'entrée dans le middleware, si Nginx a déjà injecté un identifiant valide (vérifié par expression régulière stricte <code>^[a-zA-Z0-9_-]{6,64}$</code> pour empêcher toute attaque par <em>Log Injection</em> de faux retours à la ligne !), on le conserve ; sinon on génère <code>req-&lt;uuid&gt;</code>, on le passe aux tâches d'arrière-plan, on l'inclut dans les erreurs RFC 7807 et on le renvoie dans l'en-tête HTTP de réponse.
+          <strong>2) Chronométrage par <code>time.perf_counter()</code></strong> : n'utilisez <strong>jamais</strong> <code>time.time()</code> pour mesurer une durée d'exécution ! Si le démon réseau NTP recale l'horloge système de -50 ms au milieu d'une requête, <code>time.time()</code> peut afficher une durée négative ! <code>time.perf_counter()</code> utilise l'horloge matérielle monotone haute résolution du processeur.
+        </p>
+
+        <div class="table-wrap" style="margin-bottom: 14px;">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Framework</th>
+                <th style="width: 38%;">Points d'Accroche du Cycle de Vie (Hooks)</th>
+                <th style="width: 42%;">Stockage Isolé de l'ID de Requête</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Flask (WSGI)</strong></td>
+                <td><code>@app.before_request</code> &#8594; vue &#8594; <code>@app.after_request</code> &#8594; <code>@app.teardown_request</code></td>
+                <td>Objet proxy contextuel <code>flask.g.request_id</code> (isolé par thread / contexte Werkzeug).</td>
+              </tr>
+              <tr>
+                <td><strong>FastAPI (ASGI)</strong></td>
+                <td><code>@app.middleware("http")</code> enveloppant <code>response = await call_next(request)</code> (modèle en pelure d'oignon).</td>
+                <td><code>request.state.request_id</code> ou <code>contextvars.ContextVar</code> (isolé par tâche <code>asyncio</code> concurrente !).</td>
+              </tr>
+              <tr>
+                <td><strong>Tornado (IOLoop)</strong></td>
+                <td><code>prepare(self)</code> &#8594; <code>get()/post()</code> &#8594; <code>on_finish(self)</code> sur une classe de base <code>BaseHandler</code>.</td>
+                <td>Attribut d'instance <code>self.request_id</code> (Tornado instancie un nouveau <code>RequestHandler</code> par requête HTTP).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Implémentation complète Middleware <code>X-Request-ID</code> + Tâche <code>202 Accepted</code> (FastAPI (ASGI & Uvicorn)) :
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none;">import asyncio, re, time, uuid
+from fastapi import BackgroundTasks, FastAPI, Request, Response
+
+app = FastAPI()
+REGEX_REQ_ID = re.compile(r"^[a-zA-Z0-9_-]{6,64}$")
+REGISTRE_JOBS = {}
+
+# --- MIDDLEWARE ASGI : Enveloppe chaque requête entrante et chaque réponse sortante ---
+@app.middleware("http")
+async def middleware_observabilite(request: Request, call_next):
+    t0 = time.perf_counter()
+    id_entrant = request.headers.get("X-Request-ID", "")
+    req_id = id_entrant if REGEX_REQ_ID.match(id_entrant) else f"req-{uuid.uuid4().hex[:12]}"
+    request.state.request_id = req_id
+
+    response = await call_next(request)
+    duree_ms = (time.perf_counter() - t0) * 1000.0
+    response.headers["X-Request-ID"] = req_id
+    response.headers["X-Process-Time-Ms"] = f"{duree_ms:.2f}"
+    return response
+
+# --- TÂCHE POST-RÉPONSE : BackgroundTasks + HTTP 202 Accepted ---
+async def generer_archive_async(job_id: str):
+    REGISTRE_JOBS[job_id]["statut"] = "RUNNING"
+    await asyncio.sleep(3.0)  # S'exécute APRÈS l'envoi du 202 Accepted au client !
+    REGISTRE_JOBS[job_id].update({"statut": "COMPLETED", "url_telechargement": f"/exports/{job_id}.pdf"})
+
+@app.post("/api/v1/exports-certificats", status_code=202)
+async def lancer_export_202(request: Request, bg: BackgroundTasks, response: Response):
+    job_id = f"job-{uuid.uuid4().hex[:8]}"
+    REGISTRE_JOBS[job_id] = {
+        "job_id": job_id,
+        "statut": "PENDING",
+        "request_id": request.state.request_id,
+    }
+    bg.add_task(generer_archive_async, job_id)
+    response.headers["Location"] = f"/api/v1/jobs/{job_id}"
+    response.headers["Retry-After"] = "2"
+    return REGISTRE_JOBS[job_id]</pre>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 7 : CACHE HTTP (CACHE-CONTROL, ETAG & 304 NOT MODIFIED)   -->
+      <!-- ================================================================== -->
+      <div id="rt-ch7" class="card" style="margin-bottom: 18px; border-left: 4px solid #2563eb;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 7 — Cache HTTP Intelligent (<code>RFC 9111</code>) : <code>Cache-Control</code>, <code>ETag</code> &amp; <code>304 Not Modified</code></h3>
+            <p class="muted" style="margin-top: 2px;">
+              La requête la plus rapide et la plus écologique est celle dont on n'a pas besoin de transférer le corps JSON
+            </p>
+          </div>
+          <span class="step-badge">Partie IV — Cache &amp; Concurrence</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          Un catalogue de formations est lu 10 000 fois par jour mais modifié seulement 3 fois par semaine. Renvoyer à chaque fois 85 Ko de JSON gaspille la bande passante mobile et le CPU de sérialisation. À l'inverse, mettre en cache par erreur la réponse de <code>GET /api/profil</code> sur un proxy partagé exposerait les données personnelles d'un utilisateur au suivant ! Maîtriser les directives <code>Cache-Control</code> et l'empreinte <strong><code>ETag</code></strong> (<em>Entity Tag</em>, entourée de guillemets doubles selon la norme HTTP : <code>ETag: "a91f4c..."</code>) est indispensable :
+        </p>
+
+        <div class="table-wrap">
+          <table class="http-table">
+            <thead>
+              <tr>
+                <th style="width: 28%;">En-tête / Directive HTTP</th>
+                <th style="width: 36%;">Signification Exacte (Navigateur &amp; CDN)</th>
+                <th style="width: 36%;">Quand l'utiliser impérativement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Cache-Control: no-store</code></td>
+                <td>Interdiction absolue d'écrire la réponse sur disque ou en cache partagé.</td>
+                <td><strong>Obligatoire</strong> sur <code>/auth/token</code>, données bancaires, dossiers RH/personnels et jetons secrets.</td>
+              </tr>
+              <tr>
+                <td><code>Cache-Control: private, no-cache</code></td>
+                <td>Seul le navigateur de l'utilisateur peut conserver la copie, mais il doit revalider l'<code>ETag</code> auprès du serveur avant chaque usage.</td>
+                <td>Données métier propres à un utilisateur connecté susceptibles de changer à tout instant.</td>
+              </tr>
+              <tr>
+                <td><code>Cache-Control: public, max-age=60, must-revalidate</code></td>
+                <td>Réponse réutilisable sans appel réseau pendant 60 s ; au-delà, revalidation légère via <code>If-None-Match</code> &#8594; <code>304 Not Modified</code> (0 octet de Body !).</td>
+                <td>Catalogues publics, nomenclatures, référentiels géographiques, listes de formations.</td>
+              </tr>
+              <tr>
+                <td><strong>ETag Fort</strong> (<code>"8f3a19..."</code>)<br/>vs <strong>ETag Faible</strong> (<code>W/"v3"</code>)</td>
+                <td>Un ETag fort garantit une égalité <strong>à l'octet près</strong> (requis pour <code>If-Match</code> et téléchargements partiels) ; <code>W/</code> indique une équivalence sémantique.</td>
+                <td>Privilégiez toujours un <strong>ETag fort</strong> calculé par SHA-256 canonique ou numéro de version de ligne SQLite.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 8 : VERROUILLAGE OPTIMISTE (IF-MATCH & 412) + LABO LIVE   -->
+      <!-- ================================================================== -->
+      <div id="rt-ch8" class="card" style="margin-bottom: 18px; border-left: 4px solid #b91c1c;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 8 — Contrôle de Concurrence Optimiste : Éliminer le Bug du <em>Lost Update</em> avec <code>If-Match</code> &amp; <code>412 Precondition Failed</code></h3>
+            <p class="muted" style="margin-top: 2px;">
+              Comment empêcher deux administrateurs qui éditent la même fiche d'écraser silencieusement le travail l'un de l'autre
+            </p>
+          </div>
+          <span class="step-badge">If-Match &amp; 412 Anti-Collision</span>
+        </div>
+
+        <p style="font-size: 14.5px; line-height: 1.7; color: #1e293b; margin-bottom: 12px;">
+          L'<code>ETag</code> ne sert pas qu'au cache de lecture (`GET`) : c'est aussi l'arme royale pour sécuriser les écritures concurrentes (`PUT` / `PATCH` / `DELETE`) !
+          <strong>Scénario classique du <em>Lost Update</em> :</strong> À 10h00, Amine et Sarah ouvrent tous les deux la Formation #1 (<code>ETag: "v1-a8f2"</code>, 40 places). À 10h01, Sarah change les places à 25 et sauvegarde (le serveur passe en <code>ETag: "v2-91c0"</code>). À 10h02, Amine — dont l'écran affiche toujours l'ancienne fiche de 10h00 — modifie uniquement la salle et envoie <code>PUT</code> avec <code>places: 40</code>. Sans protection, <strong>Amine écrase silencieusement la modification de Sarah !</strong>
+          Avec l'en-tête <strong><code>If-Match: "v1-a8f2"</code></strong>, le serveur compare l'ETag d'Amine avec l'ETag actuel (<code>"v2-91c0"</code>), détecte la collision et répond <strong><code>HTTP 412 Precondition Failed</code></strong>.
+        </p>
+
+        <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 6px;">
+          Implémentation conjointe <code>GET 304</code> + <code>PUT If-Match 412</code> (FastAPI (ASGI & Uvicorn)) :
+        </strong>
+        <pre class="code-view" style="padding: 12px 14px; font-size: 12.2px; max-height: none; margin-bottom: 16px;">import hashlib, json
+from fastapi import FastAPI, Header, HTTPException, Response
+
+def calculer_etag_fort(ressource: dict) -&gt; str:
+    canonique = json.dumps(ressource, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return f'"{hashlib.sha256(canonique).hexdigest()[:16]}"'
+
+@app.get("/api/v1/formations/{id_f}")
+async def lire_avec_etag(
+    id_f: int,
+    response: Response,
+    if_none_match: str | None = Header(default=None),
+):
+    doc = charger_formation_sqlite(id_f)
+    etag_actuel = calculer_etag_fort(doc)
+
+    # 1. Validation de cache conditionnel : 304 Not Modified sans aucun corps JSON !
+    if if_none_match == etag_actuel:
+        return Response(status_code=304, headers={
+            "ETag": etag_actuel,
+            "Cache-Control": "private, max-age=30, must-revalidate",
+        })
+
+    response.headers["ETag"] = etag_actuel
+    response.headers["Cache-Control"] = "private, max-age=30, must-revalidate"
+    return doc
+
+@app.put("/api/v1/formations/{id_f}")
+async def modifier_avec_verrou_optimiste(
+    id_f: int,
+    payload: dict,
+    response: Response,
+    if_match: str | None = Header(default=None),
+):
+    doc = charger_formation_sqlite(id_f)
+    etag_actuel = calculer_etag_fort(doc)
+
+    if not if_match:
+        raise HTTPException(status_code=428, detail="En-tête If-Match obligatoire")
+    if if_match != etag_actuel:
+        raise HTTPException(
+            status_code=412,
+            detail={"message": "Conflit d'édition concurrente (Lost Update évité)", "etag_actuel": etag_actuel},
+        )
+
+    doc_maj = appliquer_mise_a_jour_sqlite(id_f, payload)
+    response.headers["ETag"] = calculer_etag_fort(doc_maj)
+    return doc_maj</pre>
+
+        <!-- LABORATOIRE INTERACTIF #4 : SIMULATEUR ETAG 200 / 304 / COLLÈGUE B / 412 -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px;">
+          <strong style="font-size: 14.5px; color: #0f172a; display: block; margin-bottom: 4px;">
+            Laboratoire Interactif #4 — Expérimentez le Cache <code>304</code> et la Collision Concurrente <code>412</code> en 4 Clics !
+          </strong>
+          <p class="muted-small" style="margin: 0 0 12px 0;">
+            Suivez l'ordre pédagogique : <strong>(1)</strong> Faites un <code>GET</code> initial (200 OK) &#8594; <strong>(2)</strong> Revalidez avec <code>If-None-Match</code> (304 Not Modified, 0 octet !) &#8594; <strong>(3)</strong> Simulez une modification concurrente par un Collègue B &#8594; <strong>(4)</strong> Tentez un <code>PUT</code> avec votre ancien ETag pour observer le bouclier <strong><code>412 Precondition Failed</code></strong> !
+          </p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div id="realtime-etag-server-box" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 10px 12px; border-radius: 4px;"></div>
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 10px 12px; border-radius: 4px;">
+              <label style="display:block; font-size:12.5px; font-weight:700; color:#0f172a; margin-bottom:4px;">ETag mémorisé par votre Client (envoyé dans If-None-Match / If-Match) :</label>
+              <input id="realtime-client-etag" type="text" oninput="this.dataset.manual='1'"
+                     style="width:100%; font-family:monospace; padding:5px 8px; border:1px solid #94a3b8; border-radius:4px; margin-bottom:8px;" />
+              <div style="display:flex; gap:8px;">
+                <input id="realtime-etag-salle" type="text" value="Salle Cybersécurité Oran" placeholder="Nouvelle salle"
+                       style="flex:1; padding:5px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;" />
+                <input id="realtime-etag-places" type="number" value="35"
+                       style="width:85px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;" />
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-group" style="flex-wrap: wrap; margin-bottom: 12px;">
+            <button class="btn-primary btn-sm" onclick="runEtagAction('get_fresh')">1. GET Initial (200 OK + Mémoriser ETag)</button>
+            <button class="btn-secondary btn-sm" onclick="runEtagAction('get_conditional')">2. GET + If-None-Match (304 — 0 octet !)</button>
+            <button class="btn-secondary btn-sm" style="border-color:#d97706; color:#92400e;" onclick="runEtagAction('simulate_concurrent_writer')">3. Simuler Écriture Concurrente (Collègue B)</button>
+            <button class="btn-secondary btn-sm" style="border-color:#b91c1c; color:#991b1b;" onclick="runEtagAction('put_if_match')">4. PUT + If-Match (Teste 200 ou 412 !)</button>
+          </div>
+
+          <div id="realtime-etag-http-log"></div>
+        </div>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- CHAPITRE 9 : SERVEUR AUTONOME EXÉCUTABLE EN DIRECT                 -->
+      <!-- ================================================================== -->
+      <div id="rt-ch9" class="card" style="margin-bottom: 18px; border-left: 4px solid #059669;">
+        <div class="card-header">
+          <div>
+            <h3>Chapitre 9 — Laboratoire Complet Exécutable : <code>fastapi-version/advanced_realtime_cache_lab.py</code></h3>
+            <p class="muted" style="margin-top: 2px;">
+              Serveur FastAPI (ASGI & Uvicorn) autonome réunissant Middleware <code>X-Request-ID</code>, Flux SSE, Upload Binaire Sécurisé (<code>413</code>/<code>415</code>), Tâches <code>202 Accepted</code> et Cache <code>ETag</code> (<code>304</code>/<code>412</code>)
+            </p>
+          </div>
+          <div class="btn-group">
+            <button class="btn-primary btn-sm" onclick="runAdvancedStandaloneServer()">
+              Démarrer le Serveur Temps Réel &amp; Cache en Direct
+            </button>
+            <button class="btn-secondary btn-sm" onclick="copyText(document.getElementById('realtime-standalone-code').value)">
+              Copier le script complet
+            </button>
+          </div>
+        </div>
+
+        <p style="font-size: 14.5px; color: #334155; margin: 0 0 10px 0;">
+          Ce fichier autonome (<code id="realtime-standalone-path">fastapi-version/advanced_realtime_cache_lab.py</code>) peut être lancé dans votre terminal ou directement ici dans le navigateur. À son démarrage, il exécute automatiquement <strong>6 auto-tests d'intégration</strong> (<code>GET 200 + ETag</code> &#8594; <code>GET 304</code> &#8594; <code>PUT 412</code> &#8594; <code>Upload Magic Bytes 415/201</code> &#8594; <code>POST 202</code> &#8594; <code>SSE</code>) puis maintient sa boucle ouverte pour vos sondes HTTP :
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px;">
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:4px;">Code source complet (<code>fastapi-version/advanced_realtime_cache_lab.py</code>) :</label>
+            <textarea id="realtime-standalone-code" rows="20" class="code-textarea" style="font-size: 12.4px;" oninput="this.dataset.edited='1'"></textarea>
+          </div>
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:4px;">Console d'exécution &amp; Sondes HTTP en direct :</label>
+            <div id="lesson-runner-livebar-realtime" style="display:none; background:#064e3b; color:#ecfdf5; padding:10px 14px; border-radius:6px; margin-bottom:8px; border:1px solid #10b981;"></div>
+            <pre id="realtime-standalone-output" class="code-block" style="min-height: 390px; max-height: 450px; overflow-y: auto; margin: 0;">Cliquez sur « Démarrer le Serveur Temps Réel &amp; Cache en Direct » pour lancer le serveur FastAPI (ASGI & Uvicorn), valider les 6 auto-tests (ETag 304/412, Magic Bytes 415/201, Job 202, SSE) et sonder ses routes en direct.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ONGLET 5 : ÉVALUATIONS PAR MODULE -->
     <section id="tab-quiz" class="tab-section">
       <div class="section-intro">
@@ -2320,6 +3114,6 @@ cur.execute(sql, (salle,))</pre>
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=36"></script>
+  <script src="/static/app.js?v=37"></script>
 </body>
 </html>

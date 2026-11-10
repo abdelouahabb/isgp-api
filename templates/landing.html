@@ -191,7 +191,7 @@
       <p>
         Ce portail unifié regroupe <strong>trois cursus complets, symétriques et 100 % autonomes</strong> couvrant les trois grands paradigmes industriels de création d'APIs et de services Web en Python :
         <strong>Flask (WSGI Synchrone &amp; Explicite)</strong>, <strong>FastAPI (ASGI Asynchrone &amp; Validation Déclarative Pydantic)</strong> et <strong>Tornado (Event-Loop Natif Non-Bloquant &amp; Architecture Orientée Objet <code>RequestHandler</code>)</strong>.
-        Chaque édition comprend <strong>30 chapitres détaillés</strong>, <strong>30 diagrammes vectoriels Mermaid</strong>, un <strong>bac à sable HTTP/curl/Jinja2</strong>, un <strong>simulateur de cluster Nginx à 4 nœuds</strong>, <strong>46 fiches de référentiel</strong> et <strong>36 questions d'évaluation</strong>.
+        Chaque édition comprend <strong>30 chapitres progressifs</strong> + <strong>2 Manuels de Référence complets de 9 chapitres chacun</strong> (<em>Persistance SQLite3, Curseurs &amp; APSW</em> et <em>Temps Réel SSE/WebSockets, Streaming Multipart, Tâches 202 &amp; Cache ETag 304/412</em>), un <strong>bac à sable HTTP/curl/Jinja2</strong>, un <strong>simulateur de cluster Nginx à 4 nœuds</strong>, <strong>56 fiches de référentiel</strong> et <strong>52 questions d'évaluation</strong>.
       </p>
     </section>
 
@@ -209,16 +209,16 @@
           </p>
           <ul class="fw-list">
             <li><strong>Routage &amp; Contexte</strong> : <code>@app.route</code>, convertisseurs <code>&lt;int:id&gt;</code>, objets <code>request</code> et <code>jsonify()</code>.</li>
-            <li><strong>Formulaires &amp; Vues</strong> : <code>render_template()</code> Jinja2, <code>request.form</code> et <code>request.files</code>.</li>
-            <li><strong>Sécurité &amp; Cookies</strong> : <code>X-API-Key</code>, <code>Bearer Token</code>, <code>flask.session</code> signé HMAC, drapeaux <code>HttpOnly</code> / <code>SameSite</code>.</li>
-            <li><strong>Architecture &amp; Prod</strong> : <code>Blueprint</code> (<code>/api/v1</code> déprécié RFC 8594 vs <code>/api/v2</code>), <code>app.test_client()</code>, Cluster Nginx + 4 nœuds <strong>Gunicorn WSGI</strong> (<code>ProxyFix</code>).</li>
+            <li><strong>Persistance &amp; Curseurs</strong> : Contexte <code>flask.g</code> + <code>teardown_appcontext</code>, <code>closing(conn.cursor())</code> vs ORM <code>SQLAlchemy</code>, <code>sqlite3</code> vs <code>APSW</code>.</li>
+            <li><strong>Temps Réel, Upload &amp; Cache</strong> : SSE <code>stream_with_context</code>, streaming <code>FileStorage</code> + Magic Bytes, <code>ThreadPoolExecutor</code> (<code>202</code>) &amp; <code>ETag</code> (<code>304</code>/<code>412</code>).</li>
+            <li><strong>Architecture &amp; Prod</strong> : <code>Blueprint</code> (<code>/api/v1</code> RFC 8594 vs <code>/api/v2</code>), <code>app.test_client()</code>, Cluster Nginx + 4 nœuds <strong>Gunicorn WSGI</strong> (<code>ProxyFix</code>).</li>
           </ul>
         </div>
         <div>
           <div class="fw-stats">
-            <span class="fw-stat-pill">30 Chapitres (Jours 0 à 5)</span>
-            <span class="fw-stat-pill">30 Diagrammes Mermaid</span>
-            <span class="fw-stat-pill">46 Fiches &amp; 36 Quiz</span>
+            <span class="fw-stat-pill">30 Chapitres + 18 Réf.</span>
+            <span class="fw-stat-pill">SQLite/APSW &amp; Temps Réel</span>
+            <span class="fw-stat-pill">56 Fiches &amp; 52 Quiz</span>
             <span class="fw-stat-pill">Dossier : flask-version/</span>
           </div>
           <a href="/cours/flask" class="fw-btn">Ouvrir le Cours &amp; Laboratoire Flask &rarr;</a>
@@ -236,16 +236,16 @@
           </p>
           <ul class="fw-list">
             <li><strong>Routage &amp; Schémas</strong> : <code>@app.get</code> / <code>@app.post</code>, paramètres typés <code>{id}: int</code>, modèles <code>Pydantic BaseModel</code> &amp; <code>Field</code>.</li>
-            <li><strong>Formulaires &amp; Vues</strong> : <code>Jinja2Templates</code>, extraction déclarative <code>Form(...)</code> et <code>UploadFile = File(...)</code>.</li>
-            <li><strong>Sécurité &amp; Cookies</strong> : Injection <code>Depends(verifier_token)</code>, <code>HTTPBearer</code>, <code>Cookie(None)</code> et <code>response.set_cookie(httponly=True)</code>.</li>
+            <li><strong>Persistance &amp; Curseurs</strong> : Cycle <code>Depends(get_db)</code> avec <code>yield</code>, pilotes async <code>aiosqlite</code> / <code>SQLModel AsyncSession</code> vs pool de threads.</li>
+            <li><strong>Temps Réel, Upload &amp; Cache</strong> : <code>StreamingResponse</code> SSE &amp; <code>@app.websocket</code> natif, <code>UploadFile</code> (<code>SpooledTemporaryFile</code>), <code>BackgroundTasks</code> (<code>202</code>) &amp; <code>ETag</code>.</li>
             <li><strong>Architecture &amp; Prod</strong> : <code>APIRouter</code> (<code>/api/v1</code> vs <code>/api/v2</code>), <code>TestClient(app)</code>, Cluster Nginx + 4 nœuds <strong>Uvicorn ASGI</strong>.</li>
           </ul>
         </div>
         <div>
           <div class="fw-stats">
-            <span class="fw-stat-pill">30 Chapitres (Jours 0 à 5)</span>
-            <span class="fw-stat-pill">30 Diagrammes Mermaid</span>
-            <span class="fw-stat-pill">46 Fiches &amp; 36 Quiz</span>
+            <span class="fw-stat-pill">30 Chapitres + 18 Réf.</span>
+            <span class="fw-stat-pill">SQLite/APSW &amp; Temps Réel</span>
+            <span class="fw-stat-pill">56 Fiches &amp; 52 Quiz</span>
             <span class="fw-stat-pill">Dossier : fastapi-version/</span>
           </div>
           <a href="/cours/fastapi" class="fw-btn">Ouvrir le Cours &amp; Laboratoire FastAPI &rarr;</a>
@@ -263,16 +263,16 @@
           </p>
           <ul class="fw-list">
             <li><strong>Architecture Classes</strong> : Héritage de <code>tornado.web.RequestHandler</code>, méthodes <code>async def get/post/put/delete</code>, <code>self.write(dict)</code>.</li>
-            <li><strong>Formulaires &amp; Vues</strong> : Moteur natif <code>tornado.template</code> (<code>self.render</code>), <code>self.get_body_argument()</code> et <code>self.request.files</code>.</li>
-            <li><strong>Sécurité &amp; Cookies</strong> : Hooks <code>prepare()</code> / <code>on_finish()</code>, cookies signés natifs <code>self.set_secure_cookie()</code> (HMAC-SHA256) et <code>xsrf_cookies</code>.</li>
+            <li><strong>Persistance &amp; Curseurs</strong> : Protection stricte de l'<code>IOLoop</code> via <code>run_in_executor(DB_POOL, fn)</code>, SQL explicite sans Lazy-Loading bloquant.</li>
+            <li><strong>Temps Réel, Upload &amp; Cache</strong> : <code>WebSocketHandler</code> C10K &amp; <code>await self.flush()</code>, streaming pur <code>@stream_request_body</code>, <code>spawn_callback</code> (<code>202</code>) &amp; <code>ETag</code>.</li>
             <li><strong>Architecture &amp; Prod</strong> : Routage <code>URLSpec</code> Regex, <code>AsyncHTTPClient</code>, <code>AsyncHTTPTestCase</code>, Cluster Nginx + 4 nœuds <strong>Tornado HTTPServer</strong> (<code>xheaders=True</code>).</li>
           </ul>
         </div>
         <div>
           <div class="fw-stats">
-            <span class="fw-stat-pill">30 Chapitres (Jours 0 à 5)</span>
-            <span class="fw-stat-pill">30 Diagrammes Mermaid</span>
-            <span class="fw-stat-pill">46 Fiches &amp; 36 Quiz</span>
+            <span class="fw-stat-pill">30 Chapitres + 18 Réf.</span>
+            <span class="fw-stat-pill">SQLite/APSW &amp; Temps Réel</span>
+            <span class="fw-stat-pill">56 Fiches &amp; 52 Quiz</span>
             <span class="fw-stat-pill">Dossier : tornado-version/</span>
           </div>
           <a href="/cours/tornado" class="fw-btn">Ouvrir le Cours &amp; Laboratoire Tornado &rarr;</a>
@@ -363,6 +363,18 @@
               <td>Nginx &rarr; 4 instances <strong>Gunicorn WSGI</strong><br>+ Middleware <code>ProxyFix</code></td>
               <td>Nginx &rarr; 4 instances <strong>Uvicorn ASGI</strong><br>+ Flag <code>--proxy-headers</code></td>
               <td>Nginx &rarr; 4 instances <strong>Tornado HTTPServer</strong><br>+ Option <code>xheaders=True</code></td>
+            </tr>
+            <tr>
+              <td><strong>7. Persistance SQLite3 &amp; Curseurs</strong></td>
+              <td><code>flask.g</code> + <code>teardown_appcontext</code><br><code>closing(cursor)</code> ou ORM <code>SQLAlchemy</code></td>
+              <td><code>Depends(get_db)</code> avec <code>yield</code><br><code>aiosqlite</code> / <code>AsyncSession</code> ou ThreadPool</td>
+              <td><code>IOLoop.run_in_executor(DB_POOL, fn)</code><br>SQL explicite sans <em>Lazy Loading</em> bloquant</td>
+            </tr>
+            <tr>
+              <td><strong>8. Temps Réel, Streaming &amp; Tâches 202</strong></td>
+              <td>SSE <code>stream_with_context</code><br><code>FileStorage.stream</code> + <code>ThreadPoolExecutor</code></td>
+              <td><code>StreamingResponse</code> &amp; <code>@app.websocket</code><br><code>UploadFile</code> + <code>BackgroundTasks</code></td>
+              <td><code>WebSocketHandler</code> C10K &amp; <code>self.flush()</code><br><code>@stream_request_body</code> + <code>spawn_callback</code></td>
             </tr>
           </tbody>
         </table>
