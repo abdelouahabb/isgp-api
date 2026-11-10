@@ -2034,6 +2034,30 @@ async function runSqliteLabRollback() {
   }
 }
 
+async function runSqliteLabFindOne(idVal) {
+  const fw = getActiveFramework();
+  const targetId = idVal !== undefined ? idVal : parseInt(document.getElementById("sqlite-findone-id")?.value || "1", 10);
+  try {
+    const res = await fetch(`/api/sqlite-lab/execute?framework=${encodeURIComponent(fw)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Active-Framework": fw },
+      body: JSON.stringify({ action: "find_one", id: targetId })
+    });
+    const data = await res.json();
+    const txOut = document.getElementById("sqlite-tx-output");
+    if (txOut) {
+      txOut.textContent = `${data.explanation}\n\nSQL : ${data.sql_executed}\nTuple lié : (${targetId},)\nRésultat fetchone() : ${JSON.stringify(data.row)}`;
+    }
+    const handlerEl = document.getElementById("sqlite-lab-handler-code");
+    if (handlerEl && data.handler_snippet) {
+      handlerEl.textContent = data.handler_snippet;
+    }
+    showToast(data.found ? `fetchone() -> Formation #${targetId} trouvée (200 OK)` : `fetchone() -> None (404 Not Found)`);
+  } catch (err) {
+    showToast("Erreur lors du test find_one : " + err.message);
+  }
+}
+
 async function runSqliteStandaloneServer() {
   const textarea = document.getElementById("sqlite-standalone-code");
   const out = document.getElementById("sqlite-standalone-output");

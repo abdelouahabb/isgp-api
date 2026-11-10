@@ -2682,17 +2682,32 @@ def sandbox_cookies_logout():
 # ==============================================================================
 def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
     if fw == "fastapi":
+        if mode == "find_one":
+            return (
+                '@app.get("/api/sqlite/formations/{formation_id}")\n'
+                'def obtenir_formation(formation_id: int, db: sqlite3.Connection = Depends(get_db)):\n'
+                '    with closing(db.cursor()) as cur:\n'
+                '        # Attention : la virgule dans (formation_id,) est obligatoire (tuple à 1 élément)\n'
+                '        cur.execute("SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE id = ?", (formation_id,))\n'
+                '        row = cur.fetchone()\n'
+                '    if row is None:\n'
+                '        raise HTTPException(status_code=404, detail="Formation introuvable")\n'
+                '    return dict(row)'
+            )
         if mode == "insert":
             return (
                 '@app.post("/api/sqlite/formations", status_code=201)\n'
                 'def creer_formation(payload: FormationCreate, db: sqlite3.Connection = Depends(get_db)):\n'
                 '    with db:  # Transaction ACID automatique (COMMIT ou ROLLBACK)\n'
-                '        cur = db.execute(\n'
-                '            "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
-                '            "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
-                '            payload.model_dump(),\n'
-                '        )\n'
-                '    row = db.execute("SELECT * FROM formations WHERE id = ?", (cur.lastrowid,)).fetchone()\n'
+                '        with closing(db.cursor()) as cur:\n'
+                '            cur.execute(\n'
+                '                "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
+                '                "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
+                '                payload.model_dump(),\n'
+                '            )\n'
+                '            new_id = cur.lastrowid\n'
+                '    with closing(db.cursor()) as cur:\n'
+                '        row = cur.execute("SELECT * FROM formations WHERE id = ?", (new_id,)).fetchone()\n'
                 '    return dict(row)'
             )
         return (
@@ -2704,10 +2719,30 @@ def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
             '):\n'
             '    colonne_sure = {"id": "id", "duree_jours": "duree_jours", "titre": "titre"}.get(tri, "id")\n'
             '    sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = ? ORDER BY {colonne_sure} ASC"\n'
-            '    rows = db.execute(sql, (salle,)).fetchall()\n'
+            '    with closing(db.cursor()) as cur:\n'
+            '        rows = cur.execute(sql, (salle,)).fetchall()\n'
             '    return [dict(r) for r in rows]'
         )
     if fw == "tornado":
+        if mode == "find_one":
+            return (
+                'class FormationItemHandler(tornado.web.RequestHandler):\n'
+                '    async def get(self, formation_id_str: str):\n'
+                '        formation_id = int(formation_id_str)\n'
+                '        def _find_one_sync():\n'
+                '            conn = ouvrir_connexion_sqlite()\n'
+                '            try:\n'
+                '                with closing(conn.cursor()) as cur:\n'
+                '                    cur.execute("SELECT * FROM formations WHERE id = ?", (formation_id,))\n'
+                '                    r = cur.fetchone()\n'
+                '                    return dict(r) if r is not None else None\n'
+                '            finally:\n'
+                '                conn.close()\n'
+                '        row = await tornado.ioloop.IOLoop.current().run_in_executor(None, _find_one_sync)\n'
+                '        if row is None:\n'
+                '            self.set_status(404); self.write({"erreur": "Introuvable"}); return\n'
+                '        self.write(row)'
+            )
         if mode == "insert":
             return (
                 'class FormationsSqliteHandler(tornado.web.RequestHandler):\n'
@@ -2717,12 +2752,15 @@ def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
                 '            conn = ouvrir_connexion_sqlite()\n'
                 '            try:\n'
                 '                with conn:\n'
-                '                    cur = conn.execute(\n'
-                '                        "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
-                '                        "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
-                '                        corps,\n'
-                '                    )\n'
-                '                return dict(conn.execute("SELECT * FROM formations WHERE id = ?", (cur.lastrowid,)).fetchone())\n'
+                '                    with closing(conn.cursor()) as cur:\n'
+                '                        cur.execute(\n'
+                '                            "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
+                '                            "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
+                '                            corps,\n'
+                '                        )\n'
+                '                        new_id = cur.lastrowid\n'
+                '                with closing(conn.cursor()) as cur:\n'
+                '                    return dict(cur.execute("SELECT * FROM formations WHERE id = ?", (new_id,)).fetchone())\n'
                 '            finally:\n'
                 '                conn.close()\n'
                 '        cree = await tornado.ioloop.IOLoop.current().run_in_executor(None, _insert_sync)\n'
@@ -2738,13 +2776,27 @@ def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
             '        def _select_sync():\n'
             '            conn = ouvrir_connexion_sqlite()\n'
             '            try:\n'
-            '                return [dict(r) for r in conn.execute(sql, (salle,)).fetchall()]\n'
+            '                with closing(conn.cursor()) as cur:\n'
+            '                    return [dict(r) for r in cur.execute(sql, (salle,)).fetchall()]\n'
             '            finally:\n'
             '                conn.close()\n'
             '        rows = await tornado.ioloop.IOLoop.current().run_in_executor(None, _select_sync)\n'
             '        self.write({"data": rows})'
         )
     # Flask default
+    if mode == "find_one":
+        return (
+            '@app.route("/api/sqlite/formations/<int:formation_id>", methods=["GET"])\n'
+            'def obtenir_formation(formation_id: int):\n'
+            '    db = get_db()\n'
+            '    with closing(db.cursor()) as cur:\n'
+            '        # Attention : la virgule dans (formation_id,) est obligatoire (tuple à 1 élément)\n'
+            '        cur.execute("SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE id = ?", (formation_id,))\n'
+            '        row = cur.fetchone()\n'
+            '    if row is None:\n'
+            '        return jsonify({"erreur": "Formation introuvable"}), 404\n'
+            '    return jsonify(dict(row)), 200'
+        )
     if mode == "insert":
         return (
             '@app.route("/api/sqlite/formations", methods=["POST"])\n'
@@ -2752,12 +2804,15 @@ def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
             '    corps = request.get_json() or {}\n'
             '    db = get_db()  # Connexion stockée dans flask.g et fermée par @app.teardown_appcontext\n'
             '    with db:       # Transaction ACID automatique (COMMIT ou ROLLBACK)\n'
-            '        cur = db.execute(\n'
-            '            "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
-            '            "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
-            '            corps,\n'
-            '        )\n'
-            '    row = db.execute("SELECT * FROM formations WHERE id = ?", (cur.lastrowid,)).fetchone()\n'
+            '        with closing(db.cursor()) as cur:\n'
+            '            cur.execute(\n'
+            '                "INSERT INTO formations (titre, formateur, duree_jours, salle) "\n'
+            '                "VALUES (:titre, :formateur, :duree_jours, :salle)",\n'
+            '                corps,\n'
+            '            )\n'
+            '            new_id = cur.lastrowid\n'
+            '    with closing(db.cursor()) as cur:\n'
+            '        row = cur.execute("SELECT * FROM formations WHERE id = ?", (new_id,)).fetchone()\n'
             '    return jsonify(dict(row)), 201'
         )
     return (
@@ -2768,7 +2823,8 @@ def _get_sqlite_lab_handler_snippet(fw: str, mode: str) -> str:
         '    colonne_sure = {"id": "id", "duree_jours": "duree_jours", "titre": "titre"}.get(tri, "id")\n'
         '    db = get_db()\n'
         '    sql = f"SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE salle = ? ORDER BY {colonne_sure} ASC"\n'
-        '    rows = db.execute(sql, (salle,)).fetchall()\n'
+        '    with closing(db.cursor()) as cur:\n'
+        '        rows = cur.execute(sql, (salle,)).fetchall()\n'
         '    return jsonify([dict(r) for r in rows]), 200'
     )
 
@@ -2812,6 +2868,29 @@ def api_sqlite_lab_execute():
 
     conn = get_db()
     all_rows = [dict(r) for r in conn.execute("SELECT id, titre, formateur, duree_jours, salle FROM formations ORDER BY id ASC").fetchall()]
+
+    if action == "find_one":
+        try:
+            target_id = int(data.get("id", 1))
+        except (TypeError, ValueError):
+            target_id = 1
+        sql_one = "SELECT id, titre, formateur, duree_jours, salle FROM formations WHERE id = ?"
+        row = conn.execute(sql_one, (target_id,)).fetchone()
+        conn.close()
+        return jsonify({
+            "action": "find_one",
+            "framework": fw,
+            "sql_executed": sql_one,
+            "bound_params": [target_id],
+            "found": row is not None,
+            "row": dict(row) if row is not None else None,
+            "handler_snippet": _get_sqlite_lab_handler_snippet(fw, "find_one"),
+            "explanation": (
+                f"Exécution de cur.fetchone() avec le tuple à 1 élément ({target_id},) : "
+                + (f"Enregistrement #{target_id} trouvé et converti via dict(row) (200 OK)." if row is not None else f"cur.fetchone() a retourné None -> l'API renvoie HTTP 404 Not Found.")
+            ),
+            "rows": all_rows,
+        }), (200 if row is not None else 404)
 
     if action == "insert_named":
         titre = str(data.get("titre", "Audit SQL & Requêtes Préparées")).strip() or "Audit SQL & Requêtes Préparées"

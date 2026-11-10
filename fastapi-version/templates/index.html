@@ -1412,22 +1412,22 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
       </div>
     </section>
 
-    <!-- ONGLET DÉDIÉ : PERSISTANCE SQLITE & SÉCURITÉ SQL (? vs %s & MULTI-SGBD) -->
+    <!-- ONGLET DÉDIÉ : PERSISTANCE SQLITE & SÉCURITÉ SQL (MANUEL DE RÉFÉRENCE COMPLET) -->
     <section id="tab-sqlite" class="tab-section">
       <div class="section-intro">
         <div>
-          <h2>Persistance SQLite3 &amp; Sécurité SQL sous FastAPI (ASGI, <code>Depends(get_db)</code> &amp; Pydantic v2)</h2>
-          <p>Tutoriel complet et laboratoire interactif : intégrer SQLite3 (bibliothèque standard Python, zéro serveur externe) dans une API FastAPI, maîtriser l'injection de dépendance <code>yield</code>, les requêtes préparées (<code>?</code> et <code>:nom</code>) et la stratégie multi-SGBD (PostgreSQL / MySQL).</p>
+          <h2>Manuel de Référence SQLite3 &amp; Sécurité SQL sous FastAPI (ASGI, <code>Depends(get_db)</code>, CRUD, Transactions, Curseurs &amp; <code>APSW</code>)</h2>
+          <p>Guide d'ingénierie complet et laboratoire interactif : injection <code>Depends(get_db)</code> avec <code>yield</code>, Pragmas WAL, opérations <code>find_one</code> / <code>find_many</code> / <code>insert</code> / <code>executemany</code>, mode <code>autocommit</code>, fermeture des curseurs (<code>contextlib.closing</code>), comparatif <code>sqlite3</code> vs <code>APSW</code>, et sécurité <code>?</code> vs <code>%s</code>.</p>
         </div>
         <div id="sqlite-engine-meta" style="display:flex; flex-wrap:wrap; gap:10px; font-size:12.5px; background:#f8fafc; padding:8px 12px; border:1px solid #cbd5e1; border-radius:4px; color:#1e293b;">
           <span>Chargement des métadonnées du moteur SQLite...</span>
         </div>
       </div>
 
-      <!-- SECTION 1 : ARCHITECTURE & CYCLE DE VIE PROPRE AU FRAMEWORK -->
+      <!-- CHAPITRE 1 : ARCHITECTURE & CYCLE DE VIE PROPRE AU FRAMEWORK + PRAGMAS -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>1. Architecture &amp; Cycle de Vie d'une Connexion SQLite3 dans FastAPI (<code>Depends(get_db)</code> + <code>check_same_thread=False</code>)</h3>
+          <h3>Chapitre 1 — Architecture &amp; Cycle de Vie d'une Connexion SQLite3 dans FastAPI (<code>Depends(get_db)</code> + Pragmas de Production)</h3>
           <span class="step-badge">Zéro Serveur Externe • Standard Library <code>sqlite3</code></span>
         </div>
         <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 14px 0;">
@@ -1445,8 +1445,8 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
     C->>U: 1. Requête HTTP (GET ou POST /api/sqlite/formations)
     U->>P: 2. Validation stricte des types et contraintes (BaseModel / Query)
     U->>S: 3. Depends(get_db) -> sqlite3.connect(check_same_thread=False) + yield conn
-    U->>S: 4. sqlite3_prepare_v2(SQL avec ? ou :nom) + sqlite3_bind_*(payload.model_dump())
-    S-->>U: 5. Lignes sqlite3.Row converties en list[dict]
+    U->>S: 4. with closing(db.cursor()) as cur -> sqlite3_prepare_v2 + sqlite3_bind_*
+    S-->>U: 5. fetchone() / fetchall() -> sqlite3.Row converti en dict
     U-->>C: 6. Sérialisation JSON ASGI (200 OK / 201 Created)
     Note over U,S: 7. Bloc finally de get_db() : conn.close() exécuté après l'envoi de la réponse !</pre>
           </div>
@@ -1455,7 +1455,8 @@ curl -i -b cookies.txt -c cookies.txt -X POST http://127.0.0.1:8000/api/sandbox/
               <span class="muted-small"><strong>Patron d'implémentation recommandé (FASTAPI) :</strong></span>
               <button class="btn-xs" onclick="copyTextById('sqlite-pattern-code')">Copier le patron</button>
             </div>
-            <pre id="sqlite-pattern-code" class="code-block" style="margin: 0; font-size: 12.6px; max-height: 290px; overflow-y: auto;">import sqlite3
+            <pre id="sqlite-pattern-code" class="code-block" style="margin: 0; font-size: 12.4px; max-height: 310px; overflow-y: auto;">from contextlib import closing
+import sqlite3
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel, Field
 
@@ -1466,8 +1467,10 @@ def get_db():
     """Dépendance FastAPI avec yield : ouverture avant la route, fermeture dans finally."""
     conn = sqlite3.connect(DB_PATH, timeout=5.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA journal_mode = WAL;")   # Lectures et écritures concurrentes
+    conn.execute("PRAGMA synchronous = NORMAL;") # Optimal avec WAL
+    conn.execute("PRAGMA foreign_keys = ON;")    # Clés étrangères activées
+    conn.execute("PRAGMA busy_timeout = 5000;")  # Attente max 5000 ms sur verrou
     try:
         yield conn
     finally:
@@ -1478,15 +1481,385 @@ def get_db():
         <ul style="margin: 0; padding-left: 20px; font-size: 14.5px; color: #1e293b; line-height: 1.6;">
           <li style="margin-bottom: 6px;"><strong>1. Injection <code>Depends(get_db)</code> avec <code>yield</code> :</strong> Tout le code placé avant <code>yield conn</code> s'exécute avant la route ; le bloc <code>finally: conn.close()</code> s'exécute systématiquement après la route (même si une <code>HTTPException</code> est levée).</li>
 <li style="margin-bottom: 6px;"><strong>2. Paramètre <code>check_same_thread=False</code> :</strong> Par défaut, le module C <code>sqlite3</code> interdit d'utiliser une connexion dans un thread différent de celui qui l'a créée. Avec le pool de threads AnyIO de FastAPI, chaque requête ayant sa propre connexion isolée via <code>Depends(get_db)</code>, <code>check_same_thread=False</code> est sûr et indispensable.</li>
-<li style="margin-bottom: 6px;"><strong>3. Routes <code>def</code> (Threadpool) vs <code>async def</code> :</strong> Avec le module standard <code>sqlite3</code>, déclarez vos routes avec <code>def</code> pour que FastAPI les déporte dans son pool de threads sans figer la boucle ASGI.</li>
-<li style="margin-bottom: 6px;"><strong>4. Couplage Pydantic v2 + Marqueurs nommés <code>:nom</code> :</strong> La méthode <code>payload.model_dump()</code> produit directement un dictionnaire validé <code>{"titre": ..., "duree_jours": ...}</code> que <code>db.execute("INSERT ... VALUES (:titre, :duree_jours)", payload.model_dump())</code> lie sans aucune manipulation manuelle.</li>
+<li style="margin-bottom: 6px;"><strong>3. Mode <code>PRAGMA journal_mode = WAL</code> + <code>busy_timeout = 5000</code> :</strong> Permet aux threads du pool AnyIO de lire en parallèle sans erreur <code>database is locked</code> pendant qu'une route <code>POST</code> ou <code>PATCH</code> écrit.</li>
+<li style="margin-bottom: 6px;"><strong>4. Activation obligatoire de <code>PRAGMA foreign_keys = ON</code> :</strong> SQLite désactive les clés étrangères par défaut sur chaque nouvelle connexion ; il faut toujours l'activer dans <code>get_db()</code>.</li>
         </ul>
       </div>
-
-      <!-- SECTION 2 : LABORATOIRE INTERACTIF EN DIRECT (BASE EN ACTION & ANTI-INJECTION SQL) -->
+      <!-- CHAPITRE 2 : GUIDE COMPLET DES OPÉRATIONS CRUD (FIND_ONE, FIND_MANY, INSERT, EXECUTEMANY, UPDATE, DELETE) -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>2. La Base SQLite en Action : Comparateur Requête Préparée (<code>?</code>) vs Injection SQL (<code>f-string</code>) &amp; Transactions ACID</h3>
+          <h3>Chapitre 2 — Maîtriser les Opérations de Données : <code>find_one</code> (<code>fetchone</code>), <code>find_many</code> (<code>fetchall</code> / <code>fetchmany</code>), <code>insert</code> (<code>lastrowid</code> / <code>RETURNING</code>) &amp; <code>executemany</code></h3>
+          <span class="step-badge">Patterns CRUD de Référence</span>
+        </div>
+
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 14px 0;">
+          Une API REST interagit avec SQLite selon quatre grands patrons d'accès aux données. Voici la référence technique exacte de chaque opération et ses subtilités en Python :
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+          <!-- A. FIND_ONE -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px; background: #f8fafc;">
+            <h4 style="margin: 0 0 6px 0; font-size: 15px; color: #0f172a;">
+              A. Trouver UN enregistrement (<code>find_one</code> &rarr; <code>cur.fetchone()</code>)
+            </h4>
+            <p style="font-size: 13.5px; color: #475569; margin: 0 0 8px 0;">
+              <code>cur.fetchone()</code> avance le curseur d'un pas et renvoie soit un objet <code>sqlite3.Row</code>, soit <code>None</code> si aucune ligne ne correspond. Dans une API REST, <code>None</code> doit immédiatement se traduire par un statut <strong>HTTP 404 Not Found</strong> :
+            </p>
+            <pre class="code-block" style="margin: 0; font-size: 12.2px;">with closing(conn.cursor()) as cur:
+    # ATTENTION : (formation_id,) avec une VIRGULE est un tuple à 1 élément.
+    # Sans la virgule, (formation_id) est un simple entier et lève :
+    # ValueError / ProgrammingError: parameters are of unsupported type !
+    cur.execute(
+        "SELECT id, titre, salle, duree_jours FROM formations WHERE id = ?",
+        (formation_id,),
+    )
+    row = cur.fetchone()
+
+if row is None:
+    # Aucune ligne trouvée -> HTTP 404
+    return {"erreur": f"Formation #{formation_id} introuvable"}, 404
+
+# Conversion directe de sqlite3.Row en dictionnaire JSON :
+return dict(row), 200</pre>
+          </div>
+
+          <!-- B. FIND_MANY -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px; background: #f8fafc;">
+            <h4 style="margin: 0 0 6px 0; font-size: 15px; color: #0f172a;">
+              B. Trouver PLUSIEURS enregistrements (<code>find_many</code> &rarr; 3 méthodes)
+            </h4>
+            <p style="font-size: 13.5px; color: #475569; margin: 0 0 8px 0;">
+              Selon la volumétrie attendue, Python offre trois stratégies de récupération sur un curseur :
+            </p>
+            <pre class="code-block" style="margin: 0; font-size: 12.2px;">with closing(conn.cursor()) as cur:
+    cur.execute(
+        "SELECT * FROM formations WHERE salle = ? AND duree_jours &gt;= ? LIMIT ? OFFSET ?",
+        (salle, min_jours, limit, offset),
+    )
+
+    # Méthode 1 : fetchall() -> Charge toutes les lignes en RAM d'un coup.
+    # Idéal pour une route API paginée (LIMIT 20 ou 50).
+    lignes = [dict(r) for r in cur.fetchall()]
+
+    # Méthode 2 : fetchmany(size=500) -> Lit par paquets de 500 lignes
+    # Idéal pour exporter 100 000 lignes sans saturer la RAM du serveur.
+    while lot := cur.fetchmany(500):
+        traiter_lot([dict(r) for r in lot])
+
+    # Méthode 3 : Itérateur direct `for row in cur:` -> Streaming ligne à ligne
+    for row in cur:
+        yield dict(row)</pre>
+          </div>
+
+          <!-- C. INSERT_ONE & INSERT_MANY -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px; background: #f8fafc;">
+            <h4 style="margin: 0 0 6px 0; font-size: 15px; color: #0f172a;">
+              C. Insérer (<code>insert_one</code> via <code>lastrowid</code> / <code>RETURNING</code> &amp; <code>executemany</code>)
+            </h4>
+            <p style="font-size: 13.5px; color: #475569; margin: 0 0 8px 0;">
+              Utilisez les marqueurs nommés <code>:nom</code> dès que vous insérez un dictionnaire JSON, et <code>executemany()</code> pour les insertions en masse (50x à 100x plus rapide) :
+            </p>
+            <pre class="code-block" style="margin: 0; font-size: 12.2px;"># 1. INSERT_ONE classique avec cur.lastrowid :
+with conn:  # COMMIT automatique à la sortie du bloc
+    with closing(conn.cursor()) as cur:
+        cur.execute(
+            "INSERT INTO formations (titre, salle, duree_jours) "
+            "VALUES (:titre, :salle, :duree_jours)",
+            {"titre": "API GraphQL", "salle": "Salle B", "duree_jours": 3},
+        )
+        nouvel_id = cur.lastrowid  # Clé primaire auto-incrémentée générée
+
+# 2. INSERT_ONE moderne (SQLite 3.35+) avec clause RETURNING * (1 seul aller-retour !) :
+with conn:
+    with closing(conn.cursor()) as cur:
+        cur.execute(
+            "INSERT INTO formations (titre, salle, duree_jours) "
+            "VALUES (?, ?, ?) RETURNING id, titre, salle, duree_jours",
+            ("API gRPC", "Salle A", 4),
+        )
+        formation_creee = dict(cur.fetchone())
+
+# 3. INSERT_MANY en lot atomique (compile le SQL une seule fois) :
+lot = [("Cours 1", "Salle A", 3), ("Cours 2", "Salle B", 5)]
+with conn:
+    with closing(conn.cursor()) as cur:
+        cur.executemany("INSERT INTO formations (titre, salle, duree_jours) VALUES (?, ?, ?)", lot)</pre>
+          </div>
+
+          <!-- D. UPDATE & DELETE -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px; background: #f8fafc;">
+            <h4 style="margin: 0 0 6px 0; font-size: 15px; color: #0f172a;">
+              D. Modifier (<code>UPDATE</code>) &amp; Supprimer (<code>DELETE</code>) avec <code>cur.rowcount</code>
+            </h4>
+            <p style="font-size: 13.5px; color: #475569; margin: 0 0 8px 0;">
+              Après un <code>UPDATE</code> ou un <code>DELETE</code>, l'attribut <code>cur.rowcount</code> indique exactement combien de lignes ont été affectées. S'il vaut <code>0</code>, l'identifiant demandé n'existe pas en base (renvoyer <strong>404 Not Found</strong>) :
+            </p>
+            <pre class="code-block" style="margin: 0; font-size: 12.2px;">with conn:
+    with closing(conn.cursor()) as cur:
+        cur.execute(
+            "UPDATE formations SET salle = :salle, duree_jours = :duree WHERE id = :id",
+            {"salle": "Amphithéâtre", "duree": 5, "id": formation_id},
+        )
+        nb_modifies = cur.rowcount
+
+if nb_modifies == 0:
+    return {"erreur": f"Formation #{formation_id} introuvable (0 ligne modifiée)"}, 404
+
+# Même logique pour DELETE :
+with conn:
+    with closing(conn.cursor()) as cur:
+        cur.execute("DELETE FROM formations WHERE id = ?", (formation_id,))
+        if cur.rowcount == 0:
+            return {"erreur": "Ressource déjà supprimée ou inexistante"}, 404</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAPITRE 3 : TRANSACTIONS, ISOLATION_LEVEL & MODE AUTOCOMMIT (PYTHON 3.12+ PEP 249) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Chapitre 3 — Transactions ACID, <code>isolation_level</code>, Mode <code>autocommit</code> (Python 3.12+) &amp; Verrous <code>BEGIN IMMEDIATE</code></h3>
+          <span class="step-badge">Contrôle Transactionnel</span>
+        </div>
+
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 12px 0;">
+          La gestion des transactions dans le module standard <code>sqlite3</code> possède une particularité historique essentielle à connaître pour éviter deux pièges classiques en production : les écritures non sauvegardées (oubli de <code>commit</code>) et les erreurs <code>sqlite3.OperationalError: database is locked</code> lors de montées de verrous concurrentes.
+        </p>
+
+        <div class="table-wrapper" style="margin-bottom: 14px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Mode Transactionnel <code>sqlite3</code></th>
+                <th style="width: 26%;">Configuration à l'ouverture</th>
+                <th>Comportement Exact &amp; Cas d'Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Mode Historique par Défaut</strong><br/><span class="muted-small">(<code>LEGACY_TRANSACTION_CONTROL</code>)</span></td>
+                <td><code>sqlite3.connect("app.db")</code><br/><span class="muted-small">(<code>isolation_level = ""</code> par défaut)</span></td>
+                <td>
+                  Python analyse vos chaînes SQL et émet implicitement un <code>BEGIN</code> uniquement avant une instruction DML (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>REPLACE</code>). Si vous n'appelez pas <code>conn.commit()</code> (ou n'utilisez pas le bloc <code>with conn:</code>) avant <code>conn.close()</code>, <strong>toutes vos modifications sont annulées silencieusement (ROLLBACK) !</strong>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>2. Mode Autocommit Natif SQLite</strong><br/><span class="muted-small">(Chaque requête s'engage seule)</span></td>
+                <td>
+                  <strong>Python 3.12+ :</strong> <code>sqlite3.connect("app.db", autocommit=True)</code><br/>
+                  <strong>Python &le; 3.11 :</strong> <code>sqlite3.connect("app.db", isolation_level=None)</code>
+                </td>
+                <td>
+                  Désactive les transactions implicites de Python : le moteur C SQLite fonctionne dans son mode natif où chaque instruction individuelle est validée immédiatement sur disque, sauf si vous démarrez explicitement un bloc <code>cur.execute("BEGIN IMMEDIATE")</code> ... <code>cur.execute("COMMIT")</code>. Très apprécié dans les frameworks asynchrones et pour piloter manuellement les verrous.
+                </td>
+              </tr>
+              <tr>
+                <td><strong>3. Mode PEP 249 Strict (Python 3.12+)</strong><br/><span class="muted-small">(Transaction toujours ouverte)</span></td>
+                <td><code>sqlite3.connect("app.db", autocommit=False)</code></td>
+                <td>
+                  Conforme à 100% à la norme PEP 249 (comme <code>psycopg</code> sur PostgreSQL) : une transaction est toujours active dès la première requête (même un <code>SELECT</code>), et vous validez par <code>conn.commit()</code> ou annulez par <code>conn.rollback()</code>.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div style="border-left: 4px solid #059669; background: #ecfdf5; padding: 12px 14px; border-radius: 4px;">
+            <h4 style="margin: 0 0 6px 0; color: #065f46; font-size: 15px;">
+              Attention : que fait réellement <code>with conn:</code> sur un objet <code>sqlite3.Connection</code> ?
+            </h4>
+            <p style="font-size: 13.8px; color: #064e3b; line-height: 1.55; margin: 0 0 8px 0;">
+              Contrairement à un fichier (<code>with open(...)</code>), utiliser <code>with conn:</code> sur une connexion SQLite <strong>NE FERME PAS la connexion</strong> ! Il agit uniquement comme un <strong>gestionnaire de transaction</strong> :
+            </p>
+            <pre class="code-block-mini" style="margin: 0; font-size: 12.1px;">conn = sqlite3.connect("app.db")
+try:
+    with conn:
+        # Si tout réussit ici -> conn.commit() est appelé automatiquement
+        # Si une exception survient -> conn.rollback() est appelé automatiquement !
+        conn.execute("INSERT INTO formations (titre) VALUES (?)", ("API REST",))
+finally:
+    conn.close()  # La fermeture du fichier .db doit toujours être appelée explicitement !</pre>
+          </div>
+
+          <div style="border-left: 4px solid #d97706; background: #fffbeb; padding: 12px 14px; border-radius: 4px;">
+            <h4 style="margin: 0 0 6px 0; color: #92400e; font-size: 15px;">
+              Astuce Senior : Pourquoi utiliser <code>BEGIN IMMEDIATE</code> pour les transactions Lecture-puis-Écriture ?
+            </h4>
+            <p style="font-size: 13.8px; color: #78350f; line-height: 1.55; margin: 0 0 8px 0;">
+              Par défaut, une transaction SQLite démarre en mode <code>DEFERRED</code> (elle ne prend qu'un verrou de lecture au premier <code>SELECT</code>). Si deux requêtes HTTP lisent le solde d'un compte en même temps puis tentent toutes deux un <code>UPDATE</code>, la seconde échoue immédiatement avec <code>SQLITE_BUSY</code> sans même attendre le <code>busy_timeout</code> ! En démarrant par <code>BEGIN IMMEDIATE</code>, SQLite réserve le droit d'écriture dès le début en respectant le <code>busy_timeout</code> :
+            </p>
+            <pre class="code-block-mini" style="margin: 0; font-size: 12.1px;">conn = sqlite3.connect("app.db", isolation_level=None, timeout=5.0)
+conn.execute("BEGIN IMMEDIATE")  # Réserve le verrou d'écriture proprement (attend jusqu'à 5s)
+try:
+    places = conn.execute("SELECT places_restantes FROM sessions WHERE id = ?", (1,)).fetchone()[0]
+    if places &gt; 0:
+        conn.execute("UPDATE sessions SET places_restantes = places_restantes - 1 WHERE id = ?", (1,))
+    conn.execute("COMMIT")
+except Exception:
+    conn.execute("ROLLBACK")
+    raise</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAPITRE 4 : QUAND FERMER LE CURSEUR (cursor.close()) ? BONNE OU MAUVAISE HABITUDE ? -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Chapitre 4 — Cycle de Vie du <code>Cursor</code> vs <code>Connection</code> : Faut-il fermer le Curseur (<code>cur.close()</code>) ? Est-ce une bonne ou mauvaise habitude ?</h3>
+          <span class="step-badge">Hygiène des Ressources &amp; C-API</span>
+        </div>
+
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 12px 0;">
+          C'est l'une des questions les plus fréquentes en revue de code Python : <em>« Puisque <code>sqlite3</code> permet d'écrire directement <code>conn.execute(...)</code> et que je ferme la connexion à la fin de la requête HTTP, dois-je quand même créer et fermer mes curseurs avec <code>cur.close()</code> ? »</em>
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+          <div style="border: 1px solid #86efac; background: #f0fdf4; border-radius: 6px; padding: 12px 14px;">
+            <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 15px;">
+              Verdict Ingénieur : Fermer explicitement le curseur est une EXCELLENTE habitude (4 raisons techniques)
+            </h4>
+            <ol style="margin: 0; padding-left: 18px; font-size: 13.8px; color: #14532d; line-height: 1.6;">
+              <li style="margin-bottom: 6px;">
+                <strong>Libération déterministe du verrou C (<code>sqlite3_finalize</code>) :</strong> Sous le capot, chaque <code>sqlite3.Cursor</code> maintient une machine virtuelle C compilée (<code>sqlite3_stmt*</code>). Si vous exécutez un <code>SELECT</code> et ne lisez que la 1<sup>re</sup> ligne (<code>fetchone()</code>) sans fermer le curseur, l'instruction reste dans l'état <em>active statement</em> et garde un verrou de lecture jusqu'au passage du Garbage Collector.
+              </li>
+              <li style="margin-bottom: 6px;">
+                <strong>Indépendance vis-à-vis du Garbage Collector :</strong> En CPython, le comptage de références libère souvent le curseur rapidement, mais dès qu'une trace d'exception (<em>traceback</em>) capture les variables locales ou que le code tourne sous PyPy, le curseur reste ouvert en mémoire si <code>cur.close()</code> n'est pas appelé.
+              </li>
+              <li style="margin-bottom: 6px;">
+                <strong>Portabilité directe vers PostgreSQL (<code>psycopg</code>) et MySQL (<code>PyMySQL</code>) :</strong> La méthode raccourcie <code>conn.execute()</code> de <code>sqlite3</code> est une extension non-standard (absente de <code>psycopg2</code> et <code>PyMySQL</code>). Sur PostgreSQL/MySQL avec un Pool de connexions, la connexion n'est jamais fermée entre deux requêtes HTTP : seul le curseur est fermé !
+              </li>
+              <li>
+                <strong>Clarté du périmètre d'exécution :</strong> Délimiter la durée de vie du curseur indique exactement à quel moment la lecture des résultats SQL est terminée.
+              </li>
+            </ol>
+          </div>
+
+          <div style="border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; padding: 12px 14px;">
+            <h4 style="margin: 0 0 6px 0; color: #0f172a; font-size: 15px;">
+              Attention au piège syntaxique en <code>sqlite3</code> : Utilisez <code>contextlib.closing(conn.cursor())</code> !
+            </h4>
+            <p style="font-size: 13.8px; color: #334155; line-height: 1.55; margin: 0 0 8px 0;">
+              Contrairement à <code>psycopg</code> (PostgreSQL) ou <code>PyMySQL</code>, l'objet <code>sqlite3.Cursor</code> de la bibliothèque standard <strong>n'implémente pas</strong> les méthodes <code>__enter__</code> et <code>__exit__</code> ! Écrire <code>with conn.cursor() as cur:</code> en <code>sqlite3</code> lève une <code>AttributeError: __enter__</code>. Le patron canonique en Python consiste à utiliser <code>from contextlib import closing</code> :
+            </p>
+            <pre class="code-block" style="margin: 0; font-size: 12.1px;">from contextlib import closing
+
+# MAUVAISE PRATIQUE (lève AttributeError en sqlite3 standard) :
+# with conn.cursor() as cur:  --> AttributeError: __enter__ !
+
+# BONNE PRATIQUE UNIVERSELLE (fonctionne en sqlite3, psycopg, PyMySQL) :
+with closing(conn.cursor()) as cur:
+    cur.execute("SELECT id, titre FROM formations WHERE salle = ?", ("Salle A",))
+    row = cur.fetchone()
+# Ici, cur.close() a été appelé automatiquement et déterministement,
+# même si vous n'avez lu qu'une seule ligne sur 10 000 ou si une exception est levée !</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAPITRE 5 : DIFFÉRENCE ENTRE SQLITE3 (STDLIB), APSW ET AIOSQLITE -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Chapitre 5 — <code>sqlite3</code> (Bibliothèque Standard) vs <code>APSW</code> (<em>Another Python SQLite Wrapper</em>) vs <code>aiosqlite</code> : Quelle Différence ?</h3>
+          <span class="step-badge">Comparatif des Pilotes SQLite</span>
+        </div>
+
+        <p style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 12px 0;">
+          Lorsqu'un architecte Python conçoit un service appuyé sur SQLite, deux grandes bibliothèques C s'affrontent : le module intégré <strong><code>sqlite3</code></strong> (dérivé de <code>pysqlite</code>) et <strong><code>APSW</code></strong> (<em>Another Python SQLite Wrapper</em>). Bien qu'elles parlent toutes deux au même moteur C SQLite, leur philosophie est radicalement opposée :
+        </p>
+
+        <div class="table-wrapper" style="margin-bottom: 14px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Critère Technique</th>
+                <th style="width: 28%;"><code>sqlite3</code> (Standard Library Python)</th>
+                <th style="width: 32%;"><code>apsw</code> (Another Python SQLite Wrapper)</th>
+                <th style="width: 20%;"><code>aiosqlite</code> (Asyncio Bridge)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Philosophie &amp; Norme</strong></td>
+                <td>Implémente la norme <strong>PEP 249 (DB-API 2.0)</strong> pour offrir la même interface générique que PostgreSQL ou MySQL.</td>
+                <td><strong>Ne suit volontairement PAS la PEP 249 !</strong> Expose 100% de l'API C native de SQLite (<code>sqlite3.h</code>) sans couche d'abstraction trompeuse.</td>
+                <td>Enveloppe le module standard <code>sqlite3</code> dans un thread d'arrière-plan piloté par des coroutines <code>async / await</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Installation</strong></td>
+                <td><strong>Inclus d'office</strong> dans Python (zéro dépendance externe).</td>
+                <td>Paquet C externe (<code>pip install apsw</code>), compilé avec la toute dernière version officielle d'amalgamation SQLite.</td>
+                <td>Paquet externe pur Python (<code>pip install aiosqlite</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Gestion des Transactions</strong></td>
+                <td>Ouvre des transactions implicites (<code>BEGIN</code> caché avant <code>INSERT/UPDATE</code>) sauf si <code>isolation_level=None</code> ou <code>autocommit=True</code>.</td>
+                <td><strong>100% fidèle à SQLite C :</strong> aucune transaction cachée. Vous utilisez <code>with connection:</code> (qui gère même les transactions imbriquées via <code>SAVEPOINT</code> !) ou vos propres <code>BEGIN IMMEDIATE</code>.</td>
+                <td>Hérite du comportement de <code>sqlite3</code> (nécessite <code>await db.commit()</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Exécution de plusieurs requêtes dans un seul <code>execute()</code></strong></td>
+                <td><strong>Interdit :</strong> <code>cur.execute("SELECT 1; SELECT 2;")</code> lève <code>ProgrammingError: You can only execute one statement at a time</code> (et <code>executescript()</code> refuse les paramètres <code>?</code>).</td>
+                <td><strong>Supporté nativement avec paramètres liés :</strong> <code>cursor.execute("INSERT INTO a VALUES (?); SELECT * FROM a WHERE x = ?;", (10, 10))</code> compile et exécute chaque instruction à la suite en toute sécurité !</td>
+                <td>Identique à <code>sqlite3</code> (1 seule instruction par <code>execute</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>Fonctionnalités Avancées SQLite C</strong></td>
+                <td>Sous-ensemble limité (fonctions scalaires, agrégats simples, sauvegarde <code>backup()</code>).</td>
+                <td><strong>Couverture intégrale :</strong> Tables Virtuelles (<em>Virtual Tables</em>), systèmes de fichiers virtuels (<em>VFS</em> en RAM ou chiffrés), flux <code>Blob</code> incrémental (<code>zeroblob</code>), hooks <code>wal_hook</code>, cache automatique de requêtes préparées, <code>ExecutionTrace</code>.</td>
+                <td>Sous-ensemble de <code>sqlite3</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Quand le choisir ?</strong></td>
+                <td><strong>Choix par défaut (95% des projets) :</strong> APIs Web, laboratoires sans installation, compatibilité SQLAlchemy et portabilité vers PostgreSQL/MySQL.</td>
+                <td><strong>Usage intensif / embarqué critique :</strong> Lorsque SQLite est votre base définitive de production et que vous voulez toute la puissance de l'API C SQLite sans les compromis de la PEP 249.</td>
+                <td>Routes <code>async def</code> sous FastAPI ou Tornado si vous ne souhaitez pas utiliser de ThreadPool.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <div class="label-row" style="margin-bottom: 4px;">
+              <span class="muted-small"><strong>Exemple avec <code>sqlite3</code> (Standard PEP 249) :</strong></span>
+            </div>
+            <pre class="code-block" style="margin: 0; font-size: 12.1px;">import sqlite3
+
+conn = sqlite3.connect("catalogue.db")
+# 1. Une seule instruction autorisée par execute()
+# 2. Nécessite commit() ou with conn:
+with conn:
+    cur = conn.execute("INSERT INTO formations (titre) VALUES (?)", ("API REST",))
+    for row in conn.execute("SELECT id, titre FROM formations WHERE id = ?", (cur.lastrowid,)):
+        print(row)
+conn.close()</pre>
+          </div>
+          <div>
+            <div class="label-row" style="margin-bottom: 4px;">
+              <span class="muted-small"><strong>Exemple équivalent avec <code>apsw</code> (API C SQLite directe) :</strong></span>
+            </div>
+            <pre class="code-block" style="margin: 0; font-size: 12.1px;">import apsw
+
+conn = apsw.Connection("catalogue.db")
+# 1. Multi-instructions SQL avec paramètres `?` dans un seul execute() !
+# 2. `with conn:` utilise automatiquement des SAVEPOINTs imbriqués si nécessaire
+with conn:
+    for row in conn.execute(
+        "INSERT INTO formations (titre) VALUES (?); "
+        "SELECT id, titre FROM formations WHERE id = last_insert_rowid();",
+        ("API REST",),
+    ):
+        print(row)
+conn.close()</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAPITRE 6 : LABORATOIRE INTERACTIF EN DIRECT (BASE EN ACTION & ANTI-INJECTION SQL) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <h3>Chapitre 6 — La Base SQLite en Action : Comparateur Requête Préparée (<code>?</code>) vs Injection SQL (<code>f-string</code>), <code>find_one</code>, <code>insert</code> &amp; <code>ROLLBACK</code></h3>
           <span class="step-badge step-server">Exécution Réelle sur SQLite3</span>
         </div>
 
@@ -1494,7 +1867,7 @@ def get_db():
           <!-- Colonne Gauche : Simulateur d'Injection SQL vs Paramétrage `?` -->
           <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; background: #ffffff;">
             <h4 style="margin: 0 0 8px 0; font-size: 15.5px; color: #0f172a;">
-              A. Testeur Interactif de Filtrage &amp; Démonstration d'Injection SQL (<code>WHERE salle = ?</code>)
+              A. Testeur <code>find_many</code> (<code>fetchall</code>) &amp; Démonstration d'Injection SQL (<code>WHERE salle = ?</code>)
             </h4>
             <p style="font-size: 13.5px; color: #475569; margin: 0 0 10px 0;">
               Saisissez un filtre de salle normal ou cliquez sur un vecteur d'attaque SQLi pour observer comment le moteur C SQLite réagit lorsque l'on utilise un marqueur <code>?</code> par rapport à une concaténation de chaînes :
@@ -1535,11 +1908,19 @@ def get_db():
             </div>
           </div>
 
-          <!-- Colonne Droite : Insertion nommée (:nom), Transaction ACID & Table Live -->
+          <!-- Colonne Droite : find_one (fetchone), insert_one (:nom), ROLLBACK & Handler -->
           <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; background: #ffffff; display: flex; flex-direction: column; gap: 10px;">
             <h4 style="margin: 0; font-size: 15.5px; color: #0f172a;">
-              B. Insertion avec Marqueurs Nommés (<code>:nom</code>) &amp; Atomicité Transactionnelle (<code>with conn:</code>)
+              B. Tester <code>find_one</code> (<code>fetchone</code>), <code>insert_one</code> (<code>:nom</code>) &amp; <code>ROLLBACK</code> ACID
             </h4>
+
+            <div style="display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px;">
+              <span style="font-size: 12.8px; font-weight: 600;"><code>find_one</code> (<code>WHERE id = ?</code>) :</span>
+              <button class="btn-xs" onclick="runSqliteLabFindOne(1)">ID #1 (200 OK)</button>
+              <button class="btn-xs" onclick="runSqliteLabFindOne(2)">ID #2 (200 OK)</button>
+              <button class="btn-xs" onclick="runSqliteLabFindOne(999)">ID #999 (<code>None</code> &rarr; 404)</button>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
               <input type="text" id="sqlite-insert-titre" class="input-full" value="Audit SQL &amp; Requêtes Préparées" placeholder="Titre (:titre)" />
               <input type="text" id="sqlite-insert-formateur" class="input-full" value="Équipe ISGP" placeholder="Formateur (:formateur)" />
@@ -1554,7 +1935,7 @@ def get_db():
                 Simuler Conflit &amp; <code>ROLLBACK</code> Automatique
               </button>
             </div>
-            <pre id="sqlite-tx-output" class="code-block-mini" style="margin: 0; font-size: 12px; max-height: 105px; overflow-y: auto;">Cliquez sur « Insérer » ou « Simuler Conflit &amp; ROLLBACK » pour inspecter la transaction SQLite.</pre>
+            <pre id="sqlite-tx-output" class="code-block-mini" style="margin: 0; font-size: 12px; max-height: 105px; overflow-y: auto;">Cliquez sur « ID #1 », « Insérer » ou « Simuler Conflit &amp; ROLLBACK » pour inspecter l'opération SQLite.</pre>
 
             <div>
               <div class="label-row" style="margin-bottom: 4px;">
@@ -1588,10 +1969,10 @@ def get_db():
         </div>
       </div>
 
-      <!-- SECTION 3 : SÉCURITÉ SQL APPROFONDIE : `?` (SQLITE) VS `%s` (POSTGRESQL / MYSQL) & STRATÉGIE MULTI-SGBD -->
+      <!-- CHAPITRE 7 : SÉCURITÉ SQL APPROFONDIE : `?` (SQLITE) VS `%s` (POSTGRESQL / MYSQL) & STRATÉGIE MULTI-SGBD -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>3. Sécurité SQL &amp; Portabilité : Pourquoi <code>?</code> dans SQLite vs <code>%s</code> dans PostgreSQL / MySQL (Norme PEP 249 / DB-API 2.0)</h3>
+          <h3>Chapitre 7 — Sécurité SQL &amp; Portabilité : Pourquoi <code>?</code> dans SQLite vs <code>%s</code> dans PostgreSQL / MySQL (Norme PEP 249 / DB-API 2.0)</h3>
           <span class="step-badge">Architecture &amp; Sécurité Multi-SGBD</span>
         </div>
 
@@ -1708,7 +2089,7 @@ cur.execute(sql, (salle,))</pre>
             <tbody>
               <tr>
                 <td><strong>Stratégie 1 — Pattern <em>Repository</em> (Couche d'Accès aux Données isolée)</strong></td>
-                <td>Interdire toute requête SQL directement dans les routes HTTP (<code>Flask</code>, <code>FastAPI</code>, <code>Tornado</code>). Regrouper toutes les requêtes dans une classe <code>FormationRepository</code>. Les routes appellent uniquement <code>repo.lister(salle="Salle A")</code>.</td>
+                <td>Interdire toute requête SQL directement dans les routes HTTP (<code>Flask</code>, <code>FastAPI</code>, <code>Tornado</code>). Regrouper toutes les requêtes (<code>find_one</code>, <code>find_many</code>, <code>insert</code>) dans une classe <code>FormationRepository</code>. Les routes appellent uniquement <code>repo.find_one(1)</code>.</td>
                 <td>Projets utilisant du SQL natif haute performance : le jour où vous passez de SQLite (<code>?</code>) à PostgreSQL (<code>%s</code>), seul le fichier <code>repository.py</code> est adapté, aucune route API ne change.</td>
               </tr>
               <tr>
@@ -1726,10 +2107,10 @@ cur.execute(sql, (salle,))</pre>
         </div>
       </div>
 
-      <!-- SECTION 4 : SCRIPT AUTONOME COMPLET EXÉCUTABLE EN DIRECT (sqlite_api_lab.py) -->
+      <!-- CHAPITRE 8 : SCRIPT AUTONOME COMPLET EXÉCUTABLE EN DIRECT (sqlite_api_lab.py) -->
       <div class="card" style="margin-bottom: 16px;">
         <div class="card-header">
-          <h3>4. Script Serveur SQLite Autonome (<code>fastapi-version/sqlite_api_lab.py</code>) — Exécutable en Direct ou dans VS Code</h3>
+          <h3>Chapitre 8 — Script Serveur SQLite Autonome (<code>fastapi-version/sqlite_api_lab.py</code>) — Exécutable en Direct ou dans VS Code</h3>
           <div class="btn-group">
             <button class="btn-primary btn-sm" onclick="runSqliteStandaloneServer()">
               Démarrer le Serveur SQLite (FASTAPI) en Direct
@@ -1740,17 +2121,17 @@ cur.execute(sql, (salle,))</pre>
           </div>
         </div>
         <p style="font-size: 14.5px; color: #334155; margin: 0 0 10px 0;">
-          Ce script autonome se trouve dans <code>fastapi-version/sqlite_api_lab.py</code>. Cliquez sur <strong>Démarrer le Serveur SQLite en Direct</strong> ci-dessus pour lancer sa boucle d'événements et sonder la route <code>GET /api/sqlite/formations</code>, ou exécutez <code>.venv/bin/python fastapi-version/sqlite_api_lab.py</code> dans votre terminal VS Code / Antigravity :
+          Ce script autonome se trouve dans <code>fastapi-version/sqlite_api_lab.py</code> et implémente toutes les opérations étudiées ci-dessus (<code>find_many</code>, <code>find_one</code>, <code>insert_one</code>, <code>executemany</code>, <code>update</code>, <code>delete</code>, <code>closing(conn.cursor())</code>). Cliquez sur <strong>Démarrer le Serveur SQLite en Direct</strong> pour lancer sa boucle d'événements :
         </p>
         <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px;">
           <div>
             <label style="display:block; font-size:13px; font-weight:600; margin-bottom:4px;">Code source complet (<code>fastapi-version/sqlite_api_lab.py</code>) :</label>
-            <textarea id="sqlite-standalone-code" rows="18" class="code-textarea" style="font-size: 12.4px;"></textarea>
+            <textarea id="sqlite-standalone-code" rows="20" class="code-textarea" style="font-size: 12.4px;"></textarea>
           </div>
           <div>
             <label style="display:block; font-size:13px; font-weight:600; margin-bottom:4px;">Console d'exécution &amp; Sondes HTTP en direct :</label>
             <div id="lesson-runner-livebar-sqlite" style="display:none; background:#064e3b; color:#ecfdf5; padding:10px 14px; border-radius:6px; margin-bottom:8px; border:1px solid #10b981;"></div>
-            <pre id="sqlite-standalone-output" class="code-block" style="min-height: 360px; max-height: 420px; overflow-y: auto; margin: 0;">Cliquez sur « Démarrer le Serveur SQLite en Direct » pour exécuter les auto-tests SQLite (SELECT ?, anti-injection SQLi, INSERT :nom) et garder la boucle ouverte.</pre>
+            <pre id="sqlite-standalone-output" class="code-block" style="min-height: 390px; max-height: 450px; overflow-y: auto; margin: 0;">Cliquez sur « Démarrer le Serveur SQLite en Direct » pour exécuter les auto-tests SQLite (find_many, find_one, anti-SQLi, insert_one, update) et garder la boucle ouverte.</pre>
           </div>
         </div>
       </div>
@@ -1773,6 +2154,6 @@ cur.execute(sql, (salle,))</pre>
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=35"></script>
+  <script src="/static/app.js?v=36"></script>
 </body>
 </html>
