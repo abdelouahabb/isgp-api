@@ -91,14 +91,21 @@ async def consulter_audit_admin(utilisateur: dict = Depends(exiger_role("admin")
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        tok_stagiaire = client.post("/api/auth/login", json={"identifiant": "stagiaire"}).json()["access_token"]
-        tok_directeur = client.post("/api/auth/login", json={"identifiant": "directeur"}).json()["access_token"]
+    client = TestClient(app)
+    tok_stagiaire = client.post("/api/auth/login", json={"identifiant": "stagiaire"}).json()["access_token"]
+    tok_directeur = client.post("/api/auth/login", json={"identifiant": "directeur"}).json()["access_token"]
 
-        print("1. Sans jeton (401)         :", client.get("/api/admin/audit").status_code)
-        print("2. Jeton stagiaire (403)    :", client.get("/api/admin/audit", headers={"Authorization": f"Bearer {tok_stagiaire}"}).status_code)
-        r_adm = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {tok_directeur}"})
-        print("3. Jeton directeur (200)    :", r_adm.status_code, r_adm.json())
+    print("1. Sans jeton (401)         :", client.get("/api/admin/audit").status_code)
+    print("2. Jeton stagiaire (403)    :", client.get("/api/admin/audit", headers={"Authorization": f"Bearer {tok_stagiaire}"}).status_code)
+    r_adm = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {tok_directeur}"})
+    print("3. Jeton directeur (200)    :", r_adm.status_code, r_adm.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

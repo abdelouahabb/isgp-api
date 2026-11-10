@@ -1,3 +1,4 @@
+import os
 # Fichier : day_3/04_gestion_erreurs_globale.py
 # Exécution : .venv/bin/python day_3/04_gestion_erreurs_globale.py
 # Objectif : Intercepter globalement les erreurs 404, 405 et 500 avec @app.exception_handler
@@ -55,11 +56,18 @@ async def calculer_division(a: float = Query(default=100.0), b: float = Query(de
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        # raise_server_exceptions=False permet à TestClient de retourner la réponse 500 JSON générée par l'exception_handler
-        client = TestClient(app, raise_server_exceptions=False)
-        print("1. Test 404 JSON :", client.get("/route-inconnue").status_code, client.get("/route-inconnue").json())
-        print("2. Test 405 JSON :", client.delete("/api/v1/division").status_code, client.delete("/api/v1/division").json())
-        print("3. Test 500 JSON :", client.get("/api/v1/division?a=100&b=0").status_code, client.get("/api/v1/division?a=100&b=0").json())
+    # raise_server_exceptions=False permet à TestClient de retourner la réponse 500 JSON générée par l'exception_handler
+    client = TestClient(app, raise_server_exceptions=False)
+    print("1. Test 404 JSON :", client.get("/route-inconnue").status_code, client.get("/route-inconnue").json())
+    print("2. Test 405 JSON :", client.delete("/api/v1/division").status_code, client.delete("/api/v1/division").json())
+    print("3. Test 500 JSON :", client.get("/api/v1/division?a=100&b=0").status_code, client.get("/api/v1/division?a=100&b=0").json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

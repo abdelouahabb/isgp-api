@@ -1,3 +1,5 @@
+import sys
+import os
 # Fichier : day_1/02_serialisation_json.py
 # Exécution : .venv/bin/python day_1/02_serialisation_json.py
 # Objectif : Structurer une enveloppe JSON professionnelle avec Pydantic v2 et FastAPI (ISO 8601)
@@ -65,3 +67,13 @@ if __name__ == "__main__":
     print("\n=== LECTURE EN PYTHON (Pydantic model_validate_json) ===")
     print("Horodatage UTC :", retour_modele.meta.horodatage_iso8601)
     print("Méthodes idempotentes :", retour_modele.data.methodes_idempotentes)
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

@@ -112,19 +112,25 @@ def deconnexion_cookies():
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            print("=== 1. CONNEXION (POST /api/auth/cookie-login) -> EN-TÊTES Set-Cookie ===")
-            r_login = client.post("/api/auth/cookie-login", json={"identifiant": "yasmine.merabet", "theme": "sombre"})
-            for sc in r_login.headers.getlist("Set-Cookie"):
-                print("  Set-Cookie :", sc)
+    with app.test_client() as client:
+        print("=== 1. CONNEXION (POST /api/auth/cookie-login) -> EN-TÊTES Set-Cookie ===")
+        r_login = client.post("/api/auth/cookie-login", json={"identifiant": "yasmine.merabet", "theme": "sombre"})
+        for sc in r_login.headers.getlist("Set-Cookie"):
+            print("  Set-Cookie :", sc)
 
-            print("\n=== 2. REQUÊTE AUTHENTIFIÉE AUTOMATIQUEMENT PAR COOKIES (GET /api/auth/cookie-inspect) ===")
-            r_insp = client.get("/api/auth/cookie-inspect")
-            print("  Statut :", r_insp.status_code, "| JSON :", r_insp.get_json())
+        print("\n=== 2. REQUÊTE AUTHENTIFIÉE AUTOMATIQUEMENT PAR COOKIES (GET /api/auth/cookie-inspect) ===")
+        r_insp = client.get("/api/auth/cookie-inspect")
+        print("  Statut :", r_insp.status_code, "| JSON :", r_insp.get_json())
 
-            print("\n=== 3. DÉCONNEXION ET RÉVOCATION (POST /api/auth/cookie-logout) ===")
-            r_out = client.post("/api/auth/cookie-logout")
-            print("  Après logout -> GET /api/auth/cookie-inspect :", client.get("/api/auth/cookie-inspect").status_code)
+        print("\n=== 3. DÉCONNEXION ET RÉVOCATION (POST /api/auth/cookie-logout) ===")
+        r_out = client.post("/api/auth/cookie-logout")
+        print("  Après logout -> GET /api/auth/cookie-inspect :", client.get("/api/auth/cookie-inspect").status_code)
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

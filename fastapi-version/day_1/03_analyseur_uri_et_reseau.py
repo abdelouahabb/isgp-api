@@ -1,3 +1,5 @@
+import sys
+import os
 # Fichier : day_1/03_analyseur_uri_et_reseau.py
 # Exécution : .venv/bin/python day_1/03_analyseur_uri_et_reseau.py
 # Objectif : Décoder une URI complète (RFC 3986), ses paramètres de requête et les méthodes/codes HTTP dans FastAPI
@@ -66,3 +68,13 @@ if __name__ == "__main__":
     print(f"POST /api/v1/formations -> {r_post.status_code} | Location: {r_post.headers.get('location')}")
     r_del = client.delete("/api/v1/formations/2")
     print(f"DELETE /api/v1/formations/2 -> {r_del.status_code} (No Content)")
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

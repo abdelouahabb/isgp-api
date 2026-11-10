@@ -1,3 +1,4 @@
+import os
 # Fichier : day_2/04_middlewares_et_audit_log.py
 # Exécution : .venv/bin/python day_2/04_middlewares_et_audit_log.py
 # Objectif : Implémenter un Middleware ASGI (@app.middleware("http")) dans FastAPI
@@ -44,10 +45,17 @@ async def verifier_statut(request: Request):
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        rep = client.get("/api/v1/statut", headers={"X-Request-ID": "req-isgp-2026"})
-        print("En-têtes injectés par le middleware ASGI :", dict(rep.headers))
-        print("Corps JSON :", rep.json())
+    client = TestClient(app)
+    rep = client.get("/api/v1/statut", headers={"X-Request-ID": "req-isgp-2026"})
+    print("En-têtes injectés par le middleware ASGI :", dict(rep.headers))
+    print("Corps JSON :", rep.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

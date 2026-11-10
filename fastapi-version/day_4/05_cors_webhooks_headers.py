@@ -64,19 +64,26 @@ async def recevoir_webhook_paiement(
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        charge_json = b'{"facture_id": "FAC-2026-09", "montant_dzd": 45000}'
-        sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), charge_json, hashlib.sha256).hexdigest()
+    client = TestClient(app)
+    charge_json = b'{"facture_id": "FAC-2026-09", "montant_dzd": 45000}'
+    sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), charge_json, hashlib.sha256).hexdigest()
 
-        r_ok = client.post(
-            "/api/webhooks/paiement",
-            content=charge_json,
-            headers={"Content-Type": "application/json", "X-Webhook-Signature": sig, "Origin": "https://portail.isgp.dz"},
-        )
-        print("1. Webhook HMAC valide (200) :", r_ok.status_code, r_ok.json())
-        print("2. En-tête CORS Access-Control-Allow-Origin :", r_ok.headers.get("access-control-allow-origin"))
-        r_ko = client.post("/api/webhooks/paiement", content=charge_json, headers={"X-Webhook-Signature": "sha256=faux"})
-        print("3. Webhook HMAC falsifié (401) :", r_ko.status_code, r_ko.json())
+    r_ok = client.post(
+        "/api/webhooks/paiement",
+        content=charge_json,
+        headers={"Content-Type": "application/json", "X-Webhook-Signature": sig, "Origin": "https://portail.isgp.dz"},
+    )
+    print("1. Webhook HMAC valide (200) :", r_ok.status_code, r_ok.json())
+    print("2. En-tête CORS Access-Control-Allow-Origin :", r_ok.headers.get("access-control-allow-origin"))
+    r_ko = client.post("/api/webhooks/paiement", content=charge_json, headers={"X-Webhook-Signature": "sha256=faux"})
+    print("3. Webhook HMAC falsifié (401) :", r_ko.status_code, r_ko.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

@@ -77,29 +77,37 @@ def make_app():
     ])
 
 
-async def _test_in_memory():
+async def _run_node():
     app = make_app()
-    sockets = tornado.netutil.bind_sockets(0, "127.0.0.1")
-    ephemeral_port = sockets[0].getsockname()[1]
+    app.settings["log_function"] = lambda h: print(
+        f"[IOLOOP {INSTANCE_ID}] HTTP {h.get_status()} | {h.request.method} {h.request.uri} ({h.request.remote_ip}) | {round(1000.0 * h.request.request_time(), 2)} ms"
+    )
+    bind_port = 0 if os.environ.get("ISGP_WEB_RUNNER") == "1" else PORT
+    try:
+        sockets = tornado.netutil.bind_sockets(bind_port, "127.0.0.1")
+    except OSError:
+        sockets = tornado.netutil.bind_sockets(0, "127.0.0.1")
+    active_port = sockets[0].getsockname()[1]
     # CRITIQUE DERRIÈRE NGINX : xheaders=True permet à Tornado HTTPServer de lire X-Forwarded-For et X-Forwarded-Proto
     server = tornado.httpserver.HTTPServer(app, xheaders=True)
     server.add_sockets(sockets)
     client = tornado.httpclient.AsyncHTTPClient()
     rep = await client.fetch(
-        f"http://127.0.0.1:{ephemeral_port}/api/v1/formations",
+        f"http://127.0.0.1:{active_port}/api/v1/formations",
         headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"},
     )
     print("Statut :", rep.code)
     print("En-tête X-Tornado-Instance :", rep.headers.get("X-Tornado-Instance"))
     print("Payload JSON :", tornado.escape.json_decode(rep.body))
-    server.stop()
+    if os.environ.get("ISGP_WEB_RUNNER") == "1" or "--once" in sys.argv:
+        server.stop()
+    else:
+        print(f"\n[{INSTANCE_ID}] Boucle IOLoop Tornado (xheaders=True) active sur http://127.0.0.1:{active_port} (Ctrl+C pour arrêter)")
+        await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        server = tornado.httpserver.HTTPServer(make_app(), xheaders=True)
-        server.listen(PORT, address="127.0.0.1")
-        print(f"[{INSTANCE_ID}] Tornado HTTPServer (xheaders=True) actif sur http://127.0.0.1:{PORT}")
-        tornado.ioloop.IOLoop.current().start()
-    else:
-        asyncio.run(_test_in_memory())
+    try:
+        asyncio.run(_run_node())
+    except KeyboardInterrupt:
+        print("\n[IOLOOP TORNADO] Arrêt propre demandé par l'utilisateur (Ctrl+C).")

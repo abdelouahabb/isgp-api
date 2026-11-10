@@ -83,14 +83,19 @@ def consulter_audit_admin():
     return jsonify({"acces": "Autorisé (Admin)", "operateur": g.utilisateur["sub"]}), 200
 
 if __name__ == "__main__":
-    import sys
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            r_stag = client.post("/api/auth/login", json={"identifiant": "stagiaire"}).get_json()
-            r_403 = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {r_stag['access_token']}"})
-            print("1. Stagiaire sur route Admin (403 Forbidden) :", r_403.status_code, r_403.get_json())
-            r_dir = client.post("/api/auth/login", json={"identifiant": "directeur"}).get_json()
-            r_200 = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {r_dir['access_token']}"})
-            print("2. Directeur sur route Admin (200 OK) :", r_200.status_code, r_200.get_json())
+    with app.test_client() as client:
+        r_stag = client.post("/api/auth/login", json={"identifiant": "stagiaire"}).get_json()
+        r_403 = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {r_stag['access_token']}"})
+        print("1. Stagiaire sur route Admin (403 Forbidden) :", r_403.status_code, r_403.get_json())
+        r_dir = client.post("/api/auth/login", json={"identifiant": "directeur"}).get_json()
+        r_200 = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {r_dir['access_token']}"})
+        print("2. Directeur sur route Admin (200 OK) :", r_200.status_code, r_200.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

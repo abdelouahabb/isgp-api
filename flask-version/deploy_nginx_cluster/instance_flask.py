@@ -73,11 +73,11 @@ def lister_formations():
 
 if __name__ == "__main__":
     import sys
-    if "--serve" in sys.argv:
+    with app.test_client() as c:
+        rep = c.get("/api/v1/formations", headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"})
+        print("Statut :", rep.status_code)
+        print("En-tête X-Flask-Instance :", rep.headers.get("X-Flask-Instance"))
+        print("Payload JSON :", rep.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        print(f"\n[{INSTANCE_ID}] Serveur Flask WSGI actif sur http://127.0.0.1:{PORT} (Ctrl+C pour arrêter)")
         app.run(host="127.0.0.1", port=PORT, debug=False)
-    else:
-        with app.test_client() as c:
-            rep = c.get("/api/v1/formations", headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"})
-            print("Statut :", rep.status_code)
-            print("En-tête X-Flask-Instance :", rep.headers.get("X-Flask-Instance"))
-            print("Payload JSON :", rep.get_json())

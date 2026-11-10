@@ -28,12 +28,17 @@ def stats_confidentielles():
     }), 200
 
 if __name__ == "__main__":
-    import sys
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            r_no_key = client.get("/api/admin/statistiques")
-            print("1. Sans X-API-Key (401) :", r_no_key.status_code, r_no_key.get_json())
-            r_valid = client.get("/api/admin/statistiques", headers={"X-API-Key": PARTNER_API_KEY})
-            print("2. Avec X-API-Key valide (200) :", r_valid.status_code, r_valid.get_json())
+    with app.test_client() as client:
+        r_no_key = client.get("/api/admin/statistiques")
+        print("1. Sans X-API-Key (401) :", r_no_key.status_code, r_no_key.get_json())
+        r_valid = client.get("/api/admin/statistiques", headers={"X-API-Key": PARTNER_API_KEY})
+        print("2. Avec X-API-Key valide (200) :", r_valid.status_code, r_valid.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

@@ -1,3 +1,4 @@
+import os
 # Fichier : day_4/03_rate_limiting_429.py
 # Exécution : .venv/bin/python day_4/03_rate_limiting_429.py
 # Objectif : Implémenter un Rate Limiter par fenêtre glissante (429 Too Many Requests + Retry-After) dans FastAPI.
@@ -53,10 +54,17 @@ async def catalogue_avec_ratelimit(request: Request, response: Response):
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        for i in range(1, 5):
-            r = client.get("/api/catalogue-protege")
-            print(f"Appel #{i} -> HTTP {r.status_code} | Remaining={r.headers.get('x-ratelimit-remaining')} | {r.json()}")
+    client = TestClient(app)
+    for i in range(1, 5):
+        r = client.get("/api/catalogue-protege")
+        print(f"Appel #{i} -> HTTP {r.status_code} | Remaining={r.headers.get('x-ratelimit-remaining')} | {r.json()}")
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

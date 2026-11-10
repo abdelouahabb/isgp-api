@@ -1,3 +1,5 @@
+import sys
+import os
 """
 Jour 5 — Script 05 : Génération Automatique OpenAPI 3.1 (/openapi.json), Swagger UI (/docs) & ReDoc (/redoc)
 =============================================================================================================
@@ -189,3 +191,13 @@ if __name__ == "__main__":
             print(f"  - {verbe.upper():6s} {chemin:26s} -> {details['summary']}")
     print("\nExtrait JSON de /components/securitySchemes :")
     print(json.dumps(spec["components"]["securitySchemes"], indent=2, ensure_ascii=False))
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

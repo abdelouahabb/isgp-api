@@ -1,3 +1,4 @@
+import os
 # Fichier : day_3/01_api_crud_memoire.py
 # Exécution : .venv/bin/python day_3/01_api_crud_memoire.py
 # Objectif : Validation déclarative stricte avec Pydantic v2 (BaseModel, Field, @field_validator)
@@ -73,15 +74,22 @@ async def creer_formation(payload: FormationCreation):
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        print("=== 1. TEST CRÉATION VALIDE (201 Created) ===")
-        rep_ok = client.post("/api/v1/formations", json={"titre": "Sécurité OAuth2 & JWT", "duree_jours": 4, "salle": "Labo 1"})
-        print("Statut :", rep_ok.status_code, "| Réponse :", rep_ok.json())
+    client = TestClient(app)
+    print("=== 1. TEST CRÉATION VALIDE (201 Created) ===")
+    rep_ok = client.post("/api/v1/formations", json={"titre": "Sécurité OAuth2 & JWT", "duree_jours": 4, "salle": "Labo 1"})
+    print("Statut :", rep_ok.status_code, "| Réponse :", rep_ok.json())
 
-        print("\n=== 2. TEST VALIDATION ÉCHOUÉE (422 Unprocessable Entity - RFC 7807) ===")
-        rep_ko = client.post("/api/v1/formations", json={"titre": "AB", "duree_jours": 99})
-        print("Statut :", rep_ko.status_code)
-        print("Problem Details RFC 7807 :", rep_ko.json())
+    print("\n=== 2. TEST VALIDATION ÉCHOUÉE (422 Unprocessable Entity - RFC 7807) ===")
+    rep_ko = client.post("/api/v1/formations", json={"titre": "AB", "duree_jours": 99})
+    print("Statut :", rep_ko.status_code)
+    print("Problem Details RFC 7807 :", rep_ko.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

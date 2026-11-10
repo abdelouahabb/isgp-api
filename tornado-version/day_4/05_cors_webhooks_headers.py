@@ -66,9 +66,15 @@ def make_app():
 
 async def _demo():
     app = make_app()
-    sockets = tornado.netutil.bind_sockets(0, "127.0.0.1")
+    app.settings["log_function"] = lambda h: print(
+        f"[IOLOOP TORNADO] HTTP {h.get_status()} | {h.request.method} {h.request.uri} ({h.request.remote_ip}) | {round(1000.0 * h.request.request_time(), 2)} ms"
+    )
+    bind_port = 0 if os.environ.get("ISGP_WEB_RUNNER") == "1" else int(os.environ.get("PORT", 8889))
+    try:
+        sockets = tornado.netutil.bind_sockets(bind_port, "127.0.0.1")
+    except OSError:
+        sockets = tornado.netutil.bind_sockets(0, "127.0.0.1")
     port = sockets[0].getsockname()[1]
-    # Protection anti-saturation mémoire : max_body_size plafonné à 1 Mo sur HTTPServer
     server = tornado.httpserver.HTTPServer(app, max_body_size=1 * 1024 * 1024)
     server.add_sockets(sockets)
     client = tornado.httpclient.AsyncHTTPClient()
@@ -88,13 +94,21 @@ async def _demo():
     )
     print("En-tête CORS :", rep.headers.get("Access-Control-Allow-Origin"))
     print("Réponse JSON :", tornado.escape.json_decode(rep.body))
-    server.stop()
+    if os.environ.get("ISGP_WEB_RUNNER") == "1" or "--once" in sys.argv:
+        server.stop()
+    else:
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE IOLOOP TORNADO ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> La boucle d'événements IOLoop reste ouverte en mode interactif !")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct : http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement la boucle IOLoop.")
+        print("=" * 76)
+        await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        server = tornado.httpserver.HTTPServer(make_app(), max_body_size=1 * 1024 * 1024)
-        server.listen(8889)
-        tornado.ioloop.IOLoop.current().start()
-    else:
+    try:
         asyncio.run(_demo())
+    except KeyboardInterrupt:
+        print("\n[IOLOOP TORNADO] Arrêt propre demandé par l'utilisateur (Ctrl+C).")

@@ -41,13 +41,18 @@ def profil_protege():
         return jsonify({"erreur": "Signature du jeton invalide (jeton falsifié)"}), 401
 
 if __name__ == "__main__":
-    import sys
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
-            tok = r_tok.get_json()["access_token"]
-            print("1. Bearer Token émis (200) :", tok[:35] + "...")
-            r_prof = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {tok}"})
-            print("2. Profil vérifié (200) :", r_prof.status_code, r_prof.get_json())
+    with app.test_client() as client:
+        r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
+        tok = r_tok.get_json()["access_token"]
+        print("1. Bearer Token émis (200) :", tok[:35] + "...")
+        r_prof = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {tok}"})
+        print("2. Profil vérifié (200) :", r_prof.status_code, r_prof.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

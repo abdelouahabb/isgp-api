@@ -1351,7 +1351,11 @@ def run_python_snippet():
             text=True,
             timeout=4,
             cwd=runner_dir,
-            env={"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"},
+            env={
+                "PATH": os.environ.get("PATH", ""),
+                "PYTHONIOENCODING": "utf-8",
+                "ISGP_WEB_RUNNER": "1",
+            },
         )
         os.unlink(tmp_path)
         return jsonify(

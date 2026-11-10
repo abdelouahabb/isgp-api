@@ -84,16 +84,16 @@ def lister_formations(request: Request):
 
 
 if __name__ == "__main__":
-    if "--serve" not in sys.argv:
-        with TestClient(app) as c:
-            rep = c.get(
-                "/api/v1/formations",
-                headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"},
-            )
-            assert rep.status_code == 200
-            print("Statut :", rep.status_code)
-            print("En-tête X-FastAPI-Instance :", rep.headers.get("X-FastAPI-Instance"))
-            print("Payload JSON :", rep.json())
-    else:
+    with TestClient(app) as c:
+        rep = c.get(
+            "/api/v1/formations",
+            headers={"X-Forwarded-For": "197.204.12.88", "X-Forwarded-Proto": "https"},
+        )
+        assert rep.status_code == 200
+        print("Statut :", rep.status_code)
+        print("En-tête X-FastAPI-Instance :", rep.headers.get("X-FastAPI-Instance"))
+        print("Payload JSON :", rep.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
         import uvicorn
+        print(f"\n[{INSTANCE_ID}] Serveur Uvicorn ASGI actif sur http://127.0.0.1:{PORT} (Ctrl+C pour arrêter)")
         uvicorn.run(app, host="127.0.0.1", port=PORT, proxy_headers=True, forwarded_allow_ips="*")

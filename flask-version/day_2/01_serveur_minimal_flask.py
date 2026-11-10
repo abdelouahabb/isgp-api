@@ -55,17 +55,22 @@ def lister_modules_api():
 
 
 if __name__ == "__main__":
-    # Si on lance avec '--serve', démarre le serveur HTTP sur le port 5001
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        # Sinon, exécute une démonstration immédiate des 2 modes (Jinja2 HTML vs API JSON)
-        with app.test_client() as client:
-            rep_html = client.get("/accueil")
-            print("=== 1. RENDU DU TEMPLATE JINJA2 (GET /accueil -> day_2/templates/accueil.html) ===")
-            print(rep_html.get_data(as_text=True).strip())
+    # Sinon, exécute une démonstration immédiate des 2 modes (Jinja2 HTML vs API JSON)
+    with app.test_client() as client:
+        rep_html = client.get("/accueil")
+        print("=== 1. RENDU DU TEMPLATE JINJA2 (GET /accueil -> day_2/templates/accueil.html) ===")
+        print(rep_html.get_data(as_text=True).strip())
 
-            rep_json = client.get("/api/bonjour")
-            print("\n=== 2. RÉPONSE API JSON (GET /api/bonjour -> jsonify) ===")
-            print("Statut HTTP :", rep_json.status_code, "| Content-Type :", rep_json.content_type)
-            print("Payload JSON :", rep_json.get_json())
+        rep_json = client.get("/api/bonjour")
+        print("\n=== 2. RÉPONSE API JSON (GET /api/bonjour -> jsonify) ===")
+        print("Statut HTTP :", rep_json.status_code, "| Content-Type :", rep_json.content_type)
+        print("Payload JSON :", rep_json.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

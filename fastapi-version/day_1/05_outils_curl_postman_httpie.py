@@ -1,3 +1,5 @@
+import sys
+import os
 # Fichier : day_1/05_outils_curl_postman_httpie.py
 # Exécution : .venv/bin/python day_1/05_outils_curl_postman_httpie.py
 # Objectif : Comprendre les commandes 'curl' équivalentes et les exécuter contre une API FastAPI :
@@ -109,3 +111,13 @@ if __name__ == "__main__":
             data={"titre": "Atelier Curl Formulaire", "formateur": "ISGP", "duree_jours": 3, "salle": "Salle B"},
         ),
     )
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

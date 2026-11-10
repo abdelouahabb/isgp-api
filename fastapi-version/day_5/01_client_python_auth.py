@@ -1,3 +1,5 @@
+import sys
+import os
 # Fichier : day_5/01_client_python_auth.py
 # Exécution : .venv/bin/python day_5/01_client_python_auth.py
 # Objectif : Construire un client HTTP Python résilient (Timeouts, Exponential Backoff sur 429/503,
@@ -92,3 +94,13 @@ async def executer_client_asynchrone():
 
 if __name__ == "__main__":
     asyncio.run(executer_client_asynchrone())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

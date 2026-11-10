@@ -1,3 +1,4 @@
+import sys
 """
 Jour 2 — Script 05 : Moteur de Templates Jinja2 (render_template) & Formulaires Web HTML (request.form / request.files)
 =======================================================================================================================
@@ -140,3 +141,12 @@ if __name__ == "__main__":
             content_type="multipart/form-data",
         )
         print("Réponse JSON upload :", rep_upload.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

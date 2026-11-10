@@ -120,16 +120,23 @@ def create_app() -> FastAPI:
 app = create_app()
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        print("=== 1. APIROUTER v1 (AVEC EN-TÊTES DE DÉPRÉCIATION RFC 8594) ===")
-        r1 = client.get("/api/v1/formations")
-        print("Headers v1 :", {k: r1.headers[k] for k in ("x-api-version", "deprecation", "sunset", "link")})
-        print("JSON v1    :", r1.json()["items"][0])
+    client = TestClient(app)
+    print("=== 1. APIROUTER v1 (AVEC EN-TÊTES DE DÉPRÉCIATION RFC 8594) ===")
+    r1 = client.get("/api/v1/formations")
+    print("Headers v1 :", {k: r1.headers[k] for k in ("x-api-version", "deprecation", "sunset", "link")})
+    print("JSON v1    :", r1.json()["items"][0])
 
-        print("\n=== 2. APIROUTER v2 (NOUVEAU SCHÉMA ENRICHI COEXISTANT) ===")
-        r2 = client.get("/api/v2/formations")
-        print("Headers v2 :", {"x-api-version": r2.headers["x-api-version"]})
-        print("JSON v2    :", r2.json()["data"][0])
+    print("\n=== 2. APIROUTER v2 (NOUVEAU SCHÉMA ENRICHI COEXISTANT) ===")
+    r2 = client.get("/api/v2/formations")
+    print("Headers v2 :", {"x-api-version": r2.headers["x-api-version"]})
+    print("JSON v2    :", r2.json()["data"][0])
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

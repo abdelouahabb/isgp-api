@@ -1,3 +1,4 @@
+import sys
 # Fichier : day_1/01_html_vs_json.py
 # Exécution : .venv/bin/python day_1/01_html_vs_json.py
 # Objectif : Comparer les 3 formats du Web dans FastAPI (ASGI) :
@@ -72,3 +73,13 @@ if __name__ == "__main__":
     print(f"3. REST (Payload JSON)    : {len(rep_json.content)} octets | Content-Type: {rep_json.headers['content-type']}")
     print("\nPayload REST/JSON prêt pour tout client (Web, Mobile, Python) :")
     print(rep_json.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

@@ -1,3 +1,4 @@
+import os
 # Fichier : day_2/03_pagination_filtrage_tri.py
 # Exécution : .venv/bin/python day_2/03_pagination_filtrage_tri.py
 # Objectif : Implémenter la pagination, le filtrage, le tri dynamique avec Query(...)
@@ -79,20 +80,27 @@ async def ajouter_formation(payload: FormationCreation, response: Response):
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        print("=== 1. TEST PAGINATION, FILTRAGE ET TRI (Query FastAPI) ===")
-        rep = client.get("/api/v1/formations?page=1&limit=2&salle=Salle+A&tri=duree_jours&ordre=desc")
-        print("Statut HTTP :", rep.status_code)
-        print("Meta        :", rep.json()["meta"])
-        print("Data        :", rep.json()["data"])
+    client = TestClient(app)
+    print("=== 1. TEST PAGINATION, FILTRAGE ET TRI (Query FastAPI) ===")
+    rep = client.get("/api/v1/formations?page=1&limit=2&salle=Salle+A&tri=duree_jours&ordre=desc")
+    print("Statut HTTP :", rep.status_code)
+    print("Meta        :", rep.json()["meta"])
+    print("Data        :", rep.json()["data"])
 
-        print("\n=== 2. TEST RÉCEPTION JSON POST (Pydantic BaseModel) ===")
-        rep_post = client.post(
-            "/api/v1/formations",
-            json={"code": "FAP-305", "titre": "Injection de Dépendances FastAPI", "duree_jours": 3, "salle": "Salle A"},
-        )
-        print("Statut POST :", rep_post.status_code, "| Location :", rep_post.headers.get("location"))
-        print("Payload     :", rep_post.json())
+    print("\n=== 2. TEST RÉCEPTION JSON POST (Pydantic BaseModel) ===")
+    rep_post = client.post(
+        "/api/v1/formations",
+        json={"code": "FAP-305", "titre": "Injection de Dépendances FastAPI", "duree_jours": 3, "salle": "Salle A"},
+    )
+    print("Statut POST :", rep_post.status_code, "| Location :", rep_post.headers.get("location"))
+    print("Payload     :", rep_post.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

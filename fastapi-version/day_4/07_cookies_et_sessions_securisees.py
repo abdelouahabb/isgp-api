@@ -143,19 +143,26 @@ async def deconnexion_cookies(response: Response):
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        print("=== 1. CONNEXION (POST /api/auth/cookie-login) -> EN-TÊTES Set-Cookie ===")
-        r_login = client.post("/api/auth/cookie-login", json={"identifiant": "yasmine.merabet", "theme": "sombre"})
-        for sc in r_login.headers.get_list("set-cookie"):
-            print("  Set-Cookie :", sc)
+    client = TestClient(app)
+    print("=== 1. CONNEXION (POST /api/auth/cookie-login) -> EN-TÊTES Set-Cookie ===")
+    r_login = client.post("/api/auth/cookie-login", json={"identifiant": "yasmine.merabet", "theme": "sombre"})
+    for sc in r_login.headers.get_list("set-cookie"):
+        print("  Set-Cookie :", sc)
 
-        print("\n=== 2. REQUÊTE AUTHENTIFIÉE AUTOMATIQUEMENT PAR COOKIES (GET /api/auth/cookie-inspect) ===")
-        r_insp = client.get("/api/auth/cookie-inspect")
-        print("  Statut :", r_insp.status_code, "| JSON :", r_insp.json())
+    print("\n=== 2. REQUÊTE AUTHENTIFIÉE AUTOMATIQUEMENT PAR COOKIES (GET /api/auth/cookie-inspect) ===")
+    r_insp = client.get("/api/auth/cookie-inspect")
+    print("  Statut :", r_insp.status_code, "| JSON :", r_insp.json())
 
-        print("\n=== 3. DÉCONNEXION ET RÉVOCATION (POST /api/auth/cookie-logout) ===")
-        client.post("/api/auth/cookie-logout")
-        print("  Après logout -> GET /api/auth/cookie-inspect :", client.get("/api/auth/cookie-inspect").status_code)
+    print("\n=== 3. DÉCONNEXION ET RÉVOCATION (POST /api/auth/cookie-logout) ===")
+    client.post("/api/auth/cookie-logout")
+    print("  Après logout -> GET /api/auth/cookie-inspect :", client.get("/api/auth/cookie-inspect").status_code)
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

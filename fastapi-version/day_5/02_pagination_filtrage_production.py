@@ -1,3 +1,4 @@
+import os
 # Fichier : day_5/02_pagination_filtrage_production.py
 # Exécution : .venv/bin/python day_5/02_pagination_filtrage_production.py
 # Objectif : Ingénierie Avancée d'une API FastAPI de Production (100 % FastAPI ASGI & Pydantic v2) :
@@ -102,14 +103,21 @@ async def lister_avec_pagination_curseur(
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        print("=== 1. PAGINATION OFFSET/LIMIT + TRI DÉCROISSANT (?sort=-tarif_dzd&page=1&per_page=2) ===")
-        r1 = client.get("/api/v1/catalogue/offset?sort=-tarif_dzd&page=1&per_page=2")
-        print(r1.json())
+    client = TestClient(app)
+    print("=== 1. PAGINATION OFFSET/LIMIT + TRI DÉCROISSANT (?sort=-tarif_dzd&page=1&per_page=2) ===")
+    r1 = client.get("/api/v1/catalogue/offset?sort=-tarif_dzd&page=1&per_page=2")
+    print(r1.json())
 
-        print("\n=== 2. PAGINATION PAR CURSEUR HAUTE PERFORMANCE (?after_id=2&limit=2) ===")
-        r2 = client.get("/api/v1/catalogue/cursor?after_id=2&limit=2")
-        print(r2.json())
+    print("\n=== 2. PAGINATION PAR CURSEUR HAUTE PERFORMANCE (?after_id=2&limit=2) ===")
+    r2 = client.get("/api/v1/catalogue/cursor?after_id=2&limit=2")
+    print(r2.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

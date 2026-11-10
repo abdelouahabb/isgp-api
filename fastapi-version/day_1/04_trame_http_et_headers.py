@@ -1,3 +1,5 @@
+import sys
+import os
 # Fichier : day_1/04_trame_http_et_headers.py
 # Exécution : .venv/bin/python day_1/04_trame_http_et_headers.py
 # Objectif : Comparer la trame brute HTTP/1.1 d'un appel API JSON (modèle Pydantic BaseModel dans FastAPI)
@@ -99,3 +101,13 @@ if __name__ == "__main__":
     print("Réponse JSON :", r_json.json())
     r_form = client.post("/sandbox/formulaire-jinja", data=donnees_formation)
     print("Réponse Form :", r_form.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

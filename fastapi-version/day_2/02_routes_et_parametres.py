@@ -82,15 +82,22 @@ async def calculer_tva(
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        print("=== 1. TEST PARAMÈTRE DE CHEMIN ({prenom}: str) ===")
-        print(client.get("/api/saluer/Yasmine").json())
+    client = TestClient(app)
+    print("=== 1. TEST PARAMÈTRE DE CHEMIN ({prenom}: str) ===")
+    print(client.get("/api/saluer/Yasmine").json())
 
-        print("\n=== 2. TEST TYPAGE {stagiaire_id}: int + RENDU JINJA2 ===")
-        print(client.get("/stagiaires/1/fiche").text.strip())
+    print("\n=== 2. TEST TYPAGE {stagiaire_id}: int + RENDU JINJA2 ===")
+    print(client.get("/stagiaires/1/fiche").text.strip())
 
-        print("\n=== 3. TEST QUERY PARAMETERS (?ht=2500&taux=19 via Query) ===")
-        print(client.get("/api/calcul-tva?ht=2500&taux=19").json())
+    print("\n=== 3. TEST QUERY PARAMETERS (?ht=2500&taux=19 via Query) ===")
+    print(client.get("/api/calcul-tva?ht=2500&taux=19").json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

@@ -1,3 +1,4 @@
+import sys
 # Fichier : day_4/05_cors_webhooks_headers.py
 # Exécution : .venv/bin/python day_4/05_cors_webhooks_headers.py
 # Objectif : Configurer CORS, limiter la taille maximale du Payload (413 Payload Too Large)
@@ -49,17 +50,22 @@ def recevoir_webhook_paiement():
     return jsonify({"statut": "Webhook authentifié et traité", "evenement": evenement}), 200
 
 if __name__ == "__main__":
-    import json, sys
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            corps = json.dumps({"facture_id": "FAC-2026-09", "montant_dzd": 45000}).encode("utf-8")
-            sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), corps, hashlib.sha256).hexdigest()
-            r_ok = client.post(
-                "/api/webhooks/paiement",
-                data=corps,
-                headers={"Content-Type": "application/json", "X-Webhook-Signature": sig, "Origin": "https://portail.isgp.dz"},
-            )
-            print("1. Webhook signé valide (200) :", r_ok.status_code, r_ok.get_json())
-            print("2. En-têtes CORS & Sécurité :", {k: v for k, v in r_ok.headers.items() if k.startswith(("Access-Control", "X-"))})
+    with app.test_client() as client:
+        corps = json.dumps({"facture_id": "FAC-2026-09", "montant_dzd": 45000}).encode("utf-8")
+        sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), corps, hashlib.sha256).hexdigest()
+        r_ok = client.post(
+            "/api/webhooks/paiement",
+            data=corps,
+            headers={"Content-Type": "application/json", "X-Webhook-Signature": sig, "Origin": "https://portail.isgp.dz"},
+        )
+        print("1. Webhook signé valide (200) :", r_ok.status_code, r_ok.get_json())
+        print("2. En-têtes CORS & Sécurité :", {k: v for k, v in r_ok.headers.items() if k.startswith(("Access-Control", "X-"))})
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

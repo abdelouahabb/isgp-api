@@ -1,3 +1,4 @@
+import os
 # Fichier : day_3/03_put_patch_et_idempotence.py
 # Exécution : .venv/bin/python day_3/03_put_patch_et_idempotence.py
 # Objectif : Différencier PUT (remplacement complet) de PATCH (modification partielle)
@@ -70,14 +71,19 @@ def modifier_partiellement_patch(id):
     return jsonify({"methode": "PATCH (mise à jour partielle)", "formation": actuelle}), 200
 
 if __name__ == "__main__":
-    import sys
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            r1 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
-            r2 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
-            print("1. Premier POST (201) :", r1.status_code, r1.get_json())
-            print("2. Rejeu idempotent (200 sans doublon) :", r2.status_code, r2.get_json())
-            r_patch = client.patch("/api/v1/formations/1", json={"salle": "Amphithéâtre"})
-            print("3. PATCH partiel (200) :", r_patch.status_code, r_patch.get_json())
+    with app.test_client() as client:
+        r1 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
+        r2 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
+        print("1. Premier POST (201) :", r1.status_code, r1.get_json())
+        print("2. Rejeu idempotent (200 sans doublon) :", r2.status_code, r2.get_json())
+        r_patch = client.patch("/api/v1/formations/1", json={"salle": "Amphithéâtre"})
+        print("3. PATCH partiel (200) :", r_patch.status_code, r_patch.get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

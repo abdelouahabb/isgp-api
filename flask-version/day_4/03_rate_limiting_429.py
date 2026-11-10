@@ -1,3 +1,4 @@
+import os
 # Fichier : day_4/03_rate_limiting_429.py
 # Exécution : .venv/bin/python day_4/03_rate_limiting_429.py
 
@@ -44,11 +45,16 @@ def catalogue_avec_ratelimit():
     return reponse, 200
 
 if __name__ == "__main__":
-    import sys
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            for i in range(1, 5):
-                r = client.get("/api/catalogue-protege")
-                print(f"Appel #{i} -> HTTP {r.status_code} | X-RateLimit-Remaining={r.headers.get('X-RateLimit-Remaining')} | {r.get_json()}")
+    with app.test_client() as client:
+        for i in range(1, 5):
+            r = client.get("/api/catalogue-protege")
+            print(f"Appel #{i} -> HTTP {r.status_code} | X-RateLimit-Remaining={r.headers.get('X-RateLimit-Remaining')} | {r.get_json()}")
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

@@ -62,14 +62,21 @@ async def profil_protege(donnees_utilisateur: dict = Depends(extraire_utilisateu
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        client = TestClient(app)
-        r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
-        jeton = r_tok.json()["access_token"]
-        print("1. Jeton émis :", jeton[:36] + "...")
-        r_prof = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {jeton}"})
-        print("2. Profil protégé (200) :", r_prof.status_code, r_prof.json())
-        r_faux = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {jeton} falsifie"})
-        print("3. Jeton falsifié (401) :", r_faux.status_code, r_faux.json())
+    client = TestClient(app)
+    r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
+    jeton = r_tok.json()["access_token"]
+    print("1. Jeton émis :", jeton[:36] + "...")
+    r_prof = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {jeton}"})
+    print("2. Profil protégé (200) :", r_prof.status_code, r_prof.json())
+    r_faux = client.get("/api/auth/profil", headers={"Authorization": f"Bearer {jeton} falsifie"})
+    print("3. Jeton falsifié (401) :", r_faux.status_code, r_faux.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)

@@ -126,16 +126,22 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            print("=== 1. BLUEPRINT API v1 (AVEC EN-TÊTES DE DÉPRÉCIATION RFC 8594) ===")
-            r1 = client.get("/api/v1/formations")
-            print("Headers v1 :", {k: r1.headers[k] for k in ("X-API-Version", "Deprecation", "Sunset", "Link")})
-            print("JSON v1    :", r1.get_json()["items"][0])
+    with app.test_client() as client:
+        print("=== 1. BLUEPRINT API v1 (AVEC EN-TÊTES DE DÉPRÉCIATION RFC 8594) ===")
+        r1 = client.get("/api/v1/formations")
+        print("Headers v1 :", {k: r1.headers[k] for k in ("X-API-Version", "Deprecation", "Sunset", "Link")})
+        print("JSON v1    :", r1.get_json()["items"][0])
 
-            print("\n=== 2. BLUEPRINT API v2 (NOUVEAU SCHÉMA ENRICHI COEXISTANT) ===")
-            r2 = client.get("/api/v2/formations")
-            print("Headers v2 :", {"X-API-Version": r2.headers["X-API-Version"]})
-            print("JSON v2    :", r2.get_json()["data"][0])
+        print("\n=== 2. BLUEPRINT API v2 (NOUVEAU SCHÉMA ENRICHI COEXISTANT) ===")
+        r2 = client.get("/api/v2/formations")
+        print("Headers v2 :", {"X-API-Version": r2.headers["X-API-Version"]})
+        print("JSON v2    :", r2.get_json()["data"][0])
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

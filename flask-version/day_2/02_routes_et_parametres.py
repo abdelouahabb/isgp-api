@@ -66,15 +66,21 @@ def calculer_tva():
 
 
 if __name__ == "__main__":
-    if "--serve" in sys.argv:
-        app.run(host="0.0.0.0", port=5001, debug=True)
-    else:
-        with app.test_client() as client:
-            print("=== 1. TEST PARAMÈTRE DE CHEMIN (<prenom>) ===")
-            print(client.get("/api/saluer/Yasmine").get_json())
+    with app.test_client() as client:
+        print("=== 1. TEST PARAMÈTRE DE CHEMIN (<prenom>) ===")
+        print(client.get("/api/saluer/Yasmine").get_json())
 
-            print("\n=== 2. TEST CONVERTISSEUR <int:stagiaire_id> + RENDU JINJA2 ===")
-            print(client.get("/stagiaires/1/fiche").get_data(as_text=True).strip())
+        print("\n=== 2. TEST CONVERTISSEUR <int:stagiaire_id> + RENDU JINJA2 ===")
+        print(client.get("/stagiaires/1/fiche").get_data(as_text=True).strip())
 
-            print("\n=== 3. TEST QUERY PARAMETERS (?ht=2500&taux=19 via request.args) ===")
-            print(client.get("/api/calcul-tva?ht=2500&taux=19").get_json())
+        print("\n=== 3. TEST QUERY PARAMETERS (?ht=2500&taux=19 via request.args) ===")
+        print(client.get("/api/calcul-tva?ht=2500&taux=19").get_json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        port = int(os.environ.get("PORT", 5001))
+        print("\n" + "=" * 76)
+        print(f"[SERVEUR WSGI FLASK ACTIF] Serveur en écoute sur http://127.0.0.1:{port}")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print(f"  -> Testez les routes en direct sur http://127.0.0.1:{port} (navigateur, curl, Postman)")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur Flask.")
+        print("=" * 76)
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

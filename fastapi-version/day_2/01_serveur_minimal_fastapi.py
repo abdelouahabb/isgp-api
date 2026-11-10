@@ -63,17 +63,23 @@ async def lister_modules_api():
 
 
 if __name__ == "__main__":
-    # Si on lance avec '--serve', démarre le serveur ASGI Uvicorn sur le port 8001
-    if "--serve" in sys.argv:
-        uvicorn.run(app, host="0.0.0.0", port=8001)
-    else:
-        # Sinon, exécute une démonstration immédiate des 2 modes (Jinja2 HTML vs API JSON) via TestClient
-        client = TestClient(app)
-        rep_html = client.get("/accueil")
-        print("=== 1. RENDU DU TEMPLATE JINJA2 (GET /accueil -> day_2/templates/accueil.html) ===")
-        print(rep_html.text.strip())
+    # Sinon, exécute une démonstration immédiate des 2 modes (Jinja2 HTML vs API JSON) via TestClient
+    client = TestClient(app)
+    rep_html = client.get("/accueil")
+    print("=== 1. RENDU DU TEMPLATE JINJA2 (GET /accueil -> day_2/templates/accueil.html) ===")
+    print(rep_html.text.strip())
 
-        rep_json = client.get("/api/bonjour")
-        print("\n=== 2. RÉPONSE API JSON (GET /api/bonjour -> FastAPI JSONResponse) ===")
-        print("Statut HTTP :", rep_json.status_code, "| Content-Type :", rep_json.headers["content-type"])
-        print("Payload JSON :", rep_json.json())
+    rep_json = client.get("/api/bonjour")
+    print("\n=== 2. RÉPONSE API JSON (GET /api/bonjour -> FastAPI JSONResponse) ===")
+    print("Statut HTTP :", rep_json.status_code, "| Content-Type :", rep_json.headers["content-type"])
+    print("Payload JSON :", rep_json.json())
+    if os.environ.get("ISGP_WEB_RUNNER") != "1" and "--once" not in sys.argv:
+        import uvicorn
+        port = int(os.environ.get("PORT", 8001))
+        print("\n" + "=" * 76)
+        print(f"[BOUCLE ASGI UVICORN / FASTAPI ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
+        print(f"  -> Interface Swagger UI interactive : http://127.0.0.1:{port}/docs")
+        print("  -> Placez vos points d'arrêt (breakpoints) dans VS Code / Antigravity")
+        print("  -> Appuyez sur Ctrl+C pour arrêter proprement le serveur ASGI.")
+        print("=" * 76)
+        uvicorn.run(app, host="0.0.0.0", port=port)
