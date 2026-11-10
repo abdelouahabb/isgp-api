@@ -20,6 +20,7 @@ let STATE = {
 
 window.addEventListener("DOMContentLoaded", async () => {
   applyTheme(getCurrentTheme(), false);
+  setupFullscreenLandscape();
   initMermaidEngine();
   registerServiceWorker();
   setupPwaInstallPrompt();
@@ -1437,11 +1438,105 @@ function checkQuizAnswer(dayNum, qId, chosenIdx, correctIdx) {
 }
 
 // ============================================================================
-// 9. PWA & UTILITAIRES
+// 9. PWA HORS-LIGNE, PLEIN ÉCRAN PAYSAGE & UTILITAIRES
 // ============================================================================
 function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
+}
+
+function isFullscreenActive() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function getFullscreenButtonInnerHtml(active) {
+  if (active) {
+    return (
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>' +
+      "</svg><span>Quitter Plein Écran</span>"
+    );
+  }
+  return (
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>' +
+    "</svg><span>Plein Écran Paysage</span>"
+  );
+}
+
+function syncFullscreenButtons() {
+  const active = isFullscreenActive();
+  document.documentElement.setAttribute("data-fullscreen", active ? "true" : "false");
+  document.querySelectorAll(".fullscreen-toggle-btn").forEach((btn) => {
+    btn.innerHTML = getFullscreenButtonInnerHtml(active);
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute(
+      "title",
+      active ? "Quitter le mode plein écran" : "Basculer en Plein Écran & Mode Paysage"
+    );
+  });
+}
+
+function setupFullscreenLandscape() {
+  syncFullscreenButtons();
+  const onFsChange = () => {
+    const active = isFullscreenActive();
+    if (!active && screen.orientation && typeof screen.orientation.unlock === "function") {
+      try {
+        screen.orientation.unlock();
+      } catch (_) {}
+    }
+    syncFullscreenButtons();
+  };
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
+}
+
+async function toggleFullscreenLandscape() {
+  const docEl = document.documentElement;
+  if (isFullscreenActive()) {
+    if (screen.orientation && typeof screen.orientation.unlock === "function") {
+      try {
+        screen.orientation.unlock();
+      } catch (_) {}
+    }
+    try {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } catch (_) {}
+    syncFullscreenButtons();
+    showToast("Mode plein écran désactivé");
+    return;
+  }
+
+  let enteredFs = false;
+  try {
+    if (docEl.requestFullscreen) {
+      await docEl.requestFullscreen({ navigationUI: "hide" });
+      enteredFs = true;
+    } else if (docEl.webkitRequestFullscreen) {
+      docEl.webkitRequestFullscreen();
+      enteredFs = true;
+    }
+  } catch (_) {}
+
+  if (screen.orientation && typeof screen.orientation.lock === "function") {
+    try {
+      await screen.orientation.lock("landscape");
+    } catch (_) {}
+  }
+
+  syncFullscreenButtons();
+  if (!enteredFs) {
+    showToast("Installez la PWA sur l'écran d'accueil pour le plein écran natif sur cet appareil");
+  } else if (window.innerHeight > window.innerWidth) {
+    showToast("Plein écran actif — pivotez l'appareil à l'horizontale pour le mode paysage");
+  } else {
+    showToast("Mode Plein Écran Paysage activé");
   }
 }
 
@@ -1450,6 +1545,11 @@ function setupPwaInstallPrompt() {
     e.preventDefault();
     STATE.deferredPwaPrompt = e;
     document.getElementById("install-pwa-btn")?.classList.remove("hidden");
+  });
+  window.addEventListener("appinstalled", () => {
+    STATE.deferredPwaPrompt = null;
+    document.getElementById("install-pwa-btn")?.classList.add("hidden");
+    showToast("Application PWA installée — prête hors-ligne en plein écran paysage");
   });
 }
 

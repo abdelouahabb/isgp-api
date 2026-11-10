@@ -1,12 +1,14 @@
 {
   "name": "ISGP API Lab — Trilogie Python (Flask • FastAPI • Tornado)",
   "short_name": "ISGP API Lab",
-  "description": "Plateforme PWA interactive pour le séminaire de 5 jours : Développement d'APIs et services web en Python (Flask WSGI, FastAPI ASGI & Tornado IOLoop).",
+  "description": "Plateforme PWA interactive hors-ligne en plein écran paysage : Développement d'APIs et services web en Python (Flask WSGI, FastAPI ASGI & Tornado IOLoop).",
   "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#2563eb",
-  "orientation": "any",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#080d19",
+  "theme_color": "#080d19",
+  "orientation": "landscape",
   "icons": [
     {
       "src": "/static/icon.svg",

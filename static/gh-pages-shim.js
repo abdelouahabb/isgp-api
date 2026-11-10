@@ -9,12 +9,12 @@
   const SITE_ROOT = new URL(window.ISGP_REL_ROOT || "./", window.location.href).href.replace(/\/$/, "");
   const origFetch = window.fetch.bind(window);
 
-  // Désactive l'enregistrement du Service Worker racine /sw.js sous sous-chemin GitHub Pages
+  // Réécriture du chemin du Service Worker (/sw.js -> <SITE_ROOT>/sw.js) pour le mode PWA hors-ligne sous GitHub Pages
   if ("serviceWorker" in navigator) {
     const origRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
     navigator.serviceWorker.register = function (scriptUrl, opts) {
-      if (typeof scriptUrl === "string" && scriptUrl === "/sw.js") {
-        return Promise.resolve({ scope: SITE_ROOT + "/" });
+      if (typeof scriptUrl === "string" && (scriptUrl === "/sw.js" || scriptUrl.endsWith("/sw.js"))) {
+        return origRegister(`${SITE_ROOT}/sw.js`, Object.assign({ scope: `${SITE_ROOT}/` }, opts || {}));
       }
       return origRegister(scriptUrl, opts);
     };

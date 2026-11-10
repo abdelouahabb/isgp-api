@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#1e3a5f" />
+  <meta name="theme-color" content="#080d19" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ISGP — Volume III — Édition Tornado (Event-Loop Asynchrone &amp; RequestHandler)</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
@@ -18,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=41" />
+  <link rel="stylesheet" href="/static/styles.css?v=42" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -63,6 +66,9 @@
       </button>
       <button class="tab-btn" data-tab="quiz" onclick="switchTab('quiz')">
         Évaluations
+      </button>
+      <button id="fullscreen-toggle-btn" class="fullscreen-toggle-btn" onclick="toggleFullscreenLandscape()" title="Basculer en Plein Écran &amp; Mode Paysage">
+        Plein Écran Paysage
       </button>
       <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleTheme()" title="Basculer Mode Clair / Mode Nuit">
         Mode Nuit
@@ -4076,6 +4082,6 @@ class FormationCatalogueHandler(tornado.web.RequestHandler):
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=41"></script>
+  <script src="/static/app.js?v=42"></script>
 </body>
 </html>

@@ -4,7 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#080d19">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>ISGP — Portail de la Trilogie Python : Développement d'APIs (Flask • FastAPI • Tornado)</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
   <script>
     (function () {
       try {
@@ -16,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=41">
+  <link rel="stylesheet" href="/static/styles.css?v=42">
   <script src="/static/mermaid.min.js"></script>
   <style>
     .landing-topbar {
@@ -229,8 +234,14 @@
       <span class="landing-server-pill">
         Serveur Unifié Actif : <code>http://{{ local_ip }}:5000</code>
       </span>
+      <button id="landing-fs-toggle" class="fullscreen-toggle-btn" onclick="toggleLandingFullscreen()" title="Basculer en Plein Écran &amp; Mode Paysage">
+        Plein Écran Paysage
+      </button>
       <button id="landing-theme-toggle" class="theme-toggle-btn" onclick="toggleLandingTheme()" title="Basculer Mode Clair / Mode Nuit">
         Mode Nuit
+      </button>
+      <button id="landing-install-pwa-btn" class="btn-xs hidden" onclick="installLandingPWA()">
+        Installer PWA
       </button>
     </div>
   </header>
@@ -525,10 +536,71 @@
       await renderLandingMermaid(next);
     }
 
+    var _landingDeferredPrompt = null;
+
+    function isLandingFsActive() {
+      return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+
+    function updateLandingFsBtn() {
+      var btn = document.getElementById("landing-fs-toggle");
+      if (!btn) return;
+      var active = isLandingFsActive();
+      document.documentElement.setAttribute("data-fullscreen", active ? "true" : "false");
+      btn.classList.toggle("is-active", active);
+      btn.innerHTML = active
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg><span>Quitter Plein Écran</span>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg><span>Plein Écran Paysage</span>';
+    }
+
+    async function toggleLandingFullscreen() {
+      var docEl = document.documentElement;
+      if (isLandingFsActive()) {
+        if (screen.orientation && typeof screen.orientation.unlock === "function") {
+          try { screen.orientation.unlock(); } catch (e) {}
+        }
+        try {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch (e) {}
+        updateLandingFsBtn();
+        return;
+      }
+      try {
+        if (docEl.requestFullscreen) await docEl.requestFullscreen({ navigationUI: "hide" });
+        else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+      } catch (e) {}
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        try { await screen.orientation.lock("landscape"); } catch (e) {}
+      }
+      updateLandingFsBtn();
+    }
+
+    async function installLandingPWA() {
+      if (!_landingDeferredPrompt) return;
+      _landingDeferredPrompt.prompt();
+      await _landingDeferredPrompt.userChoice;
+      _landingDeferredPrompt = null;
+      var btn = document.getElementById("landing-install-pwa-btn");
+      if (btn) btn.classList.add("hidden");
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
       var cur = getLandingTheme();
       document.documentElement.setAttribute("data-theme", cur);
       updateLandingThemeBtn(cur);
+      updateLandingFsBtn();
+      document.addEventListener("fullscreenchange", updateLandingFsBtn);
+      document.addEventListener("webkitfullscreenchange", updateLandingFsBtn);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(function () {});
+      }
+      window.addEventListener("beforeinstallprompt", function (ev) {
+        ev.preventDefault();
+        _landingDeferredPrompt = ev;
+        var btn = document.getElementById("landing-install-pwa-btn");
+        if (btn) btn.classList.remove("hidden");
+      });
       renderLandingMermaid(cur);
     });
   </script>

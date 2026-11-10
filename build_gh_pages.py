@@ -54,7 +54,7 @@ def rewrite_html_for_static_depth(html: str, rel_root: str) -> str:
     # Injection du drapeau GitHub Pages et du shim avant static/app.js (ou avant </head> si pas d'app.js)
     shim_tag = (
         f'<script>window.ISGP_GH_PAGES = true; window.ISGP_REL_ROOT = "{rel_root}";</script>\n'
-        f'  <script src="{prefix}/static/gh-pages-shim.js?v=41"></script>'
+        f'  <script src="{prefix}/static/gh-pages-shim.js?v=42"></script>'
     )
     if "/static/app.js" in html:
         html = re.sub(
@@ -77,10 +77,15 @@ def build() -> None:
     # Désactivation explicite du traitement Jekyll sur GitHub Pages
     (DIST / ".nojekyll").write_text("", encoding="utf-8")
 
-    # 1. Copie des ressources statiques partagées et du manifeste PWA adapté aux sous-chemins
+    # 1. Copie des ressources statiques partagées, du Service Worker racine et du manifeste PWA adapté aux sous-chemins
     shutil.copytree(ROOT / "static", DIST / "static")
+    sw_source = (ROOT / "static" / "sw.js").read_text(encoding="utf-8")
+    sw_gh_pages = sw_source.replace("const IS_GH_PAGES_SW = false;", "const IS_GH_PAGES_SW = true;", 1)
+    (DIST / "sw.js").write_text(sw_gh_pages, encoding="utf-8")
+
     manifest_data = json.loads((ROOT / "static" / "manifest.json").read_text(encoding="utf-8"))
     manifest_data["start_url"] = "./index.html"
+    manifest_data["scope"] = "./"
     for icon in manifest_data.get("icons", []):
         if icon.get("src", "").startswith("/"):
             icon["src"] = "." + icon["src"]
