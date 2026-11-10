@@ -4,7 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ISGP — Atelier Formulaire HTML &amp; Moteur de Templates Jinja2</title>
-  <link rel="stylesheet" href="/static/styles.css?v=19" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("isgp-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/styles.css?v=43" />
   <style>
     .jinja-demo-wrapper {
       max-width: 1180px;

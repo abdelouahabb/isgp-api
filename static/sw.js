@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-trilogy-v42";
+const CACHE_NAME = "isgp-api-trilogy-v43";
 const IS_GH_PAGES_SW = false;
 
 const CORE_RELATIVE_ASSETS = [

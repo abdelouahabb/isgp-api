@@ -188,6 +188,7 @@ async function loadCourseData() {
     renderDaysSidebar();
     renderActiveLesson();
     renderFilesTree();
+    syncGlossaryCategoryOptions();
     renderGlossary();
     renderQuizSelector();
     renderQuiz(STATE.activeQuizDay);
@@ -1299,6 +1300,26 @@ async function runStudioPython() {
 // ============================================================================
 // 7. RÉFÉRENTIEL DES CONCEPTS
 // ============================================================================
+function syncGlossaryCategoryOptions() {
+  const sel = document.getElementById("glossary-category");
+  if (!sel || !Array.isArray(COURSE_DATA.glossary)) return;
+  const total = COURSE_DATA.glossary.length;
+  const allOpt = sel.querySelector('option[value="ALL"]');
+  if (allOpt) {
+    allOpt.textContent = `Toutes les catégories (${total} fiches)`;
+  }
+  const existing = new Set(Array.from(sel.options).map((o) => o.value));
+  COURSE_DATA.glossary.forEach((item) => {
+    if (item.category && !existing.has(item.category)) {
+      const opt = document.createElement("option");
+      opt.value = item.category;
+      opt.textContent = item.category;
+      sel.appendChild(opt);
+      existing.add(item.category);
+    }
+  });
+}
+
 function renderGlossary() {
   const grid = document.getElementById("glossary-grid");
   if (!grid) return;

@@ -1771,7 +1771,9 @@ pre.mermaid svg {
 [data-theme="dark"] [style*="color: #134e4a"],
 [data-theme="dark"] [style*="color:#134e4a"],
 [data-theme="dark"] [style*="color: #115e59"],
-[data-theme="dark"] [style*="color:#115e59"] {
+[data-theme="dark"] [style*="color:#115e59"],
+[data-theme="dark"] [style*="color: #15803d"],
+[data-theme="dark"] [style*="color:#15803d"] {
   color: #6ee7b7 !important;
 }
 

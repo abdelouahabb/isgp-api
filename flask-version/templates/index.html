@@ -21,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=42" />
+  <link rel="stylesheet" href="/static/styles.css?v=43" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -521,12 +521,19 @@ http GET :5000/api/sandbox/admin-stats X-API-Key:isgp-secret-2026</pre>
             oninput="renderGlossary()"
           />
           <select id="glossary-category" class="select-input" onchange="renderGlossary()">
-            <option value="ALL">Toutes les catégories (40 fiches)</option>
+            <option value="ALL">Toutes les catégories (69 fiches)</option>
+            <option value="Architecture & Contrats API">Architecture &amp; Contrats d'API</option>
+            <option value="Topologie Réseau & Zero-Trust">Topologie Réseau (Nord-Sud / Est-Ouest) &amp; Zero-Trust</option>
+            <option value="OAuth 2.0, OIDC & Délégation">OAuth 2.0, OpenID Connect (OIDC) &amp; Délégation</option>
+            <option value="OpenAPI & Écosystème Swagger">Norme OpenAPI 3.1 &amp; Écosystème Swagger</option>
             <option value="Cryptographie & OpenSSL">Addendum 1 — Cryptographie &amp; OpenSSL (Hachage, AES, RSA, TLS)</option>
             <option value="Linux & Réseau Prod">Addendum 2 — Commandes Linux, Réseau, Logs &amp; Production</option>
             <option value="Types MIME & Flask">Addendum 3 — Types MIME (Content-Type / Accept) &amp; Flask</option>
             <option value="Sécurité & Architecture API">Sécurité, Tokens, AuthN/AuthZ &amp; Rate Limit</option>
             <option value="Architecture Web">Architecture Web, REST &amp; HTTP</option>
+            <option value="Temps Réel & Streaming">Temps Réel (SSE / WebSockets) &amp; Streaming</option>
+            <option value="Performance & Cache">Performance &amp; Cache HTTP (ETag 304 / 412)</option>
+            <option value="Déploiement & Production">Déploiement Cluster Nginx &amp; Production</option>
             <option value="Flask">Framework Flask, Blueprints &amp; WSGI</option>
             <option value="Données">Données (JSON &amp; SQLite ACID)</option>
             <option value="Bases Python">Fondations Python</option>
@@ -4098,6 +4105,6 @@ def modifier_avec_verrou_optimiste(id_f: int):
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=42"></script>
+  <script src="/static/app.js?v=43"></script>
 </body>
 </html>
