@@ -15,54 +15,106 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l1": {
         "context": (
-            "Avant même d'écrire une seule ligne de serveur Web ou de parler de réseau, tout service informatique "
-            "manipule des informations en mémoire vive (RAM) : le nom d'un client, le montant d'une facture, le statut "
-            "d'une réservation ou la date d'expiration d'un jeton.\n"
-            "Dans une API Web, une erreur sur la nature exacte d'une donnée (confondre le texte `\"500\"` avec le nombre "
-            "entier `500`, ou confondre une chaîne vide `\"\"` avec l'absence de valeur `None`) provoque immédiatement "
-            "des bugs critiques chez les applications clientes (applications mobiles Android/iOS, frontaux React/Vue ou "
-            "systèmes bancaires partenaires). Ce premier chapitre établit des fondations rigoureuses sur la gestion de "
-            "la mémoire et le typage en Python dans la perspective directe des échanges JSON avec Tornado."
+            "Avant même d'ouvrir un socket TCP non bloquant ou d'enregistrer une route sur la boucle d'événements `IOLoop` "
+            "de Tornado, tout démon réseau manipule des structures physiques logées en mémoire vive (RAM) : le matricule d'un "
+            "stagiaire, le montant hors taxes d'une convention, l'état d'ouverture d'une session ou l'échéance cryptographique "
+            "d'un jeton d'accès. L'ingénierie des systèmes distribués commence invariablement par la maîtrise exacte de la "
+            "représentation binaire et sémantique de ces grandeurs élémentaires au sein du processus serveur.\n\n"
+            "Dans une architecture d'API Web industrielle, la moindre approximation sur la nature d'une donnée — confondre la "
+            "chaîne textuelle `\"500\"` avec l'entier arithmétique `500`, assimiler une chaîne vide `\"\"` à l'absence "
+            "explicite de valeur `None`, ou ignorer qu'en Python `bool` dérive historiquement de `int` — se propage "
+            "immédiatement à travers la sérialisation JSON vers les applications clientes (terminaux mobiles iOS/Android, "
+            "frontaux React/Vue, progiciels comptables partenaires). Ce chapitre inaugural établit les fondations du modèle "
+            "objet CPython et du contrat de typage qui gouverne `RequestHandler.write()` dans Tornado."
         ),
         "deep_sections": [
             {
-                "heading": "1. Comment Python stocke une variable en mémoire vive (Modèle Objet & Références)",
+                "heading": "1. Modèle Objet CPython, Références Mémoire (`PyObject`) et Typage Dynamique Fort",
                 "body": (
-                    "Lorsqu'on écrit `duree_jours = 5` en Python, le signe `=` ne désigne pas une égalité mathématique "
-                    "mais une **opération d'affectation** (assignation).\n"
-                    "- Python commence par évaluer l'expression située **à droite** du signe `=` : il alloue un objet de type "
-                    "`int` contenant la valeur `5` dans la mémoire vive (RAM).\n"
-                    "- Ensuite, il crée l'étiquette `duree_jours` (située **à gauche**) et la relie par une référence mémoire "
-                    "vers cet objet.\n"
-                    "- En Python, **le type est attaché à la valeur en mémoire et non au nom de la variable** : c'est ce qu'on "
-                    "appelle le **typage dynamique fort**. « Dynamique » signifie que vous n'avez pas besoin de déclarer `int duree_jours` "
-                    "à l'avance ; « Fort » signifie que Python refuse d'additionner implicitement un texte et un nombre (`\"5\" + 2` "
-                    "déclenche immédiatement une erreur `TypeError`, contrairement à JavaScript qui produirait `\"52\"`)."
+                    "Lorsqu'un développeur écrit l'instruction `duree_jours = 5` dans un module Python, le symbole `=` ne "
+                    "traduit nullement une égalité algébrique statique, mais orchestre une **liaison par référence** en deux "
+                    "temps au sein du tas mémoire (*heap*) de l'interpréteur CPython. Le moteur évalue d'abord intégralement "
+                    "l'expression située à droite de l'opérateur et alloue en RAM une structure C interne appelée `PyObject`. "
+                    "Cette structure embarque trois champs indissociables : un compteur de références (`ob_refcnt`) destiné au "
+                    "ramasse-miettes automatique, un pointeur vers le descripteur de type (`ob_type`, ici `<class 'int'>`), et "
+                    "la charge utile binaire représentant l'entier `5`. Ce n'est qu'une fois cet objet matérialisé que Python "
+                    "inscrit l'étiquette symbolique `duree_jours` dans le dictionnaire de l'espace des noms courant et la fait "
+                    "pointer vers l'adresse mémoire de ce `PyObject`.\n\n"
+                    "#### Conséquence architecturale du typage dynamique fort\n\n"
+                    "Contrairement aux langages à boîtes mémoire statiques comme C ou Go, **le type en Python appartient "
+                    "exclusivement à l'objet en RAM et jamais au nom de la variable**. Ce modèle est qualifié de **typage "
+                    "dynamique fort**. Il est dit *dynamique* parce qu'aucune déclaration préalable de type n'est requise sur "
+                    "l'identifiant, mais il demeure rigoureusement *fort* parce que l'interpréteur interdit toute conversion "
+                    "implicite silencieuse entre domaines incompatibles : évaluer `\"5\" + 2` lève instantanément une exception "
+                    "`TypeError`, là où un moteur permissif comme JavaScript concaténerait silencieusement `\"52\"` au risque "
+                    "de fausser un calcul de facturation.\n\n"
+                    "```python — Inspection de l'identité mémoire et du descripteur PyObject\n"
+                    "duree_jours = 5\n"
+                    "print(type(duree_jours), hex(id(duree_jours)))  # <class 'int'> 0x7f...\n"
+                    "# Toute entrée issue d'une URL Tornado arrive sous forme de str :\n"
+                    "param_brut = \"15\"  # self.get_query_argument('places', '15')\n"
+                    "places_totales = int(param_brut) + duree_jours  # 20 (conversion explicite)\n"
+                    "```\n\n"
+                    "> [!IMPORTANT] Coût mémoire et cycle de vie sur une boucle événementielle Tornado\n"
+                    "> Dans un processus Tornado maintenant dix mille connexions ouvertes simultanément sur son `IOLoop`, "
+                    "chaque objet retenu inutilement dans une structure globale maintient son compteur `ob_refcnt > 0` et ne "
+                    "peut être libéré. Dès que l'exécution d'une requête s'achève dans `on_finish()`, la destruction de "
+                    "l'instance éphémère du `RequestHandler` décrémente ces compteurs à zéro et restitue immédiatement la RAM "
+                    "au processus."
                 )
             },
             {
-                "heading": "2. Pourquoi le contrat de type est vital dans une API Web (Sérialisation JSON)",
+                "heading": "2. Le Contrat de Sérialisation JSON (RFC 8259) et le Tampon `self.write()` de Tornado",
                 "body": (
-                    "Une API Web communique avec l'extérieur via le format universel **JSON (JavaScript Object Notation)**. "
-                    "Or, le standard JSON (RFC 8259) ne reconnaît que **4 types scalaires primitifs** :\n"
-                    "1. Les chaînes de caractères (`string`) entourées obligatoirement de guillemets doubles `\"...\"`.\n"
-                    "2. Les nombres (`number`), qu'ils soient entiers (`int`) ou décimaux (`float`).\n"
-                    "3. Les booléens (`boolean`) écrits en minuscules `true` ou `false`.\n"
-                    "4. La valeur nulle (`null`) représentant l'absence explicite de donnée.\n"
-                    "Chaque fois que votre `RequestHandler` Tornado appelle `self.write(dictionnaire)`, il traduit automatiquement vos types Python "
-                    "(`str`, `int`, `float`, `bool`, `None`) vers leurs équivalents JSON. Comprendre cette correspondance "
-                    "garantit que votre API respecte son contrat d'interface."
+                    "Deux processus logiciels distants — par exemple votre démon Python Tornado à Alger et une application "
+                    "bancaire écrite en Kotlin ou en Go — ne partagent jamais leur mémoire vive : ils ne communiquent qu'en "
+                    "s'échangeant des séquences d'octets UTF-8 sur un socket TCP selon la grammaire universelle **JSON "
+                    "(*JavaScript Object Notation*, normalisée par l'IETF dans la RFC 8259)**.\n\n"
+                    "> « JSON est un format textuel d'échange de données structurées, totalement indépendant des langages de "
+                    "programmation, bâti autour de quatre types primitifs scalaires et de deux structures composées. » "
+                    "— IETF RFC 8259, Section 1 (The JavaScript Object Notation Data Interchange Format)\n\n"
+                    "#### Traduction bijective entre objets Python et représentation sur le fil\n\n"
+                    "La grammaire RFC 8259 ne reconnaît exactement que quatre types scalaires primitifs : `string` (séquence "
+                    "Unicode obligatoirement délimitée par des guillemets doubles `\"...\"`), `number` (représentation décimale "
+                    "unifiant entiers et flottants sans support de `NaN` ni `Infinity`), `boolean` (littéraux en minuscules "
+                    "`true` ou `false`), et `null` (marqueur explicite d'absence de valeur). Lorsque votre méthode `get(self)` "
+                    "ou `post(self)` transmet un dictionnaire Python à `self.write(payload)`, Tornado invoque en interne "
+                    "`tornado.escape.json_encode()`, pousse les octets UTF-8 résultants dans son tampon d'écriture `_write_buffer` "
+                    "et positionne automatiquement l'en-tête HTTP `Content-Type: application/json; charset=UTF-8`.\n\n"
+                    "#### Exactitude financière : le piège des flottants IEEE 754 (`float`) face aux centimes entiers (`int`)\n\n"
+                    "Un point d'attention majeur en production concerne les montants monétaires. Le type `float` de Python "
+                    "repose sur la représentation binaire IEEE 754 en base 2, dans laquelle `0.1 + 0.2` produit en réalité "
+                    "`0.30000000000000004`. Dans une API de paiement ou de facturation développée avec Tornado, les architectes "
+                    "transportent donc les sommes soit sous forme d'entiers exprimés dans la plus petite sous-unité monétaire "
+                    "(`montant_centimes: 150050` de type `int`), soit sous forme de chaîne décimale exacte validée par le "
+                    "module standard `decimal.Decimal`."
                 )
             },
             {
-                "heading": "3. L'inspection et la validation défensive des types avec `type()` et `isinstance()`",
+                "heading": "3. Validation Défensive des Types Entrants avec `isinstance()` et l'Héritage `bool < int`",
                 "body": (
-                    "Lorsqu'un client externe envoie des données à votre API, rien ne garantit qu'il a respecté la documentation : "
-                    "il peut envoyer `{\"duree_jours\": \"cinq\"}` au lieu d'un entier `5`. Pour vérifier le type d'une variable "
-                    "dans le code d'une API, on privilégie toujours la fonction native `isinstance(valeur, type_attendu)`.\n"
-                    "- Attention à une subtilité célèbre de Python : la classe `bool` hérite historiquement de `int` (`isinstance(True, int)` "
-                    "vaut `True` !). Lors d'une validation stricte d'un entier provenant d'un JSON, on vérifie donc "
-                    "`isinstance(val, int) and not isinstance(val, bool)`."
+                    "Dès qu'une API accepte des requêtes `POST`, `PUT` ou `PATCH` issues du réseau externe, rien ne garantit "
+                    "que le client a respecté votre documentation OpenAPI : un script mal codé ou un attaquant peut soumettre "
+                    "`{\"duree_jours\": \"cinq\"}` ou `{\"duree_jours\": true}` là où votre logique métier attend un entier "
+                    "strictement positif. Inspecter défensivement les types reçus après `tornado.escape.json_decode(self.request.body)` "
+                    "constitue par conséquent la première barrière d'intégrité de tout `RequestHandler`.\n\n"
+                    "#### Pourquoi privilégier `isinstance()` et écarter explicitement `bool`\n\n"
+                    "En Python, on préfère systématiquement la primitive `isinstance(valeur, TypeAttendu)` à une comparaison "
+                    "rigide `type(valeur) == TypeAttendu`, car `isinstance` respecte le polymorphisme objet et accepte un tuple "
+                    "de types autorisés tel que `isinstance(montant, (int, float))`. Toutefois, une particularité historique du "
+                    "modèle de classes Python exige une vigilance absolue lors de la validation d'une charge utile JSON : "
+                    "depuis Python 2.3, la classe `bool` est implémentée comme une **sous-classe directe de `int`** où `True` "
+                    "vaut `1` et `False` vaut `0`.\n\n"
+                    "```python — Garde-fou strict d'un entier JSON contre le piège isinstance(True, int)\n"
+                    "def est_entier_json_strict(valeur: object) -> bool:\n"
+                    "    # En Python, isinstance(True, int) retourne True !\n"
+                    "    return isinstance(valeur, int) and not isinstance(valeur, bool)\n"
+                    "```\n\n"
+                    "> [!WARNING] Rejet immédiat des booléens déguisés en entiers\n"
+                    "> Si un validateur Tornado se contente de tester `if isinstance(corps.get('duree_jours'), int):`, un "
+                    "client envoyant `{\"duree_jours\": true}` franchira le contrôle avec succès et persistera une formation "
+                    "d'une durée de `1` jour en base SQLite ! L'exclusion explicite `not isinstance(val, bool)` verrouille "
+                    "définitivement cette ambiguïté."
                 )
             }
         ],
@@ -104,9 +156,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur Python ci-dessus, créez une variable `prix_ht = 1500.50` (`float`) et une variable `exonere_tva = False` (`bool`), puis affichez leurs types respectifs avec `type()`.",
-            "Testez la différence entre `100 + 50` et `\"100\" + \"50\"` avec `print()` pour observer l'addition arithmétique face à la concaténation de chaînes.",
-            "Utilisez `isinstance(True, bool)` et `isinstance(100, (int, float))` pour vérifier comment valider un montant numérique en Python."
+            "Dans l'exécuteur Python ci-dessus, déclarez `prix_ht_centimes = 150050` (`int`), `taux_tva = 0.19` (`float`) et `exonere_tva = False` (`bool`), puis inspectez leurs descripteurs de classe respectifs avec `type()` et leurs adresses mémoire avec `hex(id(...))`.",
+            "Comparez le résultat de `100 + 50` face à `\"100\" + \"50\"`, puis écrivez une conversion explicite `int(\"100\") + 50` reproduisant le décodage d'un paramètre d'URL `self.get_query_argument()`.",
+            "Écrivez un prédicat `est_entier_strict(val)` qui retourne `False` pour `True` tout en retournant `True` pour `42`, en combinant `isinstance(val, int)` et `not isinstance(val, bool)`."
         ]
     },
 
@@ -115,49 +167,75 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l2": {
         "context": (
-            "Une API réelle ne renvoie jamais une valeur isolée comme le chiffre `42` tout seul : elle renvoie des "
-            "**documents structurés** (par exemple la fiche complète d'une formation avec son identifiant, son titre, "
-            "sa salle et la liste des stagiaires inscrits).\n"
-            "En Python, toute la représentation des données d'une API repose sur l'alliance de deux structures "
-            "fondamentales : le **Dictionnaire (`dict`)** pour représenter une entité par ses attributs nommés, et la "
-            "**Liste (`list`)** pour représenter une collection ordonnée d'entités. Maîtriser la lecture défensive et "
-            "l'imbrication de ces deux structures représente 70 % du travail quotidien de manipulation de données dans Tornado."
+            "Aucune API d'entreprise ne se limite à échanger un scalaire isolé tel que le nombre `42` sans contexte : "
+            "les systèmes réels transportent des **agrégats documentaires riches**, comme la fiche complète d'une "
+            "session de formation associant ses attributs administratifs, les coordonnées structurées de son intervenant "
+            "et la collection paginée des participants inscrits.\n\n"
+            "Toute la modélisation des charges utiles en mémoire Python et en JSON repose sur la composition orthogonale "
+            "de deux structures de données fondamentales : le **dictionnaire (`dict`)** qui indexe les propriétés d'une "
+            "entité par clés nommées en temps constant, et la **liste (`list`)** qui maintient une séquence ordonnée "
+            "d'éléments. Maîtriser leur mécanique interne en RAM ainsi que les idiomes de lecture défensive et "
+            "d'encapsulation exigés par `RequestHandler.write()` représente le cœur quotidien du développement Tornado."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie interne d'un Dictionnaire Python (`dict` — Table de Hachage)",
+                "heading": "1. Architecture Interne d'un Dictionnaire CPython (`dict` — Table de Hachage Compacte)",
                 "body": (
-                    "Un dictionnaire Python (`{ \"cle\": valeur }`) est implémenté en mémoire sous forme de **table de hachage "
-                    "(Hash Table)**.\n"
-                    "- Cela signifie que rechercher une valeur par sa clé (`formation[\"titre\"]`) est **instantané** "
-                    "(complexité constante `O(1)`), qu'il y ait 3 clés ou 1 000 000 de clés dans le dictionnaire !\n"
-                    "- Chaque clé d'un dictionnaire est **unique** : si vous définissez deux fois la clé `\"salle\"`, la seconde "
-                    "valeur écrase silencieusement la première.\n"
-                    "- Dans le contexte d'une API REST Tornado, passer un dictionnaire à `self.write(dictionnaire)` le sérialise "
-                    "automatiquement en JSON avec l'en-tête `Content-Type: application/json; charset=UTF-8`."
+                    "Sous le capot de l'interpréteur CPython (depuis Python 3.6+), un dictionnaire `{ \"cle\": valeur }` est "
+                    "implémenté sous la forme d'une **table de hachage compacte à adressage ouvert** conservant l'ordre exact "
+                    "d'insertion des clés. Lorsqu'une instruction évalue `formation[\"titre\"]`, Python applique la fonction "
+                    "`hash(\"titre\")` pour obtenir un entier 64 bits qui pointe directement vers l'entrée correspondante du "
+                    "tableau d'indices en mémoire vive. Cette architecture garantit une complexité algorithmique **constante "
+                    "`O(1)` en moyenne** : extraire une clé prend la même fraction de microseconde que le dictionnaire "
+                    "comporte trois attributs ou cent mille entrées.\n\n"
+                    "#### Unicité des clés et sérialisation directe par `RequestHandler.write()`\n\n"
+                    "Dans un dictionnaire, chaque clé immuable est rigoureusement unique : affecter une seconde fois "
+                    "`formation[\"salle\"] = \"Amphi B\"` écrase immédiatement la référence précédente en place. Sur le plan du "
+                    "protocole HTTP, Tornado accorde au type `dict` un statut de citoyen de première classe : passer un "
+                    "dictionnaire à `self.write(formation)` déclenche automatiquement sa conversion JSON UTF-8 et l'émission "
+                    "de l'en-tête `Content-Type: application/json; charset=UTF-8` sans aucune étape intermédiaire."
                 )
             },
             {
-                "heading": "2. Programmation Défensive : Pourquoi `.get()` évite les pannes serveur HTTP 500",
+                "heading": "2. Programmation Défensive : Éradiquer les Pannes `HTTP 500` grâce à `.get()`",
                 "body": (
-                    "Lorsqu'un client envoie une requête `POST` avec un objet JSON à votre serveur Tornado, `tornado.escape.json_decode(self.request.body)` "
-                    "le transforme en dictionnaire `corps`. Que se passe-t-il si vous écrivez `salle = corps[\"salle\"]` et que le client a "
-                    "oublié d'inclure le champ `\"salle\"` dans son JSON ?\n"
-                    "- Python lève immédiatement une exception fatale **`KeyError: 'salle'`**, qui interrompt votre méthode "
-                    "et renvoie une erreur brute **`500 Internal Server Error`** au client !\n"
-                    "- À l'inverse, la méthode **`corps.get(\"salle\", \"Salle A\")`** vérifie proprement si la clé existe : "
-                    "si elle est présente, elle renvoie sa valeur ; si elle est absente, elle renvoie la valeur de repli "
-                    "(`\"Salle A\"` ou `None` par défaut) sans jamais faire planter le serveur."
+                    "Lorsqu'un client distant soumet une requête `POST` à votre serveur Tornado, l'appel "
+                    "`corps = tornado.escape.json_decode(self.request.body)` reconstruit un dictionnaire Python fidèle aux "
+                    "octets envoyés sur le socket TCP. Que se produit-il à l'instant précis où votre contrôleur exécute "
+                    "`salle = corps[\"salle\"]` alors que l'application mobile cliente a omis ce champ optionnel ?\n\n"
+                    "#### De l'exception `KeyError` à la résilience contractuelle\n\n"
+                    "L'opérateur d'indexation directe `[...]` lève sans préavis une exception `KeyError: 'salle'`. Si celle-ci "
+                    "n'est pas interceptée, elle interrompt brutalement le cycle du `RequestHandler`, journalise un *Traceback* "
+                    "complet côté serveur et renvoie au client un code alarmant **`500 Internal Server Error`** imputant à tort "
+                    "la faute à votre infrastructure. À l'opposé, la méthode **`corps.get(\"salle\", \"Salle A\")`** interroge "
+                    "la table de hachage en mode total : elle restitue la valeur associée si la clé figure dans le dictionnaire, "
+                    "ou retourne pacifiquement la valeur de repli (`\"Salle A\"`, ou `None` si le second argument est omis) "
+                    "sans jamais perturber l'`IOLoop`.\n\n"
+                    "```python — Lecture défensive en cascade d'un document JSON imbriqué\n"
+                    "# Même si 'formateur' est absent du JSON, aucune KeyError n'est levée :\n"
+                    "info_formateur = corps.get(\"formateur\") or {}\n"
+                    "grade = info_formateur.get(\"grade\", \"Consultant Senior\")\n"
+                    "salle = corps.get(\"salle\", \"Non attribuée\")\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Les Listes (`list`) et pourquoi Tornado impose une enveloppe dictionnaire dans `self.write()`",
+                "heading": "3. Tableaux Dynamiques (`list`), Slicing et Invariant de Sécurité `self.write()` dans Tornado",
                 "body": (
-                    "Une liste Python (`[elem0, elem1, elem2]`) est un tableau dynamique ordonné :\n"
-                    "- L'indice du premier élément est toujours **`0`**, et l'indice **`-1`** pointe toujours sur le **dernier élément**.\n"
-                    "- Particularité importante de Tornado : appeler `self.write([elem0, elem1])` avec une liste brute lève `TypeError: Lists not accepted for security reasons`. "
-                    "Tornado encourage la bonne pratique industrielle consistant à envelopper toute liste dans un dictionnaire racine : "
-                    "`self.write({\"total\": len(liste), \"data\": liste})`."
+                    "En mémoire CPython, une liste `[elem0, elem1, elem2]` n'enregistre pas les objets côte à côte par valeur, "
+                    "mais maintient un **vecteur contigu de pointeurs** surdimensionné avec réserve de croissance (*over-allocation*), "
+                    "ce qui rend l'accès indexé `liste[0]` ou `liste[-1]` (dernier élément) instantané en `O(1)` et l'ajout "
+                    "en fin de séquence `liste.append(item)` amorti en temps constant. De plus, l'opérateur de découpage "
+                    "*slicing* `liste[offset : offset + limit]` tolère élégamment les bornes dépassant la fin de la liste sans "
+                    "jamais lever d'`IndexError`, offrant la brique idéale pour paginer une collection en mémoire.\n\n"
+                    "> [!IMPORTANT] Pourquoi Tornado interdit `self.write([ ... ])` sur une liste nue\n"
+                    "> Si vous invoquez directement `self.write([{\"id\": 1}, {\"id\": 2}])` dans un `RequestHandler`, Tornado "
+                    "lève délibérément `TypeError: Lists not accepted for security reasons`. Historiquement conçue pour "
+                    "bloquer la faille *JSON Array Hijacking* sur d'anciens moteurs JavaScript redéfinissant le constructeur "
+                    "`Array`, cette garde architecturale impose une excellente discipline d'ingénierie : toujours envelopper "
+                    "une collection dans un **dictionnaire racine** tel que `self.write({\"total\": len(items), \"data\": items})`, "
+                    "ce qui permet d'enrichir ultérieurement la réponse avec des métadonnées de pagination sans jamais rompre "
+                    "la rétrocompatibilité des clients."
                 )
             }
         ],
@@ -201,9 +279,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur Python ci-dessus, ajoutez un 4ème stagiaire avec `.append()` comprenant une clé `\"certifie\": True`, puis affichez le nombre total de stagiaires avec `len()`.",
-            "Écrivez une boucle `for` qui affiche uniquement les stagiaires dont le `\"service\"` est `\"Sécurité\"` ou `\"Réseau\"`.",
-            "Testez `stagiaires[0].get(\"telephone\", \"Non renseigné\")` pour vérifier le comportement de la valeur par défaut."
+            "Dans l'exécuteur Python ci-dessus, insérez un quatrième dictionnaire stagiaire doté de l'attribut `\"certifie\": True` via `.append()`, puis encapsulez la liste dans une enveloppe `{\"total\": len(stagiaires), \"data\": stagiaires}` prête pour `self.write()`.",
+            "Rédigez une compréhension de liste filtrant uniquement les stagiaires rattachés aux services `\"Sécurité\"` ou `\"Réseau\"` sans modifier la collection initiale.",
+            "Éprouvez la résilience de `stagiaires[0].get(\"telephone\", \"Non renseigné\")` et comparez son comportement à un accès direct sur une clé absente."
         ]
     },
 
@@ -212,46 +290,82 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l3": {
         "context": (
-            "Dans un serveur Web Tornado, **chaque route d'API délègue ses calculs et validations à des fonctions Python pures**, "
-            "puis la méthode du `RequestHandler` (`def get(self):`, `def post(self):`) utilise la valeur retournée par **`return`** "
-            "pour appeler `self.set_status(code)` et `self.write(dictionnaire)`.\n"
-            "Une incompréhension fréquente chez les débutants consiste à confondre `print()` (qui écrit uniquement "
-            "dans la console noire de l'administrateur) et `return` / `self.write()` (qui transmet la donnée au programme appelant). "
-            "Ce chapitre détaille le cycle d'appel d'une fonction, les paramètres par défaut et la syntaxe des tuples "
-            "de retour `(reponse_json, code_statut_http)`."
+            "Au sein d'une application Tornado maintenable, les classes `RequestHandler` ne contiennent jamais des "
+            "centaines de lignes de calculs fiscaux ou d'algorithmes métier mêlés au protocole HTTP : **chaque contrôleur "
+            "délègue la logique pure à des fonctions Python découplées**, puis exploite la valeur restituée par "
+            "l'instruction **`return`** pour piloter `self.set_status(code)` et `self.write(dictionnaire)`.\n\n"
+            "Une confusion conceptuelle persistante chez les développeurs débutants consiste à assimiler `print()` — qui "
+            "écrit sur le flux texte local de l'administrateur — à `return` et `self.write()`, seuls capables de "
+            "transmettre une donnée structurée vers l'appelant et le tampon socket de Tornado. Ce chapitre dissèque le "
+            "cadre d'exécution d'une fonction, le patron des clauses de garde (*Early Return*) et le décompactage de "
+            "tuples `(charge_json, statut_http)`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie complète d'une Fonction Python (`def`, Paramètres, Portée locale)",
+                "heading": "1. Cadre d'Exécution (*Stack Frame*), Portée Locale et Cycle de `return`",
                 "body": (
-                    "Une fonction est une unité logique autonome définie par quatre éléments :\n"
-                    "1. Le mot-clé **`def`** suivi du nom de la fonction en `snake_case` (ex: `calculer_facture`).\n"
-                    "2. La **signature entre parenthèses** `(montant_ht, taux_tva=0.19)` : les variables listées ici sont les "
-                    "**paramètres**. Lorsqu'un paramètre possède une valeur par défaut (`=0.19`), il devient optionnel lors de l'appel.\n"
-                    "3. Le **bloc indenté de 4 espaces** après les deux-points `:` : toutes les variables créées à l'intérieur "
-                    "de ce bloc sont des **variables locales** (isolées en mémoire : elles sont détruites dès que la fonction se termine).\n"
-                    "4. L'instruction **`return`** : elle interrompt immédiatement la fonction et restitue l'objet résultat à l'appelant."
+                    "Déclarer une fonction au moyen du mot-clé `def calculer_facture(montant_ht, taux_tva=0.19):` forge un "
+                    "composant réutilisable régi par une frontière mémoire stricte. À chaque invocation, la machine virtuelle "
+                    "Python pousse sur sa pile d'appels un **cadre d'exécution isolé (*frame*)** contenant uniquement les "
+                    "paramètres reçus et les variables locales créées dans le bloc indenté. Si un paramètre déclare une valeur "
+                    "par défaut immuable (`=0.19`), l'appelant peut l'omettre dans le cas nominal tout en conservant la "
+                    "faculté de la surcharger explicitement.\n\n"
+                    "#### Terminaison immédiate et réclamation mémoire\n\n"
+                    "Dès que le flux d'exécution rencontre l'instruction `return resultat`, deux phénomènes atomiques se "
+                    "produisent : la fonction s'interrompt instantanément (toute instruction placée en dessous dans le même "
+                    "bloc constitue du code mort inaccessible) et la référence vers l'objet `resultat` est transmise à "
+                    "l'appelant tandis que toutes les variables intermédiaires locales sont désallouées. Sur une boucle "
+                    "événementielle `IOLoop` partageant un processus unique entre des milliers d'appels successifs, cette "
+                    "automaticité empêche toute fuite d'état d'un client vers le suivant.\n\n"
+                    "> [!WARNING] L'anti-pattern classique des valeurs par défaut mutables (`def f(items=[]):`)\n"
+                    "> En Python, les expressions par défaut d'une signature `def` sont évaluées **une seule et unique fois au "
+                    "chargement du module**, et non à chaque appel de la fonction. Écrire `def ajouter_erreur(msg, liste=[]):` "
+                    "partagerait exactement la même liste en RAM entre tous les clients de votre API Tornado ! Adoptez "
+                    "invariablement le marqueur immuable `None` : `def ajouter_erreur(msg, liste=None): liste = [] if liste is None else liste`."
                 )
             },
             {
-                "heading": "2. Le patron « Early Return » (Sortie Anticipée) dans les `RequestHandlers` Tornado",
+                "heading": "2. Le Patron « Early Return » (*Guard Clauses*) dans les Méthodes `RequestHandler`",
                 "body": (
-                    "Puisque l'instruction `return` arrête instantanément l'exécution de la méthode `get(self)` ou `post(self)`, les ingénieurs API "
-                    "l'utilisent pour valider les entrées dès les premières lignes (principe des *Guard Clauses* ou sorties anticipées) :\n"
-                    "- Ligne 1 : Si le jeton d'authentification est absent → `self.set_status(401); self.write({\"erreur\": \"Non authentifié\"}); return` (la méthode s'arrête ici !).\n"
-                    "- Ligne 2 : Si le montant est négatif → `self.set_status(422); self.write({\"erreur\": \"Montant invalide\"}); return`.\n"
-                    "- Ligne 3 : Traitement nominal → `self.write({\"resultat\": ...})`.\n"
-                    "Ce style évite d'imbriquer 5 niveaux de `if / else` et rend le code d'un `RequestHandler` limpide à auditer."
+                    "Dans les méthodes `def get(self):` ou `def post(self):` d'un `RequestHandler` Tornado, une subtilité "
+                    "essentielle distingue `self.write()` de l'instruction `return` du langage Python : **appeler `self.write(d)` "
+                    "ajoute simplement des octets dans le tampon mémoire de sortie de la requête sans interrompre l'exécution "
+                    "de la méthode Python** ! Si vous écrivez un message d'erreur `400` sans faire suivre cet envoi d'un "
+                    "`return` explicite, Python poursuivra sa descente dans le traitement nominal et concaténera un second "
+                    "objet JSON invalide à la suite du premier dans le même tampon HTTP.\n\n"
+                    "#### Linéariser la validation par sorties anticipées\n\n"
+                    "Les ingénieurs expérimentés combinent systématiquement les vérifications de préconditions en tête de "
+                    "méthode avec un `return` immédiat (ou `self.finish(err)` suivi de `return`) afin d'aplatir l'arbre "
+                    "décisionnel et d'éliminer les pyramides illisibles de `if / else` imbriqués sur cinq niveaux.\n\n"
+                    "```python — Clauses de garde linéaires dans un RequestHandler Tornado\n"
+                    "def post(self) -> None:\n"
+                    "    if not self.request.headers.get(\"Authorization\"):\n"
+                    "        self.set_status(401)\n"
+                    "        self.write({\"erreur\": \"Authentification requise\"})\n"
+                    "        return  # Indispensable pour stopper l'exécution ici !\n"
+                    "    if montant <= 0:\n"
+                    "        self.set_status(422)\n"
+                    "        self.write({\"erreur\": \"Le montant doit être strictement positif\"})\n"
+                    "        return\n"
+                    "    self.set_status(201)\n"
+                    "    self.write({\"statut\": \"confirmé\", \"montant\": montant})\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Retourner plusieurs valeurs depuis une fonction métier avec un Tuple `(corps, code_http)`",
+                "heading": "3. Découpler la Logique Métier du Transport HTTP grâce aux Tuples `(corps, code_http)`",
                 "body": (
-                    "Comment une fonction métier pure peut-elle renvoyer **à la fois** le dictionnaire JSON ET le code de "
-                    "statut HTTP (`200`, `201`, `400`, `404`) à votre `RequestHandler` Tornado ?\n"
-                    "En Python, séparer deux valeurs par une virgule après `return` (`return dictionnaire, 201`) construit "
-                    "automatiquement un **Tuple** `(dictionnaire, 201)` (une séquence immuable de 2 éléments). Le `RequestHandler` peut "
-                    "alors décompacter ces deux valeurs : `corps, statut = construire_reponse_api(...)`, puis exécuter `self.set_status(statut); self.write(corps)`."
+                    "Pour tester unitairement vos règles de gestion en une fraction de milliseconde sans même démarrer de "
+                    "serveur HTTP, la fonction métier pure ne doit pas dépendre de `self` ni de `tornado.web`. Comment "
+                    "peut-elle dès lors restituer simultanément le dictionnaire de données JSON et le code de statut HTTP "
+                    "(`200`, `201`, `400`, `422`) qui en découle ?\n\n"
+                    "#### Empaquetage et décompactage (*Tuple Unpacking*)\n\n"
+                    "Séparer plusieurs expressions par des virgules après `return` (`return dictionnaire, 201`) construit en "
+                    "mémoire un **tuple** immuable `(dictionnaire, 201)`. À la réception, le `RequestHandler` Tornado "
+                    "décompacte élégamment cette paire en une seule affectation lisible : "
+                    "`corps, statut = construire_reponse_api(titre, duree)`, avant d'appliquer `self.set_status(statut)` puis "
+                    "`self.write(corps)`. Ce découpage architectural dit *Clean / Hexagonal* isole intégralement votre domaine "
+                    "métier des détails protocolaires de Tornado."
                 )
             }
         ],
@@ -294,9 +408,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur ci-dessus, appelez `construire_reponse_api(\"\", 3)` et observez comment le premier `if` déclenche un retour anticipé avec le code `400`.",
-            "Ajoutez une règle dans `construire_reponse_api` qui renvoie le code `422` si `duree_jours` est supérieur à `30`.",
-            "Décompactez le tuple retourné dans deux variables `corps, code = construire_reponse_api(\"Docker\", 4)` et affichez-les séparément."
+            "Dans l'exécuteur ci-dessus, invoquez `construire_reponse_api(\"\", 3)` afin d'observer le déclenchement immédiat de la clause de garde retournant le code `400` sans exécuter la création.",
+            "Enrichissez `construire_reponse_api` d'une seconde clause de garde renvoyant le tuple `({\"erreur\": \"Durée maximale plafonnée à 30 jours\"}, 422)` lorsque `duree_jours > 30`.",
+            "Décompactez l'appel nominal `corps, statut = construire_reponse_api(\"Architecture Tornado\", 4)` et affichez distinctement le statut numérique et le dictionnaire."
         ]
     },
 
@@ -305,55 +419,85 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l4": {
         "context": (
-            "En lisant le code d'une application Tornado professionnelle, deux constructions Python reviennent sur presque "
-            "chaque `RequestHandler` :\n"
-            "1. Les blocs de gestion d'erreurs **`try / except`**.\n"
-            "2. Les lignes commençant par le symbole arobase **`@`** (comme `@tornado.web.authenticated` ou "
-            "`@exiger_role(\"admin\")`), appelées **Décorateurs**.\n"
-            "Ce chapitre lève totalement le voile sur les exceptions et les décorateurs afin qu'aucune syntaxe de Tornado "
-            "ne ressemble à de la magie."
+            "En parcourant le code source d'une plateforme Tornado en production, deux idiomes Python structurent "
+            "systématiquement la robustesse et la sécurité de chaque `RequestHandler` : les gestionnaires d'exceptions "
+            "ciblés **`try / except`** et les décorateurs de méthodes introduits par le symbole arobase **`@`** tels que "
+            "`@tornado.web.authenticated` ou `@exiger_role(\"admin\")`.\n\n"
+            "Loin d'être des artifices syntaxiques opaques, ces deux constructions reposent sur le mécanisme de remontée "
+            "de pile (*stack unwinding*) et sur les fermetures lexicales (*closures*) de Python. Ce chapitre en dévoile "
+            "l'anatomie complète, y compris leur interaction avec les coroutines asynchrones `async def` exécutées par "
+            "l'`IOLoop` Tornado."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie d'une Exception et pourquoi un serveur Web ne doit jamais s'arrêter",
+                "heading": "1. Remontée de Pile (*Stack Unwinding*) et Isolation des Erreurs par `try / except`",
                 "body": (
-                    "Dans un script personnel, si une erreur survient (par exemple `int(\"abc\")` ou une division par zéro), "
-                    "le programme affiche un *Traceback* et s'arrête. Mais sur un serveur d'API Tornado qui dessert des milliers de connexions "
-                    "simultanées sur son `IOLoop`, l'erreur de saisie d'un client ne doit jamais faire tomber le service ni exposer vos chemins "
-                    "de fichiers internes !\n"
-                    "Le bloc **`try / except`** fonctionne comme un filet de sécurité ciblé :\n"
-                    "- Python exécute les instructions du bloc `try:`.\n"
-                    "- Si tout se passe bien, le bloc `except:` est totalement ignoré.\n"
-                    "- Si une exception du type spécifié (`ValueError`, `KeyError`) se produit à n'importe quelle ligne du `try:`, "
-                    "Python saute immédiatement dans le bloc `except:` correspondant, où vous pouvez renvoyer une réponse "
-                    "propre **`400 Bad Request`** en JSON."
+                    "Dans un script jetable lancé en console, une conversion impossible telle que `int(\"abc\")` interrompt "
+                    "légitimement le processus en imprimant un *Traceback*. Sur un démon Tornado multiplexant des milliers de "
+                    "clients concurrents sur une unique boucle `IOLoop`, laisser une saisie invalide d'un utilisateur isolé "
+                    "provoquer une défaillance non maîtrisée (`500 Internal Server Error`) fausse vos métriques d'exploitation "
+                    "et risque, si `debug=True` a été oublié, d'exposer l'arborescence interne de votre code source.\n\n"
+                    "#### Granularité chirurgicale de la capture d'exceptions\n\n"
+                    "Lorsqu'une instruction échoue à l'intérieur d'un bloc `try:`, la machine virtuelle suspend immédiatement "
+                    "la séquence en cours et remonte la pile à la recherche d'une clause `except` correspondant exactement à "
+                    "la classe de l'exception levée (`ValueError`, `json.JSONDecodeError`, `sqlite3.IntegrityError`). Si aucune "
+                    "anomalie ne survient, le coût d'exécution d'un bloc `try` en Python moderne (3.11+ *zero-cost exceptions*) "
+                    "est pratiquement nul. En revanche, on ne capture jamais `except Exception:` à l'aveugle : cibler "
+                    "exclusivement l'erreur attendue permet de convertir une entrée client malformée en réponse JSON propre "
+                    "`400 Bad Request` tout en laissant remonter les véritables bugs de programmation vers `write_error(500)`."
                 )
             },
             {
-                "heading": "2. Comment fonctionne réellement un Décorateur `@` en Python (Fonctions d'ordre supérieur)",
+                "heading": "2. Démystification Complète des Décorateurs `@` : Fermetures Lexicales et Ordre Supérieur",
                 "body": (
-                    "En Python, **une fonction ou une méthode est un objet comme un autre** : on peut passer une fonction en argument à une "
-                    "autre fonction, et une fonction peut créer et retourner une nouvelle fonction.\n"
-                    "Un **décorateur** est simplement une fonction `decorateur(fonction_cible)` qui enveloppe `fonction_cible` "
-                    "dans une fonction interne `enveloppe(*args, **kwargs)` pour exécuter du code **avant** et/ou **après** elle.\n"
-                    "Écrire :\n"
-                    "`@journaliser_appel`\n"
-                    "`def traiter_paiement(m): ...`\n"
-                    "est strictement équivalent à écrire :\n"
-                    "`traiter_paiement = journaliser_appel(traiter_paiement)`.\n"
-                    "C'est grâce à ce mécanisme que `@exiger_role(\"admin\")` vérifie le Bearer Token dans `self.request.headers` "
-                    "avant même d'entrer dans la méthode `delete(self, id)` d'un `RequestHandler` Tornado !"
+                    "En Python, les fonctions et méthodes de classes ne sont pas de simples blocs d'instructions figés en "
+                    "mémoire morte : ce sont des **objets de première classe (`function` instances)** que l'on peut transmettre "
+                    "en argument, stocker dans un dictionnaire ou fabriquer dynamiquement à l'intérieur d'une autre fonction. "
+                    "Un **décorateur** est une fonction d'ordre supérieur qui accepte une fonction cible en entrée et retourne "
+                    "une nouvelle fonction enveloppante enrichie d'un comportement transversal.\n\n"
+                    "```python — Équivalence stricte entre la syntaxe @ et la réassignation d'objet\n"
+                    "# Écriture idiomatique avec @ :\n"
+                    "@journaliser_appel\n"
+                    "def traiter_paiement(montant: float) -> dict:\n"
+                    "    return {\"montant\": montant, \"statut\": \"valide\"}\n\n"
+                    "# Ce que l'interpréteur Python exécute exactement à la définition :\n"
+                    "traiter_paiement = journaliser_appel(traiter_paiement)\n"
+                    "```\n\n"
+                    "Grâce à sa fermeture lexicale (*closure*), la fonction interne `enveloppe` conserve une référence permanente "
+                    "vers la fonction originale : elle peut inspecter les arguments ou les en-têtes HTTP **avant** l'appel, "
+                    "décider de court-circuiter totalement l'exécution si le jeton est invalide, ou mesurer la durée écoulée "
+                    "**après** l'appel."
                 )
             },
             {
-                "heading": "3. Le rôle de `*args`, `**kwargs` et `@wraps` dans un décorateur de méthode Tornado",
+                "heading": "3. Décorer une Méthode de `RequestHandler` Tornado (`self`, `*args`, `@wraps` et `async def`)",
                 "body": (
-                    "Pour qu'un décorateur puisse envelopper n'importe quelle méthode `get(self, ...)` d'un `RequestHandler`, "
-                    "sa fonction interne utilise la signature `def enveloppe(self, *args, **kwargs):` :\n"
-                    "- `self` donne accès à l'instance courante du `RequestHandler` (`self.request.headers`, `self.set_status`, `self.write`).\n"
-                    "- `*args` et `**kwargs` capturent les paramètres d'URL extraits par les expressions régulières du routeur Tornado.\n"
-                    "- On place toujours `@wraps(methode)` (du module standard `functools`) au-dessus de `def enveloppe` afin que la méthode "
-                    "décorée conserve son nom (`__name__`) et sa docstring."
+                    "Adapter le patron décorateur aux méthodes d'instance `get(self, ...)` ou `delete(self, id)` d'un "
+                    "`RequestHandler` Tornado requiert la maîtrise de trois détails d'ingénierie fondamentaux. Tout d'abord, "
+                    "le premier paramètre reçu par la fonction interne est toujours **`self`**, c'est-à-dire l'instance "
+                    "courante du `RequestHandler` donnant accès à `self.request.headers`, `self.current_user`, `self.set_status()` "
+                    "et `self.finish()`. Ensuite, la signature générique `(self, *args, **kwargs)` transfère de façon "
+                    "transparente tous les groupes capturants extraits de l'URL par le routeur Regex de Tornado.\n\n"
+                    "```python — Squelette industriel d'un décorateur compatible synchrone & async Tornado\n"
+                    "from functools import wraps\n"
+                    "import inspect\n\n"
+                    "def exiger_cle_interne(methode):\n"
+                    "    @wraps(methode)  # Préserve __name__, __doc__ et la signature originale\n"
+                    "    async def enveloppe(self, *args, **kwargs):\n"
+                    "        if self.request.headers.get(\"X-Internal-Token\") != \"secret\":\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Jeton interne invalide\"})\n"
+                    "            return\n"
+                    "        resultat = methode(self, *args, **kwargs)\n"
+                    "        if inspect.isawaitable(resultat):\n"
+                    "            return await resultat\n"
+                    "        return resultat\n"
+                    "    return enveloppe\n"
+                    "```\n\n"
+                    "> [!TIP] Compatibilité universelle avec les coroutines `async def` de Tornado\n"
+                    "> Dans Tornado 6, une méthode de `RequestHandler` peut être soit synchrone (`def get`), soit asynchrone "
+                    "(`async def get`). Définir l'enveloppe en `async def` et tester `inspect.isawaitable(resultat)` garantit "
+                    "que l'`IOLoop` attendra proprement la fin de la coroutine décorée sans jamais perdre d'exception en vol."
                 )
             }
         ],
@@ -403,9 +547,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur ci-dessus, appelez `convertir_parametre_entier(\"-5\")` et modifiez la fonction pour qu'elle rejette également les nombres négatifs ou nuls.",
-            "Créez un second décorateur `@verifier_montant_positif` qui renvoie `{\"erreur\": \"Montant <= 0 interdit\"}` si l'argument passé à `traiter_paiement` est inférieur ou égal à 0.",
-            "Observez comment l'ordre des `print()` prouve que le décorateur s'exécute avant et après la fonction décorée."
+            "Dans l'exécuteur ci-dessus, appelez `convertir_parametre_entier(\"-5\")` puis étendez la validation afin que tout entier inférieur ou égal à zéro retourne un dictionnaire d'erreur structuré.",
+            "Rédigez un décorateur `@verifier_montant_positif` muni de `@wraps` qui court-circuite l'appel à `traiter_paiement` en retournant `{\"erreur\": \"Montant <= 0 interdit\"}` avant même d'exécuter le corps métier si le montant est négatif ou nul.",
+            "Empilez `@journaliser_execution` et `@verifier_montant_positif` sur la même fonction afin d'observer l'ordre d'imbrication des pré-traitements et post-traitements."
         ]
     },
 
@@ -414,56 +558,80 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l1": {
         "context": (
-            "Pourquoi toutes les banques, les opérateurs télécoms, les ministères et les plateformes numériques "
-            "construisent-ils aujourd'hui leurs systèmes autour d'**APIs** plutôt que de simples sites Web ?\n"
-            "Lorsqu'une organisation développe un site Web traditionnel (monolithe HTML), les données de la base et "
-            "leur mise en page graphique (couleurs, tableaux HTML, polices) sont fusionnées côté serveur. Ce modèle "
-            "s'effondre dès qu'il faut connecter une application mobile iOS/Android, un guichet automatique ou le "
-            "système informatique d'un partenaire externe. Ce chapitre retrace l'évolution architecturale des services "
-            "Web et démontre concrètement pourquoi le couple **REST / JSON** s'est imposé comme le standard universel."
+            "Pourquoi la quasi-totalité des institutions financières, des opérateurs télécoms, des services publics "
+            "numériques et des plateformes logistiques bâtissent-ils aujourd'hui leur système d'information autour "
+            "d'**APIs découplées** plutôt que d'applications Web monolithiques ?\n\n"
+            "Dans un serveur Web classique des années 1990-2000, les données extraites de la base SQL et leur mise en "
+            "forme visuelle (couleurs, grilles CSS, balises HTML) étaient soudées au sein de la même réponse serveur. "
+            "Ce couplage fort s'effondre instantanément dès qu'il faut raccorder une application mobile iOS/Android, un "
+            "automate bancaire ou le progiciel ERP d'un partenaire. Ce chapitre retrace la généalogie architecturale des "
+            "services Web et démontre, octets à l'appui avec Tornado, pourquoi le paradigme **REST / JSON** s'est imposé "
+            "comme la *lingua franca* des architectures distribuées."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le problème du Couplage Fort (Serveur HTML) face au Découplage (Architecture API)",
+                "heading": "1. Du Monolithe HTML Couplé à l'Architecture Centrée API (Découplage Métier / Présentation)",
                 "body": (
-                    "Dans une architecture Web classique des années 1990-2000, le serveur exécute la requête SQL et injecte "
-                    "les résultats directement dans une page `<html><body><div class=\"card\">...</div></body></html>`.\n"
-                    "- **Inconvénient majeur** : Un programme tiers (par exemple le logiciel de comptabilité d'un partenaire "
-                    "ou une application mobile native Swift/Kotlin) ne sait pas interpréter des balises visuelles `<div>` ou "
-                    "`<span class=\"text-blue\">`. Si un développeur Web modifie la mise en page HTML, toute l'intégration "
-                    "partenaire casse instantanément.\n"
-                    "- **La révolution de l'API (Application Programming Interface)** : Le serveur métier expose des **données "
-                    "pures et structurées (JSON)** via `self.write(dict)` selon un contrat stable. Le site Web, "
-                    "l'application mobile et les serveurs partenaires deviennent tous de simples **clients** qui consomment "
-                    "exactement la même API."
+                    "Lorsqu'un serveur monolithique traditionnel exécute une requête métier et fusionne immédiatement ses "
+                    "résultats dans un document `<html><body><div class=\"carte-meteo\">24 °C</div></body></html>`, il ne "
+                    "produit pas de l'information exploitable par une machine : il produit des instructions de dessin pour un "
+                    "navigateur graphique. Si le logiciel comptable d'un partenaire ou une application mobile Swift/Kotlin tente "
+                    "d'extraire ce chiffre par *Web Scraping*, la moindre modification cosmétique d'une classe CSS par un "
+                    "intégrateur Web provoque une rupture immédiate en production.\n\n"
+                    "#### Le serveur Tornado comme source de vérité contractuelle\n\n"
+                    "L'architecture centrée **API (*Application Programming Interface*)** opère une séparation chirurgicale "
+                    "des responsabilités : le backend Tornado expose exclusivement des **représentations de données pures, "
+                    "typées et versionnées** via `self.write(dict)`. Dès lors, le portail Web React/Vue, les applications "
+                    "mobiles natives et les démons partenaires deviennent tous des consommateurs équivalents interrogeant "
+                    "exactement le même contrat JSON stable."
                 )
             },
             {
-                "heading": "2. Comparaison Technique : SOAP/XML (1ère génération) vs REST/JSON (Standard actuel)",
+                "heading": "2. Généalogie des Protocoles : SOAP/XML (WSDL) face à la Révolution REST/JSON (Roy Fielding)",
                 "body": (
-                    "Historiquement, deux grandes familles de services Web se sont succédé :\n"
-                    "- **SOAP (Simple Object Access Protocol)** : Né à la fin des années 1990, SOAP encapsule chaque message "
-                    "dans une enveloppe **XML** verbeuse (`<soap:Envelope><soap:Header/><soap:Body>...</soap:Body></soap:Envelope>`). "
-                    "Il n'utilise HTTP que comme un simple tunnel (souvent uniquement via `POST` sur une seule URL) et impose un "
-                    "fichier de contrat complexe appelé **WSDL**. Bien qu'encore présent dans certains systèmes bancaires "
-                    "historiques, SOAP génère des messages 3 à 5 fois plus lourds que JSON et nécessite des analyseurs XML coûteux en CPU.\n"
-                    "- **REST (Representational State Transfer)** : Formalisé par Roy Fielding (co-auteur de la spécification HTTP) "
-                    "en 2000, REST propose d'utiliser **pleinement les mécanismes natifs de HTTP** (les URLs pour identifier les "
-                    "ressources, les verbes `GET/POST/PUT/DELETE` pour exprimer l'action, et les codes `200/400/404` pour le statut) "
-                    "en transportant les données au format **JSON**, léger et directement convertible en dictionnaire Python ou objet JavaScript."
+                    "Deux philosophies majeures ont façonné l'histoire de l'intégration machine-à-machine sur IP. Conçu à la "
+                    "fin des années 1990 par Microsoft et IBM, **SOAP (*Simple Object Access Protocol*)** considère HTTP comme "
+                    "un simple tuyau aveugle : toutes les opérations sont généralement tunnelisées en `POST` vers une unique "
+                    "URL, enfermées dans une lourde enveloppe XML (`<soap:Envelope><soap:Body>...</soap:Body></soap:Envelope>`) "
+                    "décrite par un contrat rigide **WSDL / XSD**. Bien que toujours présent dans la compensation interbancaire "
+                    "historique, SOAP multiplie par trois à cinq le volume réseau et mobilise des analyseurs DOM XML gourmands "
+                    "en cycles processeur sur une boucle événementielle.\n\n"
+                    "> « REST fournit un ensemble de contraintes architecturales qui, lorsqu'elles sont appliquées dans leur "
+                    "globalité, mettent l'accent sur le passage à l'échelle des interactions entre composants et la généralité "
+                    "des interfaces. » — Roy Thomas Fielding, Architectural Styles and the Design of Network-based Software "
+                    "Architectures (Thèse de doctorat, UC Irvine, Chapitre 5, 2000)\n\n"
+                    "En formalisant **REST (*Representational State Transfer*)**, Roy Fielding — co-auteur principal de la "
+                    "spécification HTTP/1.1 — a démontré qu'il était inutile de réinventer une couche d'adressage et d'erreur "
+                    "à l'intérieur de XML alors que HTTP possède déjà nativement les **URIs** pour identifier les ressources, "
+                    "les **méthodes** (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) pour qualifier l'action, les **codes de statut** "
+                    "(`200`, `201`, `404`, `422`) pour exprimer l'issue, et les en-têtes `Etag` / `Cache-Control` pour la mise "
+                    "en cache. Associé à la compacité de **JSON**, ce modèle réduit drastiquement la latence de sérialisation "
+                    "sur l'`IOLoop` de Tornado.\n\n"
+                    "```http — Contraste d'empreinte sur le fil : réponse REST/JSON Tornado vs enveloppe SOAP\n"
+                    "HTTP/1.1 200 OK\n"
+                    "Server: TornadoServer/6.4\n"
+                    "Content-Type: application/json; charset=UTF-8\n"
+                    "Etag: \"a8f5f167f44f4964e6c998dee827110c\"\n\n"
+                    "{\"ville\": \"Alger\", \"temperature_c\": 24.5, \"statut\": \"ensoleille\"}\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Quand utiliser REST/JSON, GraphQL ou gRPC ?",
+                "heading": "3. Arbitrage Architectural Moderne : REST/JSON, GraphQL et gRPC dans Tornado",
                 "body": (
-                    "Bien que **REST/JSON** couvre plus de 85 % des besoins en entreprise, deux autres technologies complètent "
-                    "l'écosystème moderne :\n"
-                    "- **GraphQL** : Créé par Meta pour les écrans mobiles complexes devant agréger 10 sources de données en une "
-                    "seule requête en choisissant exactement les champs voulus.\n"
-                    "- **gRPC (Protocol Buffers sur HTTP/2)** : Créé par Google pour la communication interne ultra-rapide (binaire) "
-                    "entre deux microservices backend qui s'appellent des milliers de fois par seconde.\n"
-                    "Pour toute API publique, partenaire, mobile ou Web d'entreprise, **REST/JSON** demeure le choix de référence "
-                    "pour sa simplicité, sa lisibilité, sa compatibilité universelle et sa mise en cache HTTP native."
+                    "Dans un écosystème d'entreprise contemporain, le choix du protocole dépend de la topologie du trafic "
+                    "(Nord-Sud public contre Est-Ouest interne). **REST/JSON** demeure le standard incontesté pour plus de "
+                    "85 % des flux Nord-Sud (APIs publiques, partenaires B2B, portails Web et mobiles) grâce à sa lisibilité "
+                    "immédiate sous `curl`, son intégration native au cache HTTP des CDN/proxies et la maturité universelle "
+                    "d'OpenAPI 3.0.\n\n"
+                    "#### Positionnement ciblé de GraphQL et gRPC\n\n"
+                    "Créé par Meta en 2015, **GraphQL** répond aux écrans mobiles agrégeant une dizaine d'entités imbriquées "
+                    "en permettant au client de sélectionner champ par champ sa projection sur un endpoint `POST /graphql` "
+                    "unique, au prix toutefois d'une complexité accrue de mise en cache HTTP et de prévention des requêtes `N+1`. "
+                    "De son côté, **gRPC** (Google) transporte des messages binaires compilés *Protocol Buffers* sur des flux "
+                    "HTTP/2 multiplexés : il excelle dans les appels Est-Ouest à ultra-haute fréquence entre microservices "
+                    "internes, tandis qu'une passerelle Tornado REST/JSON assure l'exposition claire et gouvernée vers le monde "
+                    "extérieur."
                 )
             }
         ],
@@ -498,8 +666,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_1/01_html_vs_json.py` ci-dessus et comparez le nombre exact d'octets entre la réponse HTML, l'enveloppe SOAP/XML et la charge utile REST/JSON servies par Tornado.",
-            "Ajoutez un champ `\"lieu\": \"Alger\"` dans `DONNEES_METEO` et vérifiez que la taille du JSON reste inférieure à la moitié de la trame SOAP."
+            "Exécutez `day_1/01_html_vs_json.py` ci-dessus afin de mesurer au moyen d'`AsyncHTTPClient` l'écart exact d'octets entre la page HTML compilée, l'enveloppe SOAP/XML et la charge utile REST/JSON servies par Tornado.",
+            "Ajoutez l'attribut `\"humidité_pct\": 62` dans `DONNEES_METEO` et vérifiez que l'empreinte JSON demeure plus de deux fois inférieure à celle de la trame SOAP équivalente."
         ]
     },
 
@@ -508,55 +676,70 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l2": {
         "context": (
-            "Lorsqu'un client exécute `fetch(\"https://api.isgp.dz:8443/v1/formations?salle=Alger\")` ou que vous "
-            "lancez `app.listen(8888, address=\"0.0.0.0\")`, que se passe-t-il réellement sur la carte réseau de "
-            "l'ordinateur ?\n"
-            "Sans comprendre la différence entre une **adresse IP** (`127.0.0.1` vs `0.0.0.0` vs `192.168.1.x`), un "
-            "**numéro de Port TCP** (`:8888`, `:443`) et les segments d'une **URI**, un développeur est incapable de "
-            "diagnostiquer des erreurs classiques comme `Connection refused`, `Address already in use` ou `Name or "
-            "service not known`. Ce chapitre décortique la pile réseau et l'anatomie d'une URI sans aucun prérequis."
+            "Lorsqu'une application cliente invoque `fetch(\"https://api.isgp.dz:8443/v1/formations?salle=Alger\")` ou "
+            "qu'un ingénieur démarre un démon via `app.listen(8888, address=\"0.0.0.0\")`, quels mécanismes noyau "
+            "entrent exactement en action sur l'interface réseau du système d'exploitation ?\n\n"
+            "Tant que la distinction physique entre une **adresse IP** (`127.0.0.1` face à `0.0.0.0` ou `192.168.1.x`), "
+            "un **descripteur de Port TCP** (`:8888`, `:443`) et la grammaire normalisée d'une **URI (RFC 3986)** reste "
+            "floue, des incidents quotidiens tels que `Connection refused`, `Errno 98: Address already in use` ou "
+            "`Temporary failure in name resolution` paraissent insolubles. Ce chapitre met à nu la traversée de la pile "
+            "TCP/IP jusqu'au socket d'écoute non bloquant de Tornado."
         ),
         "deep_sections": [
             {
-                "heading": "1. Du Nom de Domaine au Processus Python : DNS → Adresse IP → Port TCP",
+                "heading": "1. Traversée des Couches Réseau : Résolution DNS, Routage IP, Socket TCP et Tunnel TLS",
                 "body": (
-                    "Pour acheminer une requête d'un ordinateur A vers un serveur B, le réseau traverse trois couches d'adressage :\n"
-                    "1. **Le DNS (*Domain Name System*)** : Les humains retiennent des noms (`api.isgp.dz`), mais les routeurs "
-                    "réseau ne connaissent que des adresses numériques **IP**. Le DNS traduit le nom de domaine en adresse IP "
-                    "(ex: `196.20.45.12`). Sur votre propre machine, le nom spécial **`localhost`** est toujours traduit "
-                    "instantanément en **`127.0.0.1`** (l'adresse de bouclage interne ou *loopback*).\n"
-                    "2. **L'Adresse IP (*Internet Protocol*)** : Elle identifie **une machine physique ou virtuelle unique** "
-                    "sur le réseau. C'est l'adresse postale de l'immeuble.\n"
-                    "3. **Le Port TCP (*Transmission Control Protocol* — numéroté de 1 à 65535)** : Sur un même serveur "
-                    "(une seule adresse IP), plusieurs logiciels tournent en même temps (PostgreSQL, Nginx, SSH, Tornado). "
-                    "Le numéro de **Port** est le numéro de guichet qui indique au système d'exploitation à quel processus "
-                    "exact remettre les paquets entrants (ex: port `8888` pour Tornado)."
+                    "Acheminer un appel d'API depuis un terminal client jusqu'au processus Python Tornado mobilise quatre "
+                    "protocoles superposés de la pile Internet. Tout commence par la **résolution DNS (*Domain Name System*)** : "
+                    "parce que les routeurs IP ne commutent que des adresses numériques binaires (32 bits en IPv4 comme "
+                    "`196.20.45.12`, 128 bits en IPv6), le résolveur du système d'exploitation traduit le nom symbolique "
+                    "`api.isgp.dz` en adresse IP cible, tandis que le nom réservé `localhost` est résolu instantanément par "
+                    "`/etc/hosts` vers la boucle interne **`127.0.0.1`** sans solliciter de câble physique.\n\n"
+                    "#### Démultiplexage par Port TCP (1 à 65535) et chiffrement TLS\n\n"
+                    "Si l'adresse IP désigne l'immeuble serveur, un même hôte Linux exécute simultanément PostgreSQL (`:5432`), "
+                    "SSH (`:22`), Nginx (`:443`) et plusieurs instances Tornado (`:8001..8004`). C'est le **numéro de Port TCP** "
+                    "(entier non signé sur 16 bits) qui permet au noyau Linux d'aiguiller les segments entrants vers la file "
+                    "d'écoute (`accept queue`) du bon processus Python après la poignée de main fiable en trois temps (`SYN`, "
+                    "`SYN-ACK`, `ACK`). En production sous `https://`, une poignée de main cryptographique **TLS 1.3** s'intercale "
+                    "immédiatement au-dessus de TCP pour authentifier le certificat X.509 du serveur et chiffrer l'intégralité "
+                    "de la trame HTTP (URI complète, en-têtes `Authorization` et corps JSON) contre toute interception."
                 )
             },
             {
-                "heading": "2. La différence cruciale entre `127.0.0.1` et `0.0.0.0` dans `app.listen(8888, address=...)`",
+                "heading": "2. Liaison de Socket Système (`bind`) : `127.0.0.1` vs `0.0.0.0` dans `app.listen()`",
                 "body": (
-                    "Lorsque vous démarrez votre serveur Tornado, le paramètre `address` détermine quelles cartes réseau ont le "
-                    "droit de lui parler :\n"
-                    "- **`address=\"127.0.0.1\"` (Boucle locale fermée)** : Seuls les programmes tournant **sur le même ordinateur** "
-                    "peuvent interroger votre API. Vos collègues connectés au même Wi-Fi de la salle de formation recevront "
-                    "`Connection refused`.\n"
-                    "- **`address=\"0.0.0.0\"` (Toutes les interfaces réseau)** : Dit au système d'exploitation d'écouter à la fois "
-                    "sur `127.0.0.1` ET sur l'adresse IP du réseau local (ex: `192.168.1.15`). C'est indispensable pour partager "
-                    "votre API sur un réseau local ou depuis un conteneur Docker."
+                    "Lorsque votre script appelle `app.listen(8888, address=...)`, `tornado.netutil.bind_sockets()` invoque "
+                    "l'appel système POSIX `bind()` pour attacher un socket en mode non bloquant (`SOCK_NONBLOCK`) à une "
+                    "interface réseau précise de la machine. Le choix de l'adresse de liaison détermine directement le "
+                    "périmètre d'exposition réseau de votre démon.\n\n"
+                    "```python — Différence de liaison noyau entre boucle locale isolée et écoute globale\n"
+                    "# 1. Développement strictement local ou derrière un Nginx sur la même machine :\n"
+                    "app.listen(8888, address=\"127.0.0.1\")  # Rejette tout paquet arrivant par eth0/wlan0\n\n"
+                    "# 2. Conteneur Docker ou démon exposé sur le réseau local (INADDR_ANY) :\n"
+                    "app.listen(8888, address=\"0.0.0.0\")    # Écoute sur toutes les interfaces IPv4 actives\n"
+                    "```\n\n"
+                    "> [!WARNING] Le piège classique des conteneurs Docker muets\n"
+                    "> À l'intérieur d'un conteneur Docker, l'interface `127.0.0.1` est isolée dans l'espace réseau privé "
+                    "(*network namespace*) du conteneur lui-même ! Si Tornado écoute sur `127.0.0.1` dans un conteneur, même "
+                    "la redirection de port `-p 8888:8888` depuis la machine hôte échouera avec `Connection reset by peer`. "
+                    "Dans un conteneur, liez toujours Tornado à `0.0.0.0`, et en production sur machine virtuelle, liez les "
+                    "nœuds Tornado à `127.0.0.1:8001..8004` derrière un frontal Nginx seul exposé sur `0.0.0.0:443`."
                 )
             },
             {
-                "heading": "3. Anatomie chirurgicale d'une URI selon le standard RFC 3986 dans Tornado",
+                "heading": "3. Anatomie Normative d'une URI (RFC 3986) et Accesseurs `HTTPServerRequest` dans Tornado",
                 "body": (
-                    "Chaque partie d'une URL (`https://api.isgp.dz:8443/api/v1/formations?salle=Alger&page=2#section`) est "
-                    "exploitée différemment par votre `RequestHandler` Tornado :\n"
-                    "- **`scheme` (`https`)** : Le protocole utilisé (`self.request.protocol`).\n"
-                    "- **`authority` (`api.isgp.dz:8443`)** : Le nom d'hôte et le port TCP (`self.request.host`).\n"
-                    "- **`path` (`/api/v1/formations`)** : Le chemin hiérarchique (`self.request.path`) qui détermine quel `RequestHandler` "
-                    "sera instancié par `tornado.web.Application`.\n"
-                    "- **`query` (`salle=Alger&page=2`)** : Située après `?`, contient les paramètres clé=valeur séparés par `&`, "
-                    "accessibles dans Tornado via `self.get_query_argument('salle')` et `self.request.query_arguments`."
+                    "Codifiée par Tim Berners-Lee et Roy Fielding dans l'**IETF RFC 3986**, toute URI respecte la grammaire "
+                    "`scheme://authority/path?query#fragment`, dont chaque composant possède un point d'entrée dédié sur "
+                    "l'objet `self.request` (`tornado.httputil.HTTPServerRequest`) d'un `RequestHandler`.\n\n"
+                    "Le `scheme` (`http` ou `https`, lu via `self.request.protocol`) et l'`authority` (`api.isgp.dz:8443`, lue "
+                    "via `self.request.host`) identifient le canal et l'hôte virtuel. Le `path` hiérarchique (`/api/v1/formations`, "
+                    "exposé purgé de sa query string dans `self.request.path`) est la seule chaîne comparée aux expressions "
+                    "régulières de `tornado.web.Application`. En aval du délimiteur `?`, la `query` transporte des paires "
+                    "clé-valeur encodées en pourcentage (`%20`) que Tornado décode paresseusement en UTF-8 via "
+                    "`self.get_query_argument('salle', default=None)` (ou en liste via `self.get_query_arguments('tag')` "
+                    "lorsqu'une clé est répétée `?tag=python&tag=async`). Enfin, le `fragment` situé après `#` est une ancre "
+                    "purement locale au navigateur qui n'est **jamais transmise** sur le socket TCP."
                 )
             }
         ],
@@ -595,8 +778,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_1/03_analyseur_uri_et_reseau.py` ci-dessus et modifiez l'URL analysée pour observer comment `urlsplit`, `parse_qs` et Tornado extraient les paramètres multiples.",
-            "Supprimez `:8443` de l'URI dans le script et observez quelle valeur prend `composants.port` (`None`, car le port implicite de `https` est `443`)."
+            "Exécutez `day_1/03_analyseur_uri_et_reseau.py` ci-dessus, puis ajoutez un caractère accentué et un espace dans le dictionnaire passé à `tornado.httputil.url_concat` pour observer l'encodage RFC 3986 automatique (`%C3%A9`, `+`).",
+            "Retirez le segment explicite `:8443` de l'URI analysée et vérifiez que `composants.port` retourne `None`, illustrant la convention du port implicite `443` attaché au schéma `https`."
         ]
     },
 
@@ -605,49 +788,79 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l3": {
         "context": (
-            "Une fois la connexion TCP établie entre le client et le serveur, quels octets exacts sont envoyés sur "
-            "le câble réseau ?\n"
-            "Contrairement à une idée reçue, HTTP/1.1 n'est pas un format binaire mystérieux : c'est un **protocole "
-            "purement textuel** composé de lignes séparées par des retours à la ligne (`\\r\\n`). Savoir lire une "
-            "trame HTTP brute et comprendre le rôle exact des **En-têtes (`Headers`)** et des **Codes de Statut** "
-            "transforme votre façon de concevoir et de déboguer une API Tornado."
+            "Une fois la poignée de main TCP achevée entre le client et le démon `tornado.httpserver.HTTPServer`, quels "
+            "octets exacts franchissent la carte réseau ? Loin d'être un flux binaire hermétique réservé aux analyseurs "
+            "Wireshark, **HTTP/1.1 (IETF RFC 9112)** est un protocole textuel d'une limpidité exemplaire où chaque ligne "
+            "de métadonnées est ponctuée par la séquence `CRLF` (`\\r\\n`).\n\n"
+            "Comprendre comment l'`IOStream` non bloquant de Tornado détecte la frontière `\\r\\n\\r\\n`, dimensionne sa "
+            "lecture d'octets via `Content-Length` et exploite la sémantique sans état (*Stateless*) des en-têtes et "
+            "des codes de statut RFC 9110 transforme radicalement votre capacité à diagnostiquer n'importe quelle "
+            "anomalie d'intégration en production."
         ),
         "deep_sections": [
             {
-                "heading": "1. Pourquoi HTTP est un protocole « Sans État » (Stateless) ?",
+                "heading": "1. L'Invariant « Sans État » (*Stateless*) de HTTP et l'Scalabilité Horizontale",
                 "body": (
-                    "Le protocole HTTP est dit **Stateless (sans état)** : chaque requête envoyée par un client est "
-                    "**totalement indépendante** des requêtes précédentes.\n"
-                    "- Le serveur ne conserve aucune « mémoire implicite » de qui a envoyé la requête précédente (d'ailleurs, Tornado "
-                    "instancie un nouvel objet `RequestHandler` vierge pour chaque requête !).\n"
-                    "- Conséquence fondamentale pour nos APIs : **chaque requête HTTP doit contenir dans ses en-têtes toutes "
-                    "les informations nécessaires à son traitement** (son jeton d'authentification `Authorization: Bearer ...`, "
-                    "le format de son corps `Content-Type: application/json`, et le format de réponse attendu `Accept: application/json`)."
+                    "La contrainte architecturale la plus féconde du protocole HTTP réside dans son caractère strictement "
+                    "**sans état (*Stateless*)** : au niveau protocolaire, chaque paire requête/réponse constitue une "
+                    "transaction autonome et auto-contenue. Le serveur n'entretient aucune mémoire implicite en RAM de la "
+                    "requête précédente du même client — un principe que Tornado matérialise physiquement en allouant une "
+                    "instance vierge de `RequestHandler` à chaque requête avant de la détruire sitôt `on_finish()` achevé.\n\n"
+                    "> [!NOTE] Connexion TCP persistante (`Keep-Alive`) != Session applicative avec état\n"
+                    "> Ne confondez jamais la persistance de transport et l'état applicatif : en HTTP/1.1, Tornado maintient "
+                    "par défaut le socket TCP ouvert entre deux requêtes consécutives (`Connection: keep-alive`) pour économiser "
+                    "le coût d'une nouvelle poignée de main TCP/TLS, mais les deux requêtes HTTP qui empruntent ce même tuyau "
+                    "demeurent logiquement indépendantes et peuvent, derrière un répartiteur Nginx, être routées vers deux "
+                    "processus Tornado distincts (`:8001` puis `:8003`). Chaque requête doit donc transporter dans ses "
+                    "propres en-têtes l'intégralité de son contexte (`Authorization`, `Content-Type`, `Accept`, `X-Request-ID`)."
                 )
             },
             {
-                "heading": "2. La frontière physique entre les En-têtes (`Headers`) et le Corps (`Body`) : `\\r\\n\\r\\n`",
+                "heading": "2. Découpage par `IOStream` : Délimiteur `\\r\\n\\r\\n` et Piège d'Octets UTF-8 de `Content-Length`",
                 "body": (
-                    "Lorsque le serveur `tornado.httpserver.HTTPServer` lit les octets qui arrivent sur le socket TCP non bloquant, comment sait-il où s'arrêtent "
-                    "les en-têtes de métadonnées et où commence le JSON du corps de la requête ?\n"
-                    "- Chaque ligne d'en-tête se termine par la séquence `CR+LF` (`\\r\\n`).\n"
-                    "- La fin du bloc des en-têtes est marquée par **une ligne strictement vide** (soit deux retours à la "
-                    "ligne consécutifs : `\\r\\n\\r\\n`).\n"
-                    "- Ensuite, Tornado lit exactement le nombre d'octets indiqué par l'en-tête **`Content-Length`** et les place dans `self.request.body`. "
-                    "Attention : `Content-Length` compte les **octets UTF-8** (`len(texte.encode('utf-8'))`) et non le nombre "
-                    "de caractères `len(texte)` (car un caractère accentué comme `é` occupe 2 octets en UTF-8 !)."
+                    "Sur un socket non bloquant, les paquets TCP arrivent par fragments arbitraires au gré du MTU réseau. "
+                    "Pour reconstituer un message HTTP/1.1 complet sans jamais bloquer l'`IOLoop`, le composant interne "
+                    "`tornado.iostream.IOStream` invoque `read_until(b\"\\r\\n\\r\\n\", max_bytes=max_header_size)`. Cette "
+                    "séquence précise de quatre octets (`0x0D 0x0A 0x0D 0x0A`, soit une ligne strictement vide) marque la "
+                    "frontière physique universelle entre la fin des en-têtes HTTP et le premier octet du corps de la requête.\n\n"
+                    "```http — Anatomie exacte sur le fil d'une requête POST reçue par TornadoServer\n"
+                    "POST /api/v1/formations HTTP/1.1\r\n"
+                    "Host: api.isgp.dz\r\n"
+                    "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...\r\n"
+                    "Content-Type: application/json; charset=utf-8\r\n"
+                    "Content-Length: 49\r\n"
+                    "\r\n"
+                    "{\"titre\": \"Sécurité des APIs\", \"jours\": 5}\n"
+                    "```\n\n"
+                    "#### Pourquoi `Content-Length` mesure des octets (`bytes`) et jamais des caractères (`str`)\n\n"
+                    "Sitôt l'en-tête analysé, `HTTP1Connection` lit exactement le nombre d'octets annoncé par `Content-Length` "
+                    "via `stream.read_bytes(content_length)` et les dépose dans `self.request.body`. En encodage UTF-8, un "
+                    "caractère ASCII standard occupe 1 octet, mais chaque lettre accentuée française (`é`, `è`, `à`, `ê`) est "
+                    "codée sur **2 octets** (et un symbole hors BMP sur 4 octets) : la chaîne `\"Sécurité\"` compte 8 caractères "
+                    "(`len(s) == 8`) mais pèse **10 octets** sur le réseau (`len(s.encode('utf-8')) == 10`). Un client bas "
+                    "niveau qui renseignerait `Content-Length: 8` au lieu de `10` tronquerait les deux derniers octets du JSON "
+                    "et déclencherait un `JSONDecodeError` immédiat côté Tornado."
                 )
             },
             {
-                "heading": "3. Taxonomie Complète des Codes de Statut HTTP (RFC 9110)",
+                "heading": "3. Sémantique Normative des Classes de Statut HTTP (RFC 9110) et `self.set_status()`",
                 "body": (
-                    "Le code à 3 chiffres situé sur la première ligne de la réponse (`HTTP/1.1 201 Created`, défini via `self.set_status(201)`) est le premier "
-                    "élément inspecté par tout programme client :\n"
-                    "- **Plage `2xx` (Succès)** : `200 OK` (succès avec corps JSON), `201 Created` (nouvelle ressource créée), "
-                    "`204 No Content` (succès sans corps, typique d'un `DELETE` ou d'un `OPTIONS`).\n"
-                    "- **Plage `3xx` (Redirection & Cache)** : `301 Moved Permanently`, `302 Found` (`self.redirect(...)`), `304 Not Modified`.\n"
-                    "- **Plage `4xx` (Erreur commise par le Client)** : Le serveur fonctionne parfaitement, mais la demande du client est refusée (`400`, `401`, `403`, `404`, `405`, `409`, `413`, `422`, `429`).\n"
-                    "- **Plage `5xx` (Défaillance du Serveur)** : Le client a envoyé une requête valide, mais le serveur a subi une panne interne (`500`, `502`, `503`, `504`)."
+                    "Le code numérique à trois chiffres inscrit sur la première ligne de réponse (`HTTP/1.1 201 Created`, "
+                    "commandé dans Tornado par `self.set_status(201)`) constitue le contrat de routage primaire de tous les "
+                    "équipements intermédiaires (passerelles API, CDN, sondes Prometheus, SDK mobiles).\n\n"
+                    "> « Le premier chiffre du code de statut définit la classe de réponse ; les deux derniers n'ont pas de "
+                    "rôle de catégorisation mais précisent la condition exacte rencontrée. » — IETF RFC 9110, Section 15 "
+                    "(Status Codes)\n\n"
+                    "La classe **`2xx`** certifie que l'intention du client a abouti (`200 OK` avec charge utile, `201 Created` "
+                    "après persistance d'une nouvelle ressource assortie de l'en-tête `Location`, `204 No Content` après une "
+                    "suppression ou un pré-vol CORS sans corps). La classe **`3xx`** gouverne la redirection (`302` via "
+                    "`self.redirect()`) et l'économie de bande passante par cache conditionnel (`304 Not Modified` émis "
+                    "automatiquement par Tornado lorsque l'`If-None-Match` du client coïncide avec l'`Etag` de la réponse). "
+                    "Enfin, la frontière entre **`4xx`** et **`5xx`** sépare la responsabilité contractuelle : un `4xx` atteste "
+                    "que le démon Tornado est parfaitement sain mais rejette une requête cliente défectueuse (`400`, `401`, "
+                    "`403`, `404`, `405`, `409`, `413`, `422`, `429`), tandis qu'un `5xx` signale une défaillance de "
+                    "l'infrastructure serveur ou d'un partenaire amont (`500`, `502`, `503`, `504`) déclenchant les alertes "
+                    "d'astreinte."
                 )
             }
         ],
@@ -674,7 +887,7 @@ ENRICHMENT_D0_D1 = {
                 ["**`401 Unauthorized`**", "Unauthorized", "4xx Client", "**Échec AuthN** : Jeton/Clé API absent, expiré ou signature invalide"],
                 ["**`403 Forbidden`**", "Forbidden", "4xx Client", "**Échec AuthZ** : Client authentifié, mais rôle/scope insuffisant"],
                 ["**`404 Not Found`**", "Not Found", "4xx Client", "URL inexistante ou identifiant de ressource (`id=999`) introuvable"],
-                ["**`405 Method Not Allowed`**", "Method Not Allowed", "4xx Client", "L'URL existe mais le `RequestHandler` n'implémente pas ce verbe HTTP"],
+                ["**`405 Method Not Allowed`**", "Method Not Allowed", "4xx Client", "L'URL existe mais le `RequestHandler` n'implémenté pas ce verbe HTTP"],
                 ["**`409 Conflict`**", "Conflict", "4xx Client", "Conflit d'état (ex: doublon d'adresse e-mail ou de code unique)"],
                 ["**`413 Payload Too Large`**", "Payload Too Large", "4xx Client", "Corps de la requête dépassant la taille maximale autorisée (`max_body_size`)"],
                 ["**`422 Unprocessable Entity`**", "Unprocessable Content", "4xx Client", "JSON bien formé mais violant une règle métier (ex: `duree_jours = -3`)"],
@@ -696,8 +909,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_1/04_trame_http_et_headers.py` et vérifiez pourquoi `'Sécurité'` (8 caractères) occupe 10 octets en UTF-8 dans `Content-Length`.",
-            "Dans le Client HTTP, testez la route `/api/sandbox/status-demo/429` puis `/api/sandbox/status-demo/403`."
+            "Exécutez `day_1/04_trame_http_et_headers.py` et vérifiez par le calcul pourquoi le mot `'Sécurité'` comporte 8 caractères Python mais exige 10 octets dans l'en-tête `Content-Length`.",
+            "Interrogez successivement `/api/sandbox/status-demo/429` et `/api/sandbox/status-demo/403` dans le Client HTTP pour comparer la ligne de statut et les en-têtes associés."
         ]
     },
 
@@ -706,50 +919,74 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l4": {
         "context": (
-            "Sur un réseau réel (4G/5G mobile, Wi-Fi d'entreprise, liaison interbancaire), les coupures de connexion "
-            "sont quotidiennes. Si un client envoie une requête HTTP et que la connexion coupe juste avant de recevoir "
-            "la réponse, **le client peut-il renvoyer automatiquement la même requête sans risque ?**\n"
-            "La réponse à cette question fondamentale d'architecture s'appelle **l'Idempotence**. Ce chapitre explique "
-            "la sémantique mathématique des 5 verbes HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) et les règles "
-            "d'or de la sérialisation JSON (`self.write`, `json.dumps` / `tornado.escape.json_decode`)."
+            "Sur un réseau physique réel — liaison cellulaire 4G/5G fluctuante, Wi-Fi saturé ou interconnexion "
+            "interbancaire transfrontalière — la perte d'un paquet TCP contenant l'accusé de réception d'une réponse "
+            "HTTP survient quotidiennement. Lorsqu'un client subit un `Request Timeout` sans savoir si Tornado a déjà "
+            "exécuté ou non l'opération, **peut-il réémettre automatiquement la même requête sans provoquer de catastrophe "
+            "métier ?**\n\n"
+            "La réponse formelle à ce problème classique des systèmes distribués repose sur la propriété mathématique "
+            "d'**Idempotence** codifiée par la RFC 9110. Ce chapitre établit les invariants exacts des cinq verbes "
+            "`RequestHandler` (`get`, `post`, `put`, `patch`, `delete`) et formalise la structuration d'enveloppes JSON "
+            "horodatées en UTC ISO 8601."
         ),
         "deep_sections": [
             {
-                "heading": "1. Propriétés Mathématiques des Verbes HTTP : Méthodes Sûres (Safe) vs Idempotentes",
+                "heading": "1. Algèbre des Méthodes HTTP (RFC 9110) : Sûreté (*Safe*) et Idempotence (*Idempotent*)",
                 "body": (
-                    "La norme RFC 9110 classe les méthodes HTTP selon deux critères décisifs pour la fiabilité réseau :\n"
-                    "- **Méthode Sûre (*Safe*)** : Une méthode qui fait uniquement de la **lecture** et ne modifie jamais "
-                    "l'état du serveur (`GET`, `HEAD`, `OPTIONS`).\n"
-                    "- **Méthode Idempotente (*Idempotent*)** : Une opération que l'on peut exécuter **1 fois, 2 fois ou "
-                    "100 fois de suite avec les mêmes paramètres en obtenant toujours exactement le même état final sur le serveur**.\n"
-                    "  - `GET /formations/1` (`def get`) est idempotent (et sûr).\n"
-                    "  - `PUT /formations/1` (`def put` : remplacer la fiche n°1 par `{ \"titre\": \"A\" }`) est **idempotent** : l'exécuter "
-                    "5 fois laisse la fiche n°1 avec le titre `\"A\"`.\n"
-                    "  - `DELETE /formations/1` (`def delete`) est **idempotent** : après 1 ou 5 suppressions, la fiche n°1 est supprimée.\n"
-                    "  - **`POST /formations` (`def post`) N'EST PAS IDEMPOTENT** : l'exécuter 3 fois crée **3 formations distinctes** "
-                    "(`#1`, `#2`, `#3`) ou débite 3 fois une carte bancaire !"
+                    "La norme IETF RFC 9110 distingue deux garanties contractuelles qu'un développeur Tornado s'engage à "
+                    "respecter lorsqu'il implémente les méthodes d'un `RequestHandler`. Une méthode est qualifiée de **Sûre "
+                    "(*Safe*, Section 9.2.1)** lorsque sa sémantique est exclusivement consultative et ne produit aucune "
+                    "mutation d'état observable sur le serveur (`GET`, `HEAD`, `OPTIONS`) — les écritures passives de journaux "
+                    "d'accès dans `on_finish()` restant permises.\n\n"
+                    "> « Une méthode de requête est dite idempotente si l'effet escompté sur le serveur de plusieurs requêtes "
+                    "identiques avec cette méthode est le même que l'effet d'une seule de ces requêtes. » "
+                    "— IETF RFC 9110, Section 9.2.2 (Idempotent Methods)\n\n"
+                    "#### Conséquence directe sur les politiques de réessai automatique (*Retry*)\n\n"
+                    "En notation fonctionnelle, une transformation `f` est idempotente si `f(f(x)) == f(x)`. Ainsi, `def get(self)` "
+                    "est à la fois sûre et idempotente. La méthode `def put(self, id)` (remplacer intégralement l'état de la "
+                    "ressource `#1` par un document donné) et la méthode `def delete(self, id)` (supprimer la ressource `#1`) ne "
+                    "sont pas sûres puisqu'elles modifient la base SQL, mais elles sont **intrinsèquement idempotentes** : "
+                    "même si la seconde exécution d'un `DELETE` renvoie `404 Not Found` après un premier `204 No Content`, "
+                    "l'état résultant des données sur le serveur demeure identique (la ressource `#1` n'existe plus). À "
+                    "l'opposé, **`def post(self)` n'est jamais idempotente par défaut** : rejouer trois fois un `POST` "
+                    "suite à un timeout réseau insère trois commandes distinctes ou débite trois fois le client, rendant "
+                    "impératif l'emploi d'un en-tête `Idempotency-Key` étudié au Jour 3."
                 )
             },
             {
-                "heading": "2. Sérialisation (`self.write` / `json.dumps`) et Désérialisation (`tornado.escape.json_decode`) en Python",
+                "heading": "2. Pipeline `tornado.escape` : Encodage et Décodage JSON Haute Performance",
                 "body": (
-                    "Une carte réseau ne sait pas transporter un objet `dict` de la RAM Python : elle ne transporte que des "
-                    "séquences d'octets textuels.\n"
-                    "- **Sérialiser (`self.write(dictionnaire)` ou `json.dumps(dictionnaire)`)** : Transforme l'objet mémoire Python en une chaîne de "
-                    "caractères formatée selon la norme JSON.\n"
-                    "- **Désérialiser (`tornado.escape.json_decode(self.request.body)` ou `json.loads(chaine_json)`)** : Analyse (*parse*) les octets reçus du réseau "
-                    "pour reconstruire le dictionnaire ou la liste en mémoire Python."
+                    "La mémoire vive Python manipule des graphes d'objets typés (`dict`, `list`, `bool`, `None`), tandis que "
+                    "l'`IOStream` réseau ne transporte que des tampons d'octets contigus (`bytes`). Le module natif "
+                    "`tornado.escape` assure le pont bidirectionnel entre ces deux mondes en s'appuyant sur l'encodeur C "
+                    "optimisé du module standard `json`.\n\n"
+                    "```python — Symétrie entre désérialisation entrante et sérialisation sortante dans Tornado\n"
+                    "# 1. Lecture entrante : accepte directement bytes (UTF-8) ou str\n"
+                    "charge_entrante = tornado.escape.json_decode(self.request.body)\n\n"
+                    "# 2. Écriture sortante : sérialise en UTF-8 + pose Content-Type: application/json\n"
+                    "self.write({\"meta\": {\"version\": \"1.0\"}, \"data\": charge_entrante})\n"
+                    "```\n\n"
+                    "Notez la distinction fondamentale dans la bibliothèque standard Python entre les fonctions suffixées par "
+                    "`s` (*string* en mémoire : `json.dumps()` et `json.loads()`) et leurs homologues sans `s` (`json.dump()` "
+                    "et `json.load()`) qui opèrent sur des descripteurs de fichiers disque bloquants — ces derniers ne devant "
+                    "jamais être appelés directement sur le thread de l'`IOLoop`."
                 )
             },
             {
-                "heading": "3. Structure d'Enveloppe JSON et Format International des Dates (ISO 8601)",
+                "heading": "3. Architecture d'Enveloppe JSON (`meta` / `data`) et Horodatage Universel ISO 8601 UTC",
                 "body": (
-                    "Dans une API d'entreprise, on sépare systématiquement :\n"
-                    "- La clé **`\"meta\"`** : informations techniques sur la réponse (version de l'API, horodatage UTC au "
-                    "format international **ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`**, pagination).\n"
-                    "- La clé **`\"data\"`** : le contenu métier proprement dit.\n"
-                    "Pourquoi le format ISO 8601 (`2026-11-08T17:30:00Z`) est-il obligatoire ? Parce qu'il se trie par "
-                    "ordre alphabétique aussi bien que chronologique et élimine toute ambiguïté de fuseau horaire grâce au suffixe `Z` (*Zulu / UTC*)."
+                    "Sur une API d'entreprise appelée à évoluer sur plusieurs années, retourner des champs métier à plat sans "
+                    "séparation structurelle empêche d'introduire proprement la pagination, le temps d'exécution ou les "
+                    "avertissements de dépréciation. Le patron d'enveloppe standard compartimente la charge utile en deux "
+                    "espaces de noms racine : **`\"meta\"`** pour les métadonnées techniques du transport et **`\"data\"`** "
+                    "pour l'entité ou la collection métier.\n\n"
+                    "#### L'impératif absolu d'ISO 8601 en temps universel coordonné (`Z`)\n\n"
+                    "Ne transmettez jamais de dates ambiguës localisées telles que `\"08/11/2026\"` (interprétée le 8 novembre "
+                    "à Alger ou Paris, mais le 11 août à New York !). Toute API professionnelle normalise ses horodatages en "
+                    "**UTC selon la norme ISO 8601 / RFC 3339 (`2026-11-08T17:30:00Z`)**, générée en Python moderne via "
+                    "`datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')`. Ce format possède la propriété remarquable "
+                    "d'être **lexicographiquement triable** : un simple tri alphabétique correspond exactement à l'ordre "
+                    "chronologique universel."
                 )
             }
         ],
@@ -783,8 +1020,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_1/02_serialisation_json.py` et vérifiez que `None` est devenu `null` et `True` est devenu `true` dans la chaîne JSON.",
-            "Ajoutez une clé `\"modules\": [\"HTTP\", \"Tornado\", \"Sécurité\"]` dans le dictionnaire Python, sérialisez-le, puis relisez le 2ème module après `json_decode()`."
+            "Exécutez `day_1/02_serialisation_json.py` et constatez comment `None` et `True` sont projetés en `null` et `true` conformes à la RFC 8259 tout en préservant les caractères accentués grâce à `ensure_ascii=False`.",
+            "Insérez une clé `\"modules\": [\"HTTP/1.1\", \"IOLoop\", \"Sécurité\"]` dans `data`, sérialisez l'enveloppe, puis extrayez le deuxième module après désérialisation par `tornado.escape.json_decode()`."
         ]
     },
 
@@ -793,49 +1030,82 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l5": {
         "context": (
-            "Comment tester et déboguer une API qui exige une méthode `POST` ou `DELETE`, un corps JSON et un en-tête "
-            "`Authorization: Bearer <token>` alors que la barre d'adresse d'un navigateur Web (Chrome, Firefox, Edge) "
-            "ne sait envoyer que des requêtes `GET` sans en-têtes personnalisés ?\n"
-            "Un développeur d'API ne travaille jamais à l'aveugle : il utilise des **clients d'inspection HTTP**. "
-            "En production sur un serveur Linux distant (via SSH) ou dans un script d'intégration continue, **`curl`** "
-            "est le standard absolu. Sur son poste de développement, il le complète avec **Postman** (ou Bruno/Insomnia), "
-            "**HTTPie** et les fichiers **`.http`**. Ce chapitre vous rend autonome sur chacun de ces outils."
+            "Comment éprouver méthodiquement un endpoint Tornado exigeant un verbe `POST` ou `DELETE`, une charge utile "
+            "JSON typée et un jeton `Authorization: Bearer <token>`, alors que la barre d'adresse d'un navigateur Web "
+            "ne sait émettre que des requêtes `GET` nues ?\n\n"
+            "Un ingénieur backend ne développe jamais à l'aveugle derrière une interface graphique intermédiaire qui "
+            "pourrait masquer ses propres bugs : il forge et observe directement les trames HTTP. Lors d'un diagnostic "
+            "de production en session SSH sur un serveur Linux distant ou dans un pipeline CI/CD, **`curl`** demeure "
+            "l'instrument universel absolu ; sur le poste d'ingénierie, il s'articule avec **Postman / Bruno**, **HTTPie** "
+            "et les cahiers de requêtes versionnés **`.http`**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Pourquoi `curl` est le couteau suisse universel de tout ingénieur Backend",
+                "heading": "1. Pourquoi `curl` Demeure l'Étalon-Or du Diagnostic Réseau en Production",
                 "body": (
-                    "Créé en 1997 par Daniel Stenberg, **`curl` (*Client for URL*)** est préinstallé sur la quasi-totalité "
-                    "des serveurs Linux, macOS, Windows 10/11 et conteneurs Docker de la planète.\n"
-                    "- Lorsqu'une API tombe en panne en production à 2h du matin, vous vous connectez au serveur en ligne de "
-                    "commande : vous n'avez pas d'interface graphique Postman sur le serveur. Avec `curl -i` ou `curl -v`, "
-                    "vous forgez n'importe quelle requête HTTP en quelques secondes et inspectez les octets exacts renvoyés par Tornado.\n"
-                    "- De plus, toute commande `curl` peut être copiée-collée dans un ticket d'incident, dans une documentation "
-                    "technique ou dans un script de test automatisé."
+                    "Initié en 1997 par Daniel Stenberg, **`curl` (*Client for URL*)** équipe nativement chaque distribution "
+                    "Linux d'entreprise, macOS, Windows 10/11 et la quasi-totalité des images conteneurisées de production. "
+                    "Lorsqu'un incident critique éclate à deux heures du matin derrière un répartiteur Nginx, l'ingénieur "
+                    "connecté en SSH ne dispose d'aucune fenêtre graphique : en une seule commande `curl -i` ou `curl -v` "
+                    "ciblant `http://127.0.0.1:8001`, il contourne le proxy pour interroger directement le nœud Tornado "
+                    "suspect et vérifier en une seconde son code HTTP, sa signature `Server: TornadoServer` et son `Etag`.\n\n"
+                    "#### Reproductibilité universelle et partage d'incidents\n\n"
+                    "Au-delà du dépannage d'urgence, une commande `curl` constitue la spécification exécutable la plus concise "
+                    "au monde : collée dans un rapport d'anomalie, un message d'équipe ou un test d'intégration Bash, elle "
+                    "permet à n'importe quel interlocuteur de rejouer exactement la même trame octet pour octet."
                 )
             },
             {
-                "heading": "2. Décoder la sortie de `curl -v` (Mode Verbeux) : les symboles `*`, `>` et `<`",
+                "heading": "2. Radiographier une Session Réseau avec `curl -v` : Les Préfixes `*`, `>` et `<`",
                 "body": (
-                    "Lorsque vous lancez `curl -v http://127.0.0.1:8888/api/sandbox/bonjour`, `curl` préfixe chaque ligne "
-                    "de diagnostic par un symbole précis :\n"
-                    "- Les lignes commençant par **`*`** décrivent le travail interne de `curl` (résolution DNS, connexion TCP "
-                    "vers `127.0.0.1` port `8888`, négociation TLS).\n"
-                    "- Les lignes commençant par **`>`** montrent la **Requête HTTP sortante** envoyée par `curl` vers le serveur "
-                    "(`> GET /api/sandbox/bonjour HTTP/1.1`, `> Host: 127.0.0.1:8888`, `> Accept: */*`).\n"
-                    "- Les lignes commençant par **`<`** montrent les **En-têtes de la Réponse HTTP entrante** renvoyés par le "
-                    "serveur Tornado (`< HTTP/1.1 200 OK`, `< Content-Type: application/json; charset=UTF-8`)."
+                    "Invoquer le mode verbeux `curl -v` dévoile chronologiquement les trois actes du dialogue entre le client "
+                    "et le serveur `HTTPServer` de Tornado au moyen d'un code de préfixes à trois symboles qu'il faut savoir "
+                    "lire instantanément.\n\n"
+                    "```bash — Lecture d'une trace complète curl -v face à un démon Tornado\n"
+                    "$ curl -v --json '{\"identifiant\":\"stagiaire\",\"mot_de_passe\":\"isgp2026\"}' \\\n"
+                    "       \"http://127.0.0.1:8888/api/sandbox/auth/token\"\n"
+                    "*   Trying 127.0.0.1:8888...\n"
+                    "* Connected to 127.0.0.1 (127.0.0.1) port 8888 (#0)\n"
+                    "> POST /api/sandbox/auth/token HTTP/1.1\n"
+                    "> Host: 127.0.0.1:8888\n"
+                    "> Content-Type: application/json\n"
+                    "> Accept: application/json\n"
+                    "> Content-Length: 54\n"
+                    ">\n"
+                    "< HTTP/1.1 200 OK\n"
+                    "< Server: TornadoServer/6.4\n"
+                    "< Content-Type: application/json; charset=UTF-8\n"
+                    "< Content-Length: 148\n"
+                    "<\n"
+                    "{\"access_token\": \"eyJ...\", \"token_type\": \"Bearer\"}\n"
+                    "```\n\n"
+                    "Les lignes introduites par l'astérisque **`*`** journalisent les opérations internes de la bibliothèque "
+                    "`libcurl` (résolution DNS, ouverture du socket TCP, négociation des suites cryptographiques TLS). Les "
+                    "lignes précédées du chevron sortant **`>`** exposent les en-têtes exacts émis par le client sur le fil, "
+                    "tandis que les lignes marquées du chevron entrant **`<`** restituent la ligne de statut et les en-têtes "
+                    "renvoyés par Tornado juste avant l'affichage du corps JSON.\n\n"
+                    "> [!TIP] L'option moderne `--json` de `curl` (version 7.82+)\n"
+                    "> Historiquement, omettre `-H \"Content-Type: application/json\"` avec `-d '{...}'` piégeait les "
+                    "développeurs car `curl` expédiait alors par défaut `application/x-www-form-urlencoded` ! Sur toutes les "
+                    "versions récentes de `curl`, le drapeau unique `--json '{...}'` positionne simultanément `-X POST`, "
+                    "`Content-Type: application/json` et `Accept: application/json`."
                 )
             },
             {
-                "heading": "3. Structurer ses tests en équipe avec Postman, HTTPie et VS Code REST Client (`.http`)",
+                "heading": "3. Outillage Collaboratif : Collections Postman/Bruno, HTTPie et Fichiers `.http`",
                 "body": (
-                    "Pour organiser des dizaines de routes au quotidien, trois outils complètent `curl` :\n"
-                    "- **Postman / Bruno / Insomnia** : Permettent de regrouper toutes les routes du projet dans une **Collection** "
-                    "et d'utiliser des variables comme `{{base_url}}` et `{{bearer_token}}`.\n"
-                    "- **HTTPie (`http`)** : Un client en ligne de commande pensé pour JSON (`http POST :8888/api/formations titre=\"Tornado\" duree:=5`), qui colore automatiquement la sortie.\n"
-                    "- **Fichiers `.http` (REST Client dans VS Code)** : Un simple fichier texte versionné dans Git où chaque "
-                    "requête est séparée par `###` et exécutable d'un clic directement dans l'éditeur de code."
+                    "Lorsqu'un projet d'API dépasse la vingtaine de routes sécurisées, taper manuellement les jetons JWT à "
+                    "chaque essai ralentit l'équipe. Trois outils complémentaires industrialisent le flux de travail autour "
+                    "d'une application Tornado. Les ateliers graphiques tels que **Postman**, **Bruno** ou **Insomnia** "
+                    "organisent les appels en **collections structurées** couplées à des **environnements** (`Local :8888`, "
+                    "`Staging`, `Production`) capables de capturer automatiquement l'`access_token` d'une réponse login pour "
+                    "l'injecter dans `{{bearer_token}}` sur toutes les autres routes.\n\n"
+                    "En ligne de commande interactive, **HTTPie (`http`)** remplace avantageusement la syntaxe de guillemets "
+                    "imbriqués par une notation typée intuitive (`http POST :8888/api/formations titre=\"Tornado\" duree_jours:=5`) "
+                    "avec mise en couleur automatique du JSON retourné. Enfin, l'approche **Tests-as-Code par fichiers `.http`** "
+                    "(extension *REST Client* de VS Code / Antigravity IDE) archive vos scénarios de requêtes séparés par `###` "
+                    "directement dans le dépôt Git : chaque révision de code (`Pull Request`) embarque ainsi ses propres "
+                    "requêtes de vérification dans le même commit que le `RequestHandler` modifié."
                 )
             }
         ],
@@ -878,9 +1148,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_1/05_outils_curl_postman_httpie.py` ci-dessus pour observer la sortie réelle des 3 commandes `curl -i`.",
-            "Ouvrez l'onglet **curl & Postman** dans la barre supérieure et testez les commandes de l'aide-mémoire interactif.",
-            "Téléchargez la Collection Postman (`.json`) et le fichier `.http` depuis l'onglet **curl & Postman**."
+            "Exécutez `day_1/05_outils_curl_postman_httpie.py` ci-dessus afin d'inspecter les en-têtes `Server: TornadoServer` et `Etag` émis en direct sur les quatre requêtes `curl -i`.",
+            "Basculez dans l'onglet **curl & Postman** de la barre supérieure pour éprouver en direct le pré-vol CORS, l'authentification `X-API-Key` et le chronométrage détaillé `-w`.",
+            "Téléchargez la Collection Postman (`.json`) et le cahier `.http` depuis l'onglet **curl & Postman** pour examiner leur structure JSON et RFC 9112."
         ]
     }
 }

@@ -1,12 +1,14 @@
 """
 Manuel de Référence Approfondi — Enrichissement des Chapitres (Jours 0 et 1).
+Volume I — Architecture & Ingénierie des APIs Web avec Python, Flask et WSGI.
+
 Fournit pour chaque chapitre :
-- context : exposé complet de la problématique d'ingénierie
-- deep_sections : sous-chapitres de cours détaillés (fondements théoriques et mécanismes internes)
+- context : exposé complet de la problématique d'ingénierie en prose éditoriale
+- deep_sections : sous-chapitres de référence (fondements théoriques, mécanique mémoire/réseau et production)
 - architecture_diagram : schéma ASCII de flux mémoire ou réseau
 - reference_table : tableau de synthèse technique
 - pitfalls : anti-patterns de production vs standards industriels
-- practical_exercises : exercices progressifs de révision post-bootcamp
+- practical_exercises : travaux pratiques progressifs de révision post-bootcamp
 """
 
 ENRICHMENT_D0_D1 = {
@@ -15,54 +17,108 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l1": {
         "context": (
-            "Avant même d'écrire une seule ligne de serveur Web ou de parler de réseau, tout service informatique "
-            "manipule des informations en mémoire vive (RAM) : le nom d'un client, le montant d'une facture, le statut "
-            "d'une réservation ou la date d'expiration d'un jeton.\n"
-            "Dans une API Web, une erreur sur la nature exacte d'une donnée (confondre le texte `\"500\"` avec le nombre "
-            "entier `500`, ou confondre une chaîne vide `\"\"` avec l'absence de valeur `None`) provoque immédiatement "
-            "des bugs critiques chez les applications clientes (applications mobiles Android/iOS, frontaux React/Vue ou "
-            "systèmes bancaires partenaires). Ce premier chapitre établit des fondations rigoureuses sur la gestion de "
-            "la mémoire et le typage en Python dans la perspective directe des échanges JSON."
+            "Avant même d'ouvrir une prise réseau (socket TCP) ou d'écrire une route HTTP, tout service backend "
+            "est d'abord un processus système qui alloue, inspecte et transforme des structures d'octets en mémoire "
+            "vive (RAM). Qu'il s'agisse du montant hors taxes d'un marché public, de l'identifiant d'un stagiaire, "
+            "du statut booléen d'une inscription ou de l'absence explicite d'une date de clôture, chaque donnée "
+            "possède une représentation physique et sémantique stricte au sein de l'interpréteur CPython.\n\n"
+            "Dans une architecture orientée API, la moindre confusion sur la nature d'une valeur franchit immédiatement "
+            "la frontière du serveur pour contaminer l'ensemble du système d'information. Renvoyer la chaîne de caractères "
+            "`\"500\"` au lieu de l'entier `500`, ou substituer une chaîne vide `\"\"` au marqueur d'absence `None`, "
+            "suffit à provoquer des erreurs d'exécution fatales dans une application mobile Kotlin/Swift, des concaténations "
+            "arithmétiques aberrantes dans un frontal JavaScript ou le rejet d'un lot comptable par un partenaire bancaire. "
+            "Ce chapitre inaugural pose les bases rigoureuses du modèle objet de Python et de sa projection directe vers "
+            "la grammaire universelle d'échange JSON."
         ),
         "deep_sections": [
             {
-                "heading": "1. Comment Python stocke une variable en mémoire vive (Modèle Objet & Références)",
+                "heading": "1. Modèle mémoire de CPython : Objets sur le tas (Heap), Références et Typage Dynamique Fort",
                 "body": (
-                    "Lorsqu'on écrit `duree_jours = 5` en Python, le signe `=` ne désigne pas une égalité mathématique "
-                    "mais une **opération d'affectation** (assignation).\n"
-                    "- Python commence par évaluer l'expression située **à droite** du signe `=` : il alloue un objet de type "
-                    "`int` contenant la valeur `5` dans la mémoire vive (RAM).\n"
-                    "- Ensuite, il crée l'étiquette `duree_jours` (située **à gauche**) et la relie par une référence mémoire "
-                    "vers cet objet.\n"
-                    "- En Python, **le type est attaché à la valeur en mémoire et non au nom de la variable** : c'est ce qu'on "
-                    "appelle le **typage dynamique fort**. « Dynamique » signifie que vous n'avez pas besoin de déclarer `int duree_jours` "
-                    "à l'avance ; « Fort » signifie que Python refuse d'additionner implicitement un texte et un nombre (`\"5\" + 2` "
-                    "déclenche immédiatement une erreur `TypeError`, contrairement à JavaScript qui produirait `\"52\"`)."
+                    "Contrairement aux langages compilés proches du matériel comme C ou Rust, où une variable désigne "
+                    "directement une boîte mémoire de taille fixe attachée à un type déclaré statiquement, Python repose "
+                    "sur un **modèle intégralement orienté objet fondé sur des références**. Lorsque l'interpréteur CPython "
+                    "exécute l'instruction `duree_jours = 5`, le symbole `=` ne traduit aucune égalité algébrique : il "
+                    "orchestre une séquence d'allocation puis de liaison de nom dans l'espace des noms courant.\n\n"
+                    "#### Mécanique interne d'une affectation en mémoire vive\n\n"
+                    "CPython commence toujours par évaluer intégralement l'expression située **à droite** de l'opérateur `=`. "
+                    "Il alloue sur le tas mémoire (*heap*) une structure C interne baptisée `PyObject`, qui embarque trois "
+                    "informations indissociables : un compteur de références (`ob_refcnt`) destiné au ramasse-miettes "
+                    "(*garbage collector*), un pointeur vers le descripteur de son type (`ob_type`, ici `<class 'int'>`), "
+                    "et la valeur utile (`5`). Ce n'est qu'une fois cet objet matérialisé en RAM que Python inscrit le nom "
+                    "`duree_jours` dans le dictionnaire de la portée locale et fait pointer cette étiquette vers l'adresse "
+                    "mémoire du `PyObject` fraîchement créé.\n\n"
+                    "```python — Inspection de l'identité mémoire et du type attaché à l'objet\n"
+                    "duree_jours = 5\n"
+                    "print(id(duree_jours), type(duree_jours))  # Adresse en RAM + <class 'int'>\n"
+                    "\n"
+                    "# Réaffecter la variable déplace l'étiquette vers un NOUVEL objet immuable :\n"
+                    "duree_jours = duree_jours + 2\n"
+                    "print(id(duree_jours), duree_jours)        # Nouvelle adresse en RAM, valeur 7\n"
+                    "```\n\n"
+                    "Cette architecture explique pourquoi le typage de Python est qualifié simultanément de **dynamique** "
+                    "et de **fort**. Il est dynamique parce que le type appartient à l'objet en mémoire et jamais à "
+                    "l'étiquette : rien n'interdit à une même variable de désigner successivement un entier puis une chaîne, "
+                    "bien que la lisibilité industrielle commande d'éviter cette pratique. Mais il est **fort** parce que "
+                    "l'interpréteur refuse catégoriquement toute coercition implicite hasardeuse entre types incompatibles.\n\n"
+                    "> [!IMPORTANT] Typage fort face aux entrées réseau non fiables\n"
+                    "> En Python, l'expression `\"500\" + 25` lève immédiatement une exception `TypeError: can only concatenate str (not \"int\") to str`, là où JavaScript produirait silencieusement la chaîne `\"50025\"`. Ce refus strict constitue votre premier rempart contre la corruption silencieuse des calculs financiers ou statistiques dans un serveur Flask."
                 )
             },
             {
-                "heading": "2. Pourquoi le contrat de type est vital dans une API Web (Sérialisation JSON)",
+                "heading": "2. Du modèle objet Python au contrat réseau JSON (Norme IETF RFC 8259)",
                 "body": (
-                    "Une API Web communique avec l'extérieur via le format universel **JSON (JavaScript Object Notation)**. "
-                    "Or, le standard JSON (RFC 8259) ne reconnaît que **4 types scalaires primitifs** :\n"
-                    "1. Les chaînes de caractères (`string`) entourées obligatoirement de guillemets doubles `\"...\"`.\n"
-                    "2. Les nombres (`number`), qu'ils soient entiers (`int`) ou décimaux (`float`).\n"
-                    "3. Les booléens (`boolean`) écrits en minuscules `true` ou `false`.\n"
-                    "4. La valeur nulle (`null`) représentant l'absence explicite de donnée.\n"
-                    "Chaque fois que votre serveur Flask renvoie une réponse, il traduit automatiquement vos types Python "
-                    "(`str`, `int`, `float`, `bool`, `None`) vers leurs équivalents JSON. Comprendre cette correspondance "
-                    "garantit que votre API respecte son contrat d'interface."
+                    "Lorsqu'une API Web publie une information sur le réseau, les structures internes `PyObject` de la RAM "
+                    "ne peuvent évidemment pas traverser une carte Ethernet. Elles doivent être projetées dans un format "
+                    "textuel interopérable compris aussi bien par un microservice Go, un navigateur Web qu'un terminal de "
+                    "paiement : le standard **JSON (*JavaScript Object Notation*)**, normalisé par l'IETF sous la référence "
+                    "**RFC 8259**.\n\n"
+                    "> « JSON est un format textuel d'échange de données structurées, totalement indépendant des langages de programmation, fondé sur un sous-ensemble restreint de primitives universelles. » — IETF RFC 8259, Section 1\n\n"
+                    "#### Correspondance stricte des quatre types scalaires\n\n"
+                    "La grammaire RFC 8259 ne reconnaît que quatre types scalaires élémentaires, auxquels s'ajoutent deux "
+                    "conteneurs composés (l'objet `{...}` et le tableau `[...]`). En Python, le type `str` (séquence immuable "
+                    "de points de code Unicode UTF-8) se traduit en `string` JSON obligatoirement délimitée par des guillemets "
+                    "doubles `\"...\"`. Les types numériques `int` (entiers à précision arbitraire en Python) et `float` "
+                    "(nombres à virgule flottante double précision IEEE 754 sur 64 bits) convergent tous deux vers le type "
+                    "unique `number` de JSON. Le type logique `bool` (`True` et `False` avec majuscule initiale en Python) "
+                    "devient `boolean` en minuscules (`true` et `false`), tandis que le singleton `None` (unique instance de "
+                    "`NoneType`) se traduit par le littéral `null`.\n\n"
+                    "```json — Représentation normalisée RFC 8259 sur le fil réseau\n"
+                    "{\n"
+                    "  \"organisme\": \"ISGP\",\n"
+                    "  \"duree_jours\": 5,\n"
+                    "  \"taux_reussite\": 98.5,\n"
+                    "  \"est_ouverte\": true,\n"
+                    "  \"prerequis\": null\n"
+                    "}\n"
+                    "```\n\n"
+                    "> [!WARNING] Précision flottante IEEE 754 et calculs monétaires\n"
+                    "> Les nombres `float` étant codés en base 2 selon la norme IEEE 754, l'addition `0.1 + 0.2` produit en mémoire `0.30000000000000004`. Pour la facturation ou la comptabilité dans une API professionnelle, on privilégie donc soit le stockage des montants en **centimes entiers (`int`)**, soit le module standard `decimal.Decimal` sérialisé de manière contrôlée."
                 )
             },
             {
-                "heading": "3. L'inspection et la validation défensive des types avec `type()` et `isinstance()`",
+                "heading": "3. Inspection défensive et subtilités d'héritage avec `isinstance()`",
                 "body": (
-                    "Lorsqu'un client externe envoie des données à votre API, rien ne garantit qu'il a respecté la documentation : "
-                    "il peut envoyer `{\"duree_jours\": \"cinq\"}` au lieu d'un entier `5`. Pour vérifier le type d'une variable "
-                    "dans le code d'une API, on privilégie toujours la fonction native `isinstance(valeur, type_attendu)`.\n"
-                    "- Attention à une subtilité célèbre de Python : la classe `bool` hérite historiquement de `int` (`isinstance(True, int)` "
-                    "vaut `True` !). Lors d'une validation stricte d'un entier provenant d'un JSON, on vérifie donc "
-                    "`isinstance(val, int) and not isinstance(val, bool)`."
+                    "Dès qu'un serveur Flask s'ouvre aux requêtes `POST` ou `PUT` provenant d'Internet, il doit considérer "
+                    "que le client peut violer la documentation à tout instant : envoyer `{\"duree_jours\": \"cinq\"}` au "
+                    "lieu de l'entier `5`, ou transmettre `{\"duree_jours\": true}` par erreur de sérialisation côté frontal. "
+                    "Pour valider rigoureusement le type d'une valeur reçue après désérialisation JSON, les ingénieurs Python "
+                    "préfèrent systématiquement l'appel `isinstance(valeur, type_attendu)` à la comparaison fragile `type(valeur) == int`.\n\n"
+                    "#### Le piège historique de `bool` sous-classe de `int`\n\n"
+                    "Une particularité célèbre du langage Python, héritée de Python 2.3 pour préserver la rétrocompatibilité "
+                    "des opérations logiques, réside dans le fait que la classe `bool` hérite directement de la classe `int` : "
+                    "en interne, `True` vaut numériquement `1` et `False` vaut `0`. Par conséquent, l'expression "
+                    "`isinstance(True, int)` renvoie `True` ! Si votre validateur d'API se contente de tester "
+                    "`if isinstance(duree, int):`, un client malveillant ou bogué envoyant `{\"duree_jours\": true}` "
+                    "franchira le contrôle de validation sans encombre.\n\n"
+                    "```python — Validation stricte d'un entier JSON excluant les booléens\n"
+                    "def est_entier_strict(valeur) -> bool:\n"
+                    "    return isinstance(valeur, int) and not isinstance(valeur, bool)\n"
+                    "\n"
+                    "print(est_entier_strict(5))     # True  -> Entier légitime\n"
+                    "print(est_entier_strict(True))  # False -> Booléen démasqué et rejeté\n"
+                    "```\n\n"
+                    "> [!TIP] Paramètres d'URL et conversion explicite\n"
+                    "> Gardez toujours à l'esprit une asymétrie fondamentale entre le corps JSON et l'URL : un corps JSON possède ses types primitifs (`5`, `true`, `null`), tandis que tout paramètre extrait d'une URL (`?page=2&actif=true`) arrive initialement sous forme de chaîne `str` brute (`\"2\"`, `\"true\"`) qu'il vous appartient de convertir et valider explicitement."
                 )
             }
         ],
@@ -104,9 +160,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur Python ci-dessus, créez une variable `prix_ht = 1500.50` (`float`) et une variable `exonere_tva = False` (`bool`), puis affichez leurs types respectifs avec `type()`.",
-            "Testez la différence entre `100 + 50` et `\"100\" + \"50\"` avec `print()` pour observer l'addition arithmétique face à la concaténation de chaînes.",
-            "Utilisez `isinstance(True, bool)` et `isinstance(100, (int, float))` pour vérifier comment valider un montant numérique en Python."
+            "Dans l'exécuteur interactif ci-dessus, déclarez une variable `prix_ht = 1500.50` (`float`) et un drapeau `exonere_tva = False` (`bool`), puis inspectez leur classe exacte et leur identifiant mémoire avec `type()` et `id()`.",
+            "Comparez le comportement de l'opérateur `+` entre `100 + 50` et `\"100\" + \"50\"`, puis vérifiez l'exception levée lorsque vous tentez d'évaluer `\"100\" + 50` sans conversion explicite.",
+            "Écrivez une fonction prédicat `valider_duree(val)` qui accepte un entier strictement positif tout en rejetant explicitement le booléen `True` malgré l'héritage `issubclass(bool, int)`."
         ]
     },
 
@@ -115,50 +171,83 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l2": {
         "context": (
-            "Une API réelle ne renvoie jamais une valeur isolée comme le chiffre `42` tout seul : elle renvoie des "
-            "**documents structurés** (par exemple la fiche complète d'une formation avec son identifiant, son titre, "
-            "sa salle et la liste des stagiaires inscrits).\n"
-            "En Python, toute la représentation des données d'une API repose sur l'alliance de deux structures "
-            "fondamentales : le **Dictionnaire (`dict`)** pour représenter une entité par ses attributs nommés, et la "
-            "**Liste (`list`)** pour représenter une collection ordonnée d'entités. Maîtriser la lecture défensive et "
-            "l'imbrication de ces deux structures représente 70 % du travail quotidien de manipulation de données dans Flask."
+            "Une API professionnelle ne transporte pratiquement jamais un scalaire isolé : elle expose des **agrégats "
+            "métier hiérarchisés**, tels qu'une session de formation rattachée à son intervenant, sa salle d'affectation, "
+            "ses métadonnées de pagination et la collection ordonnée des participants inscrits.\n\n"
+            "En Python, l'intégralité de cette modélisation repose sur la combinaison symbiotique de deux structures de "
+            "données natives de la bibliothèque standard : le **dictionnaire (`dict`)**, qui associe des attributs nommés "
+            "à leurs valeurs en temps constant, et la **liste (`list`)**, qui maintient une séquence indexée d'éléments. "
+            "Parce que ces deux conteneurs correspondent trait pour trait à l'objet `{...}` et au tableau `[...]` de la "
+            "norme JSON, maîtriser leur mécanique mémoire et leur parcours défensif représente plus des deux tiers du "
+            "code métier écrit au sein d'un contrôleur Flask."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie interne d'un Dictionnaire Python (`dict` — Table de Hachage)",
+                "heading": "1. Architecture interne du dictionnaire Python (`dict`) : Table de hachage et complexité `O(1)`",
                 "body": (
-                    "Un dictionnaire Python (`{ \"cle\": valeur }`) est implémenté en mémoire sous forme de **table de hachage "
-                    "(Hash Table)**.\n"
-                    "- Cela signifie que rechercher une valeur par sa clé (`formation[\"titre\"]`) est **instantané** "
-                    "(complexité constante `O(1)`), qu'il y ait 3 clés ou 1 000 000 de clés dans le dictionnaire !\n"
-                    "- Chaque clé d'un dictionnaire est **unique** : si vous définissez deux fois la clé `\"salle\"`, la seconde "
-                    "valeur écrase silencieusement la première.\n"
-                    "- Dans le contexte d'une API REST, les clés d'un dictionnaire destiné à être converti en JSON doivent "
-                    "toujours être des chaînes de caractères en `snake_case` (ex: `\"duree_jours\"`, `\"cree_par\"`)."
+                    "Sous son apparente simplicité syntaxique `{ \"cle\": valeur }`, le type `dict` de CPython est l'une "
+                    "des tables de hachage (*hash tables* compactes à adressage ouvert) les plus optimisées de l'industrie "
+                    "logicielle. Depuis Python 3.7, le dictionnaire garantit en outre par spécification officielle la "
+                    "**préservation de l'ordre d'insertion des clés**, ce qui assure une sérialisation JSON déterministe et "
+                    "prévisible d'un appel à l'autre.\n\n"
+                    "#### Fonctionnement de la résolution de clé par hachage\n\n"
+                    "Lorsque vous évaluez `formation[\"titre\"]`, Python ne parcourt jamais les clés une par une comme il le "
+                    "ferait dans une liste. Il calcule instantanément l'empreinte numérique `hash(\"titre\")`, en déduit "
+                    "l'indice exact du compartiment (*bucket*) en mémoire vive et restitue le pointeur vers la valeur en "
+                    "**temps constant amorti `O(1)`**. Que votre dictionnaire compte quatre attributs ou un million d'entrées "
+                    "en cache mémoire, le temps d'accès demeure de l'ordre de quelques dizaines de nanosecondes.\n\n"
+                    "Cette mécanique implique deux règles structurelles directes pour vos APIs : chaque clé d'un même "
+                    "dictionnaire est **strictement unique** (définir deux fois `\"salle\"` écrase silencieusement la première "
+                    "occurrence), et dans tout dictionnaire destiné à une réponse REST, les clés doivent être des chaînes "
+                    "normalisées en `snake_case` (`\"duree_jours\"`, `\"date_ouverture\"`) afin de garantir une convention "
+                    "uniforme sur l'ensemble du contrat d'interface."
                 )
             },
             {
-                "heading": "2. Programmation Défensive : Pourquoi `.get()` évite les pannes serveur HTTP 500",
+                "heading": "2. Lecture défensive des charges utiles : `d[cle]` face à `d.get(cle, defaut)`",
                 "body": (
-                    "Lorsqu'un client envoie une requête `POST` avec un objet JSON à votre serveur Flask, Python le transforme "
-                    "en dictionnaire `corps`. Que se passe-t-il si vous écrivez `salle = corps[\"salle\"]` et que le client a "
-                    "oublié d'inclure le champ `\"salle\"` dans son JSON ?\n"
-                    "- Python lève immédiatement une exception fatale **`KeyError: 'salle'`**, qui interrompt votre fonction "
-                    "et renvoie une erreur brute **`500 Internal Server Error`** au client !\n"
-                    "- À l'inverse, la méthode **`corps.get(\"salle\", \"Salle A\")`** vérifie proprement si la clé existe : "
-                    "si elle est présente, elle renvoie sa valeur ; si elle est absente, elle renvoie la valeur de repli "
-                    "(`\"Salle A\"` ou `None` par défaut) sans jamais faire planter le serveur."
+                    "La source numéro un d'erreurs `500 Internal Server Error` dans les APIs Flask débutantes réside dans "
+                    "l'accès direct par crochets sur des données fournies par un client externe. Lorsqu'une requête `POST` "
+                    "ou `PATCH` transmet un corps JSON désérialisé dans la variable `corps`, rien ne garantit que "
+                    "l'appelant a renseigné tous les attributs optionnels — ni même les attributs obligatoires.\n\n"
+                    "```python — Contraste entre accès cassant et lecture défensive\n"
+                    "corps_client = {\"titre\": \"Architecture REST\"}  # Champ 'salle' absent du JSON\n"
+                    "\n"
+                    "# Approche fragile : lève KeyError: 'salle' -> Crash HTTP 500 !\n"
+                    "# salle = corps_client[\"salle\"]\n"
+                    "\n"
+                    "# Approche défensive : renvoie la valeur de repli sans exception\n"
+                    "salle = corps_client.get(\"salle\", \"Salle non attribuée\")\n"
+                    "```\n\n"
+                    "Lorsque l'interpréteur rencontre `corps_client[\"salle\"]` sur une clé absente, il lève immédiatement "
+                    "une exception non gérée `KeyError` qui interrompt brutalement le traitement de la requête. À l'inverse, "
+                    "la méthode `corps_client.get(\"salle\", \"Salle non attribuée\")` interroge la table de hachage en "
+                    "toute sécurité : si la clé est présente, sa valeur est retournée ; si elle est absente, Python renvoie "
+                    "proprement le second argument (ou `None` si aucun défaut n'est précisé).\n\n"
+                    "> [!WARNING] Subtilité lorsque la clé existe mais vaut explicitement `null` en JSON\n"
+                    "> Si le client envoie explicitement `{\"salle\": null}` dans son JSON, la clé `\"salle\"` **existe** bien dans le dictionnaire avec la valeur `None` ! Dès lors, `corps.get(\"salle\", \"Salle A\")` renverra `None` et non `\"Salle A\"`. Pour couvrir à la fois l'absence de clé et la valeur `null`, utilisez l'idiome idiomatique : `salle = corps.get(\"salle\") or \"Salle A\"`."
                 )
             },
             {
-                "heading": "3. Les Listes (`list`) et le patron universel « Liste de Dictionnaires »",
+                "heading": "3. Tableaux dynamiques (`list`) et patron universel « Liste de Dictionnaires »",
                 "body": (
-                    "Une liste Python (`[elem0, elem1, elem2]`) est un tableau dynamique ordonné :\n"
-                    "- L'indice du premier élément est toujours **`0`** (décalage mémoire zéro depuis le début du tableau), "
-                    "et l'indice **`-1`** pointe toujours sur le **dernier élément** de la liste.\n"
-                    "- Lorsque vous interrogez une base de données SQL (`SELECT * FROM formations`), le résultat est toujours "
-                    "transformé en une **Liste de Dictionnaires** : chaque élément de la liste `[...]` correspond à une ligne "
-                    "de la table, et chaque dictionnaire `{...}` contient les colonnes de cette ligne."
+                    "En mémoire CPython, une liste (`list`) n'est pas une liste chaînée lente, mais un **tableau dynamique "
+                    "contigu de pointeurs** (`PyObject**`). L'accès par indice (`formations[0]` pour le premier élément, "
+                    "`formations[-1]` pour le dernier) s'effectue par simple arithmétique d'adresses en temps constant `O(1)`, "
+                    "tandis que l'ajout en fin de séquence via `.append(element)` bénéficie d'une pré-allocation géométrique "
+                    "qui maintient un coût amorti quasi instantané.\n\n"
+                    "#### Isomorphisme entre tables relationnelles SQL et collections JSON\n\n"
+                    "Dans toute architecture Web adossée à une base de données relationnelle (SQLite, PostgreSQL, MySQL), "
+                    "le résultat d'une requête `SELECT id, titre, duree_jours FROM formations` se matérialise côté Python "
+                    "sous la forme canonique d'une **liste de dictionnaires**. La liste externe préserve l'ordre exact "
+                    "imposé par la clause `ORDER BY`, tandis que chaque dictionnaire interne représente un enregistrement "
+                    "autonome dont les clés reprennent les noms des colonnes SQL.\n\n"
+                    "```python — Filtrage déclaratif et découpage de page (Slicing)\n"
+                    "formations_longues = [f for f in formations if f.get(\"duree_jours\", 0) >= 4]\n"
+                    "page_courante = formations_longues[offset : offset + limit]\n"
+                    "```\n\n"
+                    "> [!TIP] Le découpage par tranche (`slicing`) ne lève jamais `IndexError`\n"
+                    "> Alors que `formations[50]` provoque un crash `IndexError` si la liste ne contient que 3 éléments, l'opérateur de tranche `formations[50:60]` renvoie gracieusement une liste vide `[]`. Cette propriété rend le *slicing* Python naturellement robuste pour paginer des collections en mémoire."
                 )
             }
         ],
@@ -202,9 +291,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur Python ci-dessus, ajoutez un 4ème stagiaire avec `.append()` comprenant une clé `\"certifie\": True`, puis affichez le nombre total de stagiaires avec `len()`.",
-            "Écrivez une boucle `for` qui affiche uniquement les stagiaires dont le `\"service\"` est `\"Sécurité\"` ou `\"Réseau\"`.",
-            "Testez `stagiaires[0].get(\"telephone\", \"Non renseigné\")` pour vérifier le comportement de la valeur par défaut."
+            "Dans l'exécuteur Python ci-dessus, enrichissez la collection de stagiaires avec un quatrième dictionnaire via `.append()` incluant un booléen `\"certifie\": True`, puis affichez la cardinalité totale avec `len()`.",
+            "Rédigez une compréhension de liste qui extrait uniquement les stagiaires rattachés au service `\"Sécurité\"` ou `\"Réseau\"`, puis comparez sa concision avec une boucle `for` impérative.",
+            "Expérimentez la différence de comportement entre `stagiaires[0].get(\"telephone\", \"Non renseigné\")` lorsque la clé est absente et lorsque la clé vaut explicitement `None`."
         ]
     },
 
@@ -213,46 +302,75 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l3": {
         "context": (
-            "Dans un serveur Web Flask, **chaque route d'API est une fonction Python** : lorsqu'un client appelle "
-            "`GET /api/formations`, Flask exécute la fonction rattachée à cette URL et utilise la valeur renvoyée par "
-            "l'instruction **`return`** pour construire la réponse HTTP envoyée sur le réseau.\n"
-            "Une incompréhension fréquente chez les débutants consiste à confondre `print()` (qui écrit uniquement "
-            "dans la console noire de l'administrateur) et `return` (qui transmet la donnée au programme appelant). "
-            "Ce chapitre détaille le cycle d'appel d'une fonction, les paramètres par défaut et la syntaxe des tuples "
-            "de retour `(reponse_json, code_statut_http)`."
+            "Au sein du framework Flask, **chaque point de terminaison (endpoint) HTTP est matérialisé par une "
+            "fonction Python ordinaire** — appelée *View Function* dans la terminologie WSGI. Lorsqu'une requête "
+            "`GET /api/v1/formations` franchit le socket réseau, le routeur invoque la fonction associée et utilise "
+            "exclusivement l'objet restitué par l'instruction **`return`** pour forger la réponse HTTP renvoyée au client.\n\n"
+            "Chez les ingénieurs qui découvrent le développement backend après avoir pratiqué des scripts d'analyse "
+            "en ligne de commande, la confusion entre `print()` (écriture locale sur le descripteur système `stdout` "
+            "du serveur) et `return` (transfert mémoire du résultat à l'appelant) constitue un obstacle récurrent. "
+            "Ce chapitre dissèque le cadre d'exécution d'une fonction (*stack frame*), les valeurs par défaut, le "
+            "patron des clauses de garde (*Early Return*) et le décompactage des tuples `(corps, statut_http)` propre à Flask."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie complète d'une Fonction Python (`def`, Paramètres, Portée locale)",
+                "heading": "1. Cadre de pile (Stack Frame), Portée Locale et Sémantique de `return`",
                 "body": (
-                    "Une fonction est une unité logique autonome définie par quatre éléments :\n"
-                    "1. Le mot-clé **`def`** suivi du nom de la fonction en `snake_case` (ex: `calculer_facture`).\n"
-                    "2. La **signature entre parenthèses** `(montant_ht, taux_tva=0.19)` : les variables listées ici sont les "
-                    "**paramètres**. Lorsqu'un paramètre possède une valeur par défaut (`=0.19`), il devient optionnel lors de l'appel.\n"
-                    "3. Le **bloc indenté de 4 espaces** après les deux-points `:` : toutes les variables créées à l'intérieur "
-                    "de ce bloc sont des **variables locales** (isolées en mémoire : elles sont détruites dès que la fonction se termine).\n"
-                    "4. L'instruction **`return`** : elle interrompt immédiatement la fonction et restitue l'objet résultat à l'appelant."
+                    "Déclarer une fonction avec le mot-clé `def calculer_facture(montant_ht, taux_tva=0.19):` compile un "
+                    "objet code réutilisable dont les paramètres dotés d'une valeur par défaut (`taux_tva=0.19`) deviennent "
+                    "facultatifs lors de l'invocation. À chaque appel effectif de cette fonction, la machine virtuelle "
+                    "Python alloue un **cadre d'exécution isolé sur la pile d'appels (*Call Stack Frame*)**.\n\n"
+                    "#### Isolation mémoire des requêtes concurrentes\n\n"
+                    "Toutes les variables créées à l'intérieur du bloc indenté (`tva`, `montant_ttc`, `reponse`) résident "
+                    "exclusivement dans cet espace local éphémère. Dès que l'instruction `return` est atteinte — ou que la "
+                    "fin du bloc est franchie — le cadre de pile est détruit et ses variables locales deviennent éligibles "
+                    "à la libération mémoire. Sur un serveur Web multi-threads traitant simultanément cinquante requêtes "
+                    "clientes, cette isolation garantit que le calcul fiscal du client A n'écrase jamais les variables "
+                    "locales du client B.\n\n"
+                    "> [!WARNING] Oublier `return` équivaut à retourner `None`\n"
+                    "> Toute fonction Python qui s'achève sans rencontrer d'instruction `return` explicite restitue implicitement l'objet singleton `None`. Si une route Flask se termine par `print(resultat)` sans `return`, le moteur WSGI reçoit `None` et déclenche immédiatement une erreur `500 Internal Server Error` accompagnée du diagnostic : `TypeError: The view function did not return a valid response`."
                 )
             },
             {
-                "heading": "2. Le patron « Early Return » (Sortie Anticipée) dans les contrôleurs d'API",
+                "heading": "2. Le patron architectural « Guard Clauses & Early Return » dans les contrôleurs d'API",
                 "body": (
-                    "Puisque l'instruction `return` arrête instantanément l'exécution de la fonction, les ingénieurs API "
-                    "l'utilisent pour valider les entrées dès les premières lignes (principe des *Guard Clauses* ou sorties anticipées) :\n"
-                    "- Ligne 1 : Si le jeton d'authentification est absent → `return {\"erreur\": \"Non authentifié\"}, 401` (la fonction s'arrête ici !).\n"
-                    "- Ligne 2 : Si le montant est négatif → `return {\"erreur\": \"Montant invalide\"}, 422` (la fonction s'arrête ici !).\n"
-                    "- Ligne 3 : Traitement nominal et `return {\"resultat\": ...}, 200`.\n"
-                    "Ce style évite d'imbriquer 5 niveaux de `if / else` et rend le code d'une route API limpide à auditer."
+                    "Parce que l'instruction `return` interrompt à la microseconde même l'exécution de la fonction englobante, "
+                    "les architectes backend l'utilisent systématiquement pour aplatir la structure logique de leurs routes. "
+                    "Au lieu d'empiler quatre ou cinq niveaux de blocs `if / else` imbriqués (l'anti-pattern dit du *Code "
+                    "Flèche* ou *Arrow Anti-Pattern*), on place en tête de fonction une série de **clauses de garde (*Guard "
+                    "Clauses*)** qui rejettent immédiatement les cas invalides.\n\n"
+                    "```python — Contrôleur API structuré par sorties anticipées (Early Return)\n"
+                    "def creer_session(jeton_client, titre, duree_jours):\n"
+                    "    if not jeton_client:\n"
+                    "        return {\"erreur\": \"Authentification requise\"}, 401\n"
+                    "    if not titre or len(titre.strip()) < 3:\n"
+                    "        return {\"erreur\": \"Intitulé trop court\"}, 422\n"
+                    "    if not (1 <= duree_jours <= 30):\n"
+                    "        return {\"erreur\": \"Durée hors bornes [1..30]\"}, 422\n"
+                    "\n"
+                    "    # Chemin nominal (Happy Path) aligné sans indentation parasite :\n"
+                    "    return {\"titre\": titre.strip(), \"duree_jours\": duree_jours}, 201\n"
+                    "```\n\n"
+                    "Cette organisation linéaire offre une lisibilité d'audit remarquable : le lecteur vérifie d'un seul "
+                    "coup d'œil toutes les préconditions de sécurité et de validation en haut de la fonction, puis lit le "
+                    "traitement métier nominal (*Happy Path*) au premier niveau d'indentation, avec la certitude mathématique "
+                    "que toutes les données manipulées en aval sont saines."
                 )
             },
             {
-                "heading": "3. Retourner plusieurs valeurs avec un Tuple `(corps, code_http)`",
+                "heading": "3. Retours composites par Tuples immuables `(corps, code_http, en_tetes)`",
                 "body": (
-                    "Comment une fonction de route Flask peut-elle renvoyer **à la fois** le dictionnaire JSON ET le code de "
-                    "statut HTTP (`200`, `201`, `400`, `404`) ?\n"
-                    "En Python, séparer deux valeurs par une virgule après `return` (`return dictionnaire, 201`) construit "
-                    "automatiquement un **Tuple** `(dictionnaire, 201)` (une séquence immuable de 2 éléments). L'appelant peut "
-                    "alors décompacter ces deux valeurs en une seule ligne : `corps, statut = construire_reponse_api(...)`."
+                    "Une réponse HTTP complète ne se résume pas à un corps JSON : elle doit impérativement fixer un code "
+                    "de statut numérique précis (`200`, `201`, `400`, `404`, `422`) et parfois injecter des en-têtes "
+                    "additionnels tels que `Location` ou `Retry-After`. Or, en Python, une instruction `return` ne renvoie "
+                    "toujours qu'une seule référence d'objet.\n\n"
+                    "L'élégance syntaxique de Python consiste à construire automatiquement un **tuple immuable** dès que "
+                    "plusieurs expressions sont séparées par des virgules : écrire `return jsonify(payload), 201` retourne "
+                    "en réalité l'objet unique `(Response, 201)` de type `<class 'tuple'>`. Le cœur de Flask inspecte la "
+                    "valeur reçue de votre fonction et décompacte nativement trois signatures normalisées : `(response, status)`, "
+                    "`(response, headers)` ou le triplet complet `(response, status, headers)`.\n\n"
+                    "> [!IMPORTANT] Interdiction absolue des valeurs par défaut mutables (`def f(items=[])`)\n"
+                    "> En Python, les expressions de valeurs par défaut dans la signature `def` sont évaluées **une seule fois au moment du chargement du module**, et non à chaque appel ! Écrire `def ajouter_erreur(msg, liste=[]):` crée une unique liste partagée en mémoire entre toutes les requêtes HTTP successives de tous vos clients. Utilisez toujours le marqueur immuable `None` : `def ajouter_erreur(msg, liste=None): liste = [] if liste is None else liste`."
                 )
             }
         ],
@@ -293,9 +411,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur ci-dessus, appelez `construire_reponse_api(\"\", 3)` et observez comment le premier `if` déclenche un retour anticipé avec le code `400`.",
-            "Ajoutez une règle dans `construire_reponse_api` qui renvoie le code `422` si `duree_jours` est supérieur à `30`.",
-            "Décompactez le tuple retourné dans deux variables `corps, code = construire_reponse_api(\"Docker\", 4)` et affichez-les séparément."
+            "Dans l'exécuteur ci-dessus, invoquez `construire_reponse_api(\"\", 3)` et vérifiez que la première clause de garde court-circuite immédiatement le reste de la fonction avec le code `400`.",
+            "Enrichissez `construire_reponse_api` d'une seconde clause de garde renvoyant un tuple `(dictionnaire_erreur, 422)` dès que `duree_jours` excède `30` jours.",
+            "Décompactez l'appel nominal dans deux variables distinctes via `corps, statut = construire_reponse_api(\"Docker & Linux\", 4)` et inspectez `type(construire_reponse_api(\"Docker\", 4))`."
         ]
     },
 
@@ -304,57 +422,70 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d0-l4": {
         "context": (
-            "En lisant le code d'une application Flask ou FastAPI, deux constructions Python reviennent sur presque "
-            "chaque route :\n"
-            "1. Les blocs de gestion d'erreurs **`try / except`**.\n"
-            "2. Les lignes commençant par le symbole arobase **`@`** (comme `@app.route(\"/api/formations\")` ou "
-            "`@exiger_role(\"admin\")`), appelées **Décorateurs**.\n"
-            "Trop souvent, les formations débutants demandent d'écrire `@app.route(...)` « par cœur » sans expliquer "
-            "ce que fait réellement Python sous le capot. Ce chapitre lève totalement le voile sur les exceptions et "
-            "les décorateurs afin qu'aucune syntaxe de Flask ne ressemble à de la magie."
+            "Quiconque ouvre le code source d'une API industrielle écrite avec Flask ou FastAPI observe immédiatement "
+            "deux idiomes omniprésents : les blocs d'interception **`try / except`** et les annotations précédées du "
+            "symbole arobase **`@`** telles que `@app.route(\"/api/v1/formations\")` ou `@exiger_role(\"admin\")`.\n\n"
+            "Beaucoup de supports d'initiation présentent les décorateurs `@` comme des incantations magiques à recopier "
+            "sans chercher à les comprendre. En ingénierie logicielle, aucune brique critique de routage ou d'authentification "
+            "ne doit demeurer une boîte noire. Ce chapitre démonte pièce par pièce le mécanisme de remontée des exceptions "
+            "sur la pile d'appels ainsi que les fermetures lexicales (*closures*) qui animent chaque décorateur Python."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie d'une Exception et pourquoi un serveur Web ne doit jamais s'arrêter",
+                "heading": "1. Propagation des Exceptions et résilience continue d'un démon réseau",
                 "body": (
-                    "Dans un script personnel, si une erreur survient (par exemple `int(\"abc\")` ou une division par zéro), "
-                    "le programme affiche un *Traceback* et s'arrête. Mais sur un serveur d'API qui dessert 500 utilisateurs "
-                    "simultanés, l'erreur de saisie d'un client ne doit jamais faire tomber le service ni exposer vos chemins "
-                    "de fichiers internes !\n"
-                    "Le bloc **`try / except`** fonctionne comme un filet de sécurité ciblé :\n"
-                    "- Python exécute les instructions du bloc `try:`.\n"
-                    "- Si tout se passe bien, le bloc `except:` est totalement ignoré.\n"
-                    "- Si une exception du type spécifié (`ValueError`, `KeyError`) se produit à n'importe quelle ligne du `try:`, "
-                    "Python saute immédiatement dans le bloc `except:` correspondant, où vous pouvez renvoyer une réponse "
-                    "propre **`400 Bad Request`** en JSON."
+                    "Dans un script exécuté ponctuellement sur le poste d'un analyste, une opération illégale telle que "
+                    "`int(\"abc\")` ou l'ouverture d'un fichier introuvable interrompt le processus en affichant une trace "
+                    "d'exécution (*Traceback*). Sur un serveur d'API desservant plusieurs centaines d'utilisateurs simultanés, "
+                    "une telle défaillance non maîtrisée entraîne deux conséquences graves : la requête échoue brutalement "
+                    "en `500 Internal Server Error`, et si le serveur est mal configuré, le message d'erreur risque de "
+                    "divulguer des chemins système ou des fragments de requêtes SQL à un attaquant.\n\n"
+                    "#### Interception chirurgicale par classe d'exception\n\n"
+                    "Lorsqu'une anomalie survient dans un bloc `try:`, la machine virtuelle suspend immédiatement la ligne "
+                    "fautive et remonte la pile d'appels à la recherche d'une clause `except` compatible avec la classe de "
+                    "l'exception levée (`ValueError`, `KeyError`, `sqlite3.IntegrityError`). Cibler précisément la classe "
+                    "attendue — plutôt que d'écrire un `except Exception:` aveugle — permet de traduire fidèlement chaque "
+                    "incident technique en son équivalent sémantique HTTP : une erreur `ValueError` lors du décodage d'un "
+                    "paramètre client devient un `400 Bad Request`, tandis qu'une violation d'unicité `IntegrityError` "
+                    "devient un `409 Conflict`."
                 )
             },
             {
-                "heading": "2. Comment fonctionne réellement un Décorateur `@` en Python (Fonctions d'ordre supérieur)",
+                "heading": "2. Démystifier les Décorateurs `@` : Fonctions de première classe et Fermetures (Closures)",
                 "body": (
-                    "En Python, **une fonction est un objet comme un autre** : on peut passer une fonction en argument à une "
-                    "autre fonction, et une fonction peut créer et retourner une nouvelle fonction.\n"
-                    "Un **décorateur** est simplement une fonction `decorateur(fonction_cible)` qui enveloppe `fonction_cible` "
-                    "dans une fonction interne `enveloppe(*args, **kwargs)` pour exécuter du code **avant** et/ou **après** elle.\n"
-                    "Écrire :\n"
-                    "`@journaliser_appel`\n"
-                    "`def traiter_paiement(m): ...`\n"
-                    "est strictement équivalent à écrire :\n"
-                    "`traiter_paiement = journaliser_appel(traiter_paiement)`.\n"
-                    "C'est grâce à ce mécanisme que `@app.route(\"/api/...\")` enregistre votre fonction dans le dictionnaire "
-                    "des URLs de Flask, et que `@exiger_role(\"admin\")` vérifie le Bearer Token avant même d'entrer dans votre route !"
+                    "En Python, **les fonctions sont des citoyens de première classe (*first-class objects*)** : au même "
+                    "titre qu'un entier ou un dictionnaire, une fonction peut être stockée dans une variable, passée en "
+                    "argument à une autre fonction, ou fabriquée dynamiquement puis retournée par une fonction englobante.\n\n"
+                    "Un **décorateur** n'est rien d'autre qu'un sucre syntaxique élégant (introduit par la PEP 318) pour "
+                    "une fonction d'ordre supérieur qui prend une fonction `cible` en entrée et retourne une fonction "
+                    "`enveloppe` enrichie. Poser `@journaliser_appel` au-dessus de `def traiter_paiement(montant):` demande "
+                    "exactement à l'interpréteur d'exécuter, dès le chargement du fichier, la réaffectation suivante :\n\n"
+                    "```python — Équivalence stricte du sucre syntaxique @decorateur\n"
+                    "# Syntaxe déclarative avec @ :\n"
+                    "@journaliser_appel\n"
+                    "def traiter_paiement(montant):\n"
+                    "    return {\"montant\": montant, \"statut\": \"valide\"}\n"
+                    "\n"
+                    "# Ce que Python exécute réellement en coulisses :\n"
+                    "traiter_paiement = journaliser_appel(traiter_paiement)\n"
+                    "```\n\n"
+                    "Ce mécanisme fonde toute l'architecture transversale de Flask : `@app.route(\"/api/...\")` inspecte "
+                    "votre fonction et l'inscrit dans la table de routage `app.url_map`, tandis qu'un décorateur de sécurité "
+                    "`@exiger_role(\"admin\")` intercepte l'appel entrant, vérifie la signature cryptographique du jeton "
+                    "`Bearer` et court-circuite immédiatement l'exécution avec un code `401` ou `403` sans même invoquer "
+                    "votre fonction métier si les droits font défaut."
                 )
             },
             {
-                "heading": "3. Le rôle de `*args`, `**kwargs` et `@wraps` dans un décorateur professionnel",
+                "heading": "3. Signature universelle `(*args, **kwargs)` et préservation des métadonnées via `@wraps`",
                 "body": (
-                    "Pour qu'un décorateur puisse envelopper n'importe quelle fonction (qu'elle prenne 0, 1 ou 5 paramètres), "
-                    "sa fonction interne utilise la signature universelle `def enveloppe(*args, **kwargs):` :\n"
-                    "- `*args` capture tous les arguments positionnels dans un tuple.\n"
-                    "- `**kwargs` capture tous les arguments nommés dans un dictionnaire.\n"
-                    "- En outre, dans Flask, on place toujours `@wraps(fonction_cible)` (du module standard `functools`) "
-                    "au-dessus de `def enveloppe` afin que la fonction décorée conserve son vrai nom (`__name__`), ce que "
-                    "Flask exige lorsque vous décorez plusieurs routes."
+                    "Pour qu'un même décorateur d'audit ou d'authentification puisse habiller indifféremment une route sans "
+                    "argument (`def lister():`) et une route dynamique (`def modifier(formation_id, mode=\"complet\"):`), "
+                    "sa fonction interne `enveloppe` adopte la signature variadique universelle `def enveloppe(*args, **kwargs):`. "
+                    "L'opérateur `*args` regroupe tous les arguments positionnels dans un tuple, et `**kwargs` rassemble "
+                    "tous les arguments nommés dans un dictionnaire avant de les retransmettre intacts à `fonction_cible(*args, **kwargs)`.\n\n"
+                    "> [!IMPORTANT] Pourquoi `@functools.wraps(fonction_cible)` est obligatoire dans Flask\n"
+                    "> Lorsqu'un décorateur remplace `lister_formations` et `creer_formation` par sa propre fonction interne `enveloppe`, l'attribut d'introspection `__name__` des deux fonctions devient identique : `\"enveloppe\"`. Or, Flask utilise `fonction.__name__` comme identifiant unique d'endpoint dans sa table de routage ! Sans `@wraps(fonction_cible)` (importé depuis le module standard `functools`) pour recopier le nom et la docstring d'origine sur l'enveloppe, Flask lève au démarrage dès la seconde route décorée : `AssertionError: View function mapping is overwriting an existing endpoint function: enveloppe`."
                 )
             }
         ],
@@ -404,9 +535,9 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur ci-dessus, appelez `convertir_parametre_entier(\"-5\")` et modifiez la fonction pour qu'elle rejette également les nombres négatifs ou nuls.",
-            "Créez un second décorateur `@verifier_montant_positif` qui renvoie `{\"erreur\": \"Montant <= 0 interdit\"}` si l'argument passé à `traiter_paiement` est inférieur ou égal à 0.",
-            "Observez comment l'ordre des `print()` prouve que le décorateur s'exécute avant et après la fonction décorée."
+            "Dans l'exécuteur ci-dessus, appelez `convertir_parametre_entier(\"-5\")` et renforcez la fonction pour qu'elle lève ou traite explicitement tout entier inférieur ou égal à zéro avec un message d'erreur adapté.",
+            "Écrivez un décorateur `@verifier_montant_positif` muni de `@wraps` qui inspecte le premier argument positionnel et court-circuite l'appel en renvoyant `{\"erreur\": \"Montant strictement positif requis\"}, 422` si la valeur est négative ou nulle.",
+            "Empilez `@journaliser_appel` au-dessus de `@verifier_montant_positif` sur une même fonction et observez l'ordre exact d'entrée et de sortie des deux enveloppes."
         ]
     },
 
@@ -415,56 +546,83 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l1": {
         "context": (
-            "Pourquoi toutes les banques, les opérateurs télécoms, les ministères et les plateformes numériques "
-            "construisent-ils aujourd'hui leurs systèmes autour d'**APIs** plutôt que de simples sites Web ?\n"
-            "Lorsqu'une organisation développe un site Web traditionnel (monolithe HTML), les données de la base et "
-            "leur mise en page graphique (couleurs, tableaux HTML, polices) sont fusionnées côté serveur. Ce modèle "
-            "s'effondre dès qu'il faut connecter une application mobile iOS/Android, un guichet automatique ou le "
-            "système informatique d'un partenaire externe. Ce chapitre retrace l'évolution architecturale des services "
-            "Web et démontre concrètement pourquoi le couple **REST / JSON** s'est imposé comme le standard universel."
+            "Pourquoi l'architecture des systèmes d'information contemporains — banques centrales, opérateurs "
+            "télécoms, plateformes ministérielles, hôpitaux et géants du Cloud — s'articule-t-elle intégralement "
+            "autour d'**APIs découplées** plutôt que d'applications Web monolithiques traditionnelles ?\n\n"
+            "Dans un serveur Web de première génération, la requête SQL métier et l'habillage graphique (tableaux "
+            "HTML, feuilles de style CSS, mise en page visuelle) étaient intimement fusionnés au sein de la même "
+            "réponse serveur. Ce couplage fort devient intenable dès lors que la même donnée métier doit irriguer "
+            "simultanément un portail navigateur React/Vue, une application native iOS/Android, un automate bancaire "
+            "et le progiciel comptable d'une institution partenaire. Ce chapitre retrace la généalogie industrielle "
+            "des services Web — du monolithe HTML à SOAP/XML, puis de REST/JSON jusqu'à GraphQL et gRPC — pour "
+            "établir sur des critères d'ingénierie objectifs les raisons de l'hégémonie du couple HTTP/JSON."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le problème du Couplage Fort (Serveur HTML) face au Découplage (Architecture API)",
+                "heading": "1. Du couplage présentationnel (Monolithe HTML) au contrat de données pur (API-First)",
                 "body": (
-                    "Dans une architecture Web classique des années 1990-2000, le serveur exécute la requête SQL et injecte "
-                    "les résultats directement dans une page `<html><body><div class=\"card\">...</div></body></html>`.\n"
-                    "- **Inconvénient majeur** : Un programme tiers (par exemple le logiciel de comptabilité d'un partenaire "
-                    "ou une application mobile native Swift/Kotlin) ne sait pas interpréter des balises visuelles `<div>` ou "
-                    "`<span class=\"text-blue\">`. Si un développeur Web modifie la mise en page HTML, toute l'intégration "
-                    "partenaire casse instantanément.\n"
-                    "- **La révolution de l'API (Application Programming Interface)** : Le serveur métier ne produit plus aucun "
-                    "HTML. Il expose uniquement des **données pures et structurées (JSON)** selon un contrat stable. Le site Web, "
-                    "l'application mobile et les serveurs partenaires deviennent tous de simples **clients** qui consomment "
-                    "exactement la même API."
+                    "Lorsqu'un serveur Web classique interroge sa base relationnelle et incorpore directement les valeurs "
+                    "dans un flux `<html><body><div class=\"carte-meteo\">24 °C</div></body></html>`, il destine sa "
+                    "réponse exclusivement au moteur de rendu graphique d'un navigateur piloté par un être humain. Si une "
+                    "application mobile native Swift ou le serveur Python d'un partenaire tente d'exploiter cette page, "
+                    "il est réduit à pratiquer du *Web Scraping* : analyser péniblement des balises visuelles qui peuvent "
+                    "changer du jour au lendemain lors d'une simple refonte esthétique du site.\n\n"
+                    "L'architecture **centrée API (*API-First*)** opère une séparation chirurgicale des responsabilités. "
+                    "Le serveur backend renonce à toute opinion graphique pour devenir une **source de vérité métier pure** "
+                    "qui n'émet que des structures de données normalisées et versionnées. Dès lors, le portail Web interne "
+                    "n'est plus privilégié : il devient un simple consommateur parmi d'autres au même titre que l'application "
+                    "mobile ou les systèmes partenaires, tous reliés au même contrat JSON stable et gouverné."
                 )
             },
             {
-                "heading": "2. Comparaison Technique : SOAP/XML (1ère génération) vs REST/JSON (Standard actuel)",
+                "heading": "2. Généalogie des Services Web : L'ère SOAP/WSDL face à la révolution REST de Roy Fielding",
                 "body": (
-                    "Historiquement, deux grandes familles de services Web se sont succédé :\n"
-                    "- **SOAP (Simple Object Access Protocol)** : Né à la fin des années 1990, SOAP encapsule chaque message "
-                    "dans une enveloppe **XML** verbeuse (`<soap:Envelope><soap:Header/><soap:Body>...</soap:Body></soap:Envelope>`). "
-                    "Il n'utilise HTTP que comme un simple tunnel (souvent uniquement via `POST` sur une seule URL) et impose un "
-                    "fichier de contrat complexe appelé **WSDL**. Bien qu'encore présent dans certains systèmes bancaires "
-                    "historiques, SOAP génère des messages 3 à 5 fois plus lourds que JSON et nécessite des analyseurs XML coûteux en CPU.\n"
-                    "- **REST (Representational State Transfer)** : Formalisé par Roy Fielding (co-auteur de la spécification HTTP) "
-                    "en 2000, REST propose d'utiliser **pleinement les mécanismes natifs de HTTP** (les URLs pour identifier les "
-                    "ressources, les verbes `GET/POST/PUT/DELETE` pour exprimer l'action, et les codes `200/400/404` pour le statut) "
-                    "en transportant les données au format **JSON**, léger et directement convertible en dictionnaire Python ou objet JavaScript."
+                    "À la charnière des années 1998–2002, la première tentative d'industrialisation des échanges "
+                    "machine-à-machine a donné naissance au protocole **SOAP (*Simple Object Access Protocol*)** et à son "
+                    "langage de contrat **WSDL (*Web Services Description Language*)**. Inspiré de l'appel de procédures "
+                    "distantes (RPC / CORBA), SOAP enferme chaque appel dans une enveloppe XML rigide avec espaces de noms "
+                    "(`xmlns:soap`), en reléguant HTTP au rang de simple tuyau de transport opaque : la quasi-totalité des "
+                    "opérations — y compris de simples lectures — transitent par `POST` sur un unique point d'entrée, en "
+                    "ignorant les codes de statut et le cache HTTP.\n\n"
+                    "> « REST est un style architectural pensé pour les systèmes hypermédias distribués à l'échelle d'Internet : au lieu de dissimuler une couche RPC derrière un tunnel, il aligne le modèle applicatif sur la sémantique native du protocole HTTP. » — Roy Thomas Fielding, Thèse de doctorat (UC Irvine, 2000), Chapitre 5\n\n"
+                    "#### Surcharge réseau et coût CPU comparés sur le fil\n\n"
+                    "En 2000, Roy Fielding — l'un des principaux auteurs de la spécification HTTP/1.1 — démontre dans sa "
+                    "thèse fondatrice qu'Internet possède déjà toute la machinerie nécessaire : les **URI** pour nommer les "
+                    "ressources, les **verbes HTTP** (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) pour qualifier l'intention, "
+                    "les **codes de statut** pour exprimer l'issue et les **en-têtes** pour gouverner la sécurité et le cache. "
+                    "Associé à **JSON**, REST divise par trois à cinq la taille des charges utiles sur le réseau et élimine "
+                    "la surcharge mémoire et CPU des parseurs DOM XML (ainsi que la surface d'attaque liée aux entités "
+                    "externes XML ou failles *XXE*).\n\n"
+                    "```xml — Enveloppe SOAP 1.1 verbeuse vs Charge utile REST/JSON équivalente\n"
+                    "<!-- SOAP/XML : ~260 octets d'enveloppe protocolaire -->\n"
+                    "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n"
+                    "  <soap:Body><m:GetMeteoResponse xmlns:m=\"urn:isgp:meteo\">\n"
+                    "    <m:Ville>Alger</m:Ville><m:TempC>24</m:TempC>\n"
+                    "  </m:GetMeteoResponse></soap:Body>\n"
+                    "</soap:Envelope>\n"
+                    "\n"
+                    "// REST/JSON : 31 octets utiles, directement natifs en Python et JS\n"
+                    "{\"ville\": \"Alger\", \"temp_c\": 24}\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Quand utiliser REST/JSON, GraphQL ou gRPC ?",
+                "heading": "3. Arbitrage architectural moderne : REST/JSON, GraphQL et gRPC",
                 "body": (
-                    "Bien que **REST/JSON** couvre plus de 85 % des besoins en entreprise, deux autres technologies complètent "
-                    "l'écosystème moderne :\n"
-                    "- **GraphQL** : Créé par Meta pour les écrans mobiles complexes devant agréger 10 sources de données en une "
-                    "seule requête en choisissant exactement les champs voulus.\n"
-                    "- **gRPC (Protocol Buffers sur HTTP/2)** : Créé par Google pour la communication interne ultra-rapide (binaire) "
-                    "entre deux microservices backend qui s'appellent des milliers de fois par seconde.\n"
-                    "Pour toute API publique, partenaire, mobile ou Web d'entreprise, **REST/JSON** demeure le choix de référence "
-                    "pour sa simplicité, sa lisibilité, sa compatibilité universelle et sa mise en cache HTTP native."
+                    "Dans un écosystème d'entreprise mature, l'ingénieur ne choisit pas un protocole par effet de mode "
+                    "mais selon la topologie du trafic. **REST/JSON** couvre aujourd'hui plus de 85 % des APIs publiques, "
+                    "partenaires (B2B) et frontales (Nord-Sud) grâce à son universalité absolue, sa lisibilité immédiate "
+                    "avec `curl`, son intégration native aux pare-feux applicatifs et sa compatibilité naturelle avec les "
+                    "réseaux de diffusion de contenu (CDN) et caches HTTP.\n\n"
+                    "Deux paradigmes spécialisés complètent ce paysage pour des contraintes particulières. **GraphQL** "
+                    "(conçu par Meta en 2015) répond aux écrans mobiles complexes qui doivent agréger en un seul aller-retour "
+                    "réseau des champs issus d'une dizaine d'entités liées sans subir d'*over-fetching*, au prix toutefois "
+                    "de la perte du cache HTTP standard et d'une complexité accrue de protection contre les requêtes "
+                    "imbriquées coûteuses. **gRPC** (conçu par Google sur HTTP/2 avec sérialisation binaire *Protocol "
+                    "Buffers*), quant à lui, excelle dans le trafic interne **Est-Ouest** à très haute fréquence entre "
+                    "microservices backend, où le gain de latence sub-milliseconde prime sur la lisibilité humaine.\n\n"
+                    "> [!NOTE] Cohabitation harmonieuse en entreprise\n"
+                    "> Les grandes plateformes financières et Cloud combinent couramment ces approches : elles exposent une façade **REST/JSON documentée en OpenAPI 3.0** vers leurs clients externes et applications mobiles (trafic Nord-Sud), tout en faisant dialoguer certains moteurs internes de calcul intensif en **gRPC** derrière leur passerelle d'API."
                 )
             }
         ],
@@ -499,8 +657,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_1/01_html_vs_json.py` ci-dessus et comparez le nombre exact d'octets entre la réponse HTML, l'enveloppe SOAP/XML et la charge utile REST/JSON.",
-            "Ajoutez un champ `\"lieu\": \"Alger\"` dans `reponse_rest_json` et vérifiez que sa taille reste inférieure à la moitié de la trame SOAP."
+            "Exécutez le script `day_1/01_html_vs_json.py` ci-dessus et relevez le ratio exact d'octets transférés entre le document HTML Jinja2, l'enveloppe SOAP/XML et la représentation REST/JSON.",
+            "Enrichissez le dictionnaire métier avec un attribut `\"humidite_pct\": 68` et observez comment la route `jsonify()` expose automatiquement la nouvelle propriété sans aucune balise supplémentaire."
         ]
     },
 
@@ -509,55 +667,74 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l2": {
         "context": (
-            "Lorsqu'un client exécute `fetch(\"https://api.isgp.dz:8443/v1/formations?salle=Alger\")` ou que vous "
-            "lancez `app.run(host=\"0.0.0.0\", port=5000)`, que se passe-t-il réellement sur la carte réseau de "
-            "l'ordinateur ?\n"
-            "Sans comprendre la différence entre une **adresse IP** (`127.0.0.1` vs `0.0.0.0` vs `192.168.1.x`), un "
-            "**numéro de Port TCP** (`:5000`, `:443`) et les segments d'une **URI**, un développeur est incapable de "
-            "diagnostiquer des erreurs classiques comme `Connection refused`, `Address already in use` ou `Name or "
-            "service not known`. Ce chapitre décortique la pile réseau et l'anatomie d'une URI sans aucun prérequis."
+            "Lorsqu'une application cliente invoque `https://api.isgp.dz:8443/api/v1/formations?salle=Alger` ou "
+            "qu'un administrateur démarre un démon Python avec `app.run(host=\"0.0.0.0\", port=5000)`, une "
+            "chorégraphie précise s'exécute à travers les couches du noyau du système d'exploitation avant même "
+            "que le premier octet n'atteigne Flask.\n\n"
+            "Ignorer ce qui distingue l'adresse de bouclage `127.0.0.1` de l'interface joker `0.0.0.0`, confondre "
+            "résolution DNS et routage IP, ou méconnaître le rôle d'un port TCP condamne le développeur à tâtonner "
+            "aveuglément devant les incidents les plus courants de la production : `Connection refused`, `Address "
+            "already in use`, `Temporary failure in name resolution` ou inaccessibilité d'un conteneur Docker. Ce "
+            "chapitre ouvre le capot de la pile TCP/IP et dissèque la grammaire formelle d'une URI selon la **RFC 3986**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Du Nom de Domaine au Processus Python : DNS → Adresse IP → Port TCP",
+                "heading": "1. Traversée de la pile réseau : Résolution DNS, Routage IP, Socket TCP et Tunnel TLS",
                 "body": (
-                    "Pour acheminer une requête d'un ordinateur A vers un serveur B, le réseau traverse trois couches d'adressage :\n"
-                    "1. **Le DNS (*Domain Name System*)** : Les humains retiennent des noms (`api.isgp.dz`), mais les routeurs "
-                    "réseau ne connaissent que des adresses numériques **IP**. Le DNS traduit le nom de domaine en adresse IP "
-                    "(ex: `196.20.45.12`). Sur votre propre machine, le nom spécial **`localhost`** est toujours traduit "
-                    "instantanément en **`127.0.0.1`** (l'adresse de bouclage interne ou *loopback*).\n"
-                    "2. **L'Adresse IP (*Internet Protocol*)** : Elle identifie **une machine physique ou virtuelle unique** "
-                    "sur le réseau. C'est l'adresse postale de l'immeuble.\n"
-                    "3. **Le Port TCP (*Transmission Control Protocol* — numéroté de 1 à 65535)** : Sur un même serveur "
-                    "(une seule adresse IP), plusieurs logiciels tournent en même temps (PostgreSQL, Nginx, SSH, Flask). "
-                    "Le numéro de **Port** est le numéro de guichet qui indique au système d'exploitation à quel processus "
-                    "exact remettre les paquets entrants (ex: port `5000` pour Flask)."
+                    "Avant qu'une requête HTTP puisse être émise, le système client doit établir un canal bidirectionnel "
+                    "fiable et chiffré jusqu'au processus exact qui héberge votre application Python sur la machine distante. "
+                    "Cette liaison s'opère en quatre temps séquentiels à travers les couches réseau.\n\n"
+                    "#### Du nom symbolique au descripteur de fichier du processus Python\n\n"
+                    "Tout commence par la **résolution DNS (*Domain Name System*)** : les routeurs Internet ne sachant "
+                    "acheminer des paquets que vers des adresses numériques IPv4 ou IPv6, le résolveur du système traduit "
+                    "le nom mémorisable `api.isgp.dz` en adresse IP (par exemple `196.20.45.12`). Sur la machine locale, "
+                    "le fichier `/etc/hosts` court-circuite le réseau pour associer immédiatement `localhost` à l'adresse "
+                    "de bouclage **`127.0.0.1`**. Vient ensuite la **poignée de main TCP en trois temps (*Three-Way "
+                    "Handshake* : `SYN` → `SYN-ACK` → `ACK`)** dirigée vers le couple `(Adresse IP, Port TCP)` : alors que "
+                    "l'adresse IP désigne le serveur cible, l'entier sur 16 bits du **Port TCP** (`1` à `65535`) permet au "
+                    "noyau Linux d'aiguiller les segments entrants vers le bon processus parmi PostgreSQL (`:5432`), Nginx "
+                    "(`:443`), SSH (`:22`) ou votre serveur Flask (`:5000`).\n\n"
+                    "Enfin, dès lors que le schéma est `https://`, une **négociation cryptographique TLS 1.3** s'engage "
+                    "immédiatement par-dessus la connexion TCP ouverte : le serveur présente son certificat X.509 pour "
+                    "prouver son identité, et les deux parties dérivent une clé symétrique éphémère (AES-GCM ou ChaCha20) "
+                    "qui chiffre intégralement l'URL complète, les en-têtes `Authorization` et le corps JSON contre toute "
+                    "écoute clandestine sur le réseau."
                 )
             },
             {
-                "heading": "2. La différence cruciale entre `127.0.0.1` et `0.0.0.0` dans `app.run()`",
+                "heading": "2. Interfaces d'écoute du noyau : pourquoi `127.0.0.1` et `0.0.0.0` changent tout en déploiement",
                 "body": (
-                    "Lorsque vous démarrez votre serveur Flask, le paramètre `host` détermine quelles cartes réseau ont le "
-                    "droit de lui parler :\n"
-                    "- **`host=\"127.0.0.1\"` (Boucle locale fermée)** : Seuls les programmes tournant **sur le même ordinateur** "
-                    "peuvent interroger votre API. Vos collègues connectés au même Wi-Fi de la salle de formation recevront "
-                    "`Connection refused`.\n"
-                    "- **`host=\"0.0.0.0\"` (Toutes les interfaces réseau)** : Dit au système d'exploitation d'écouter à la fois "
-                    "sur `127.0.0.1` ET sur l'adresse IP du réseau local (ex: `192.168.1.15`). C'est indispensable pour partager "
-                    "votre API sur un réseau local ou depuis un conteneur Docker."
+                    "Lorsqu'un serveur appelle la primitive système `bind(host, port)`, il indique au noyau du système "
+                    "d'exploitation sur quelle interface réseau virtuelle ou physique il accepte de recevoir des connexions "
+                    "entrantes. Cette distinction explique à elle seule 90 % des échecs de connexion lors du passage d'un "
+                    "poste local vers un réseau d'entreprise ou un conteneur Docker.\n\n"
+                    "Attacher Flask à **`host=\"127.0.0.1\"`** (comportement par défaut de `app.run()` par mesure de "
+                    "prudence) restreint l'écoute à la seule interface virtuelle de bouclage interne (*loopback*, `lo`). "
+                    "Les paquets ne franchissent jamais la carte Wi-Fi ou Ethernet : seuls les processus s'exécutant sur "
+                    "le même système (ou dans le même espace de noms réseau) peuvent joindre le port `5000`. À l'inverse, "
+                    "spécifier la méta-adresse **`host=\"0.0.0.0\"`** (`INADDR_ANY`) ordonne au noyau d'attacher le socket "
+                    "à **toutes les interfaces IPv4 actives de la machine** simultanément.\n\n"
+                    "> [!IMPORTANT] Conteneurs Docker et exposition réseau\n"
+                    "> Chaque conteneur Docker possède sa propre interface de bouclage `127.0.0.1` isolée de la machine hôte ! Si Gunicorn ou Flask écoute sur `127.0.0.1:5000` à l'intérieur d'un conteneur, même avec `-p 5000:5000`, la machine hôte recevra `Connection reset by peer`. Dans un conteneur, le démon applicatif doit impérativement écouter sur `0.0.0.0`."
                 )
             },
             {
-                "heading": "3. Anatomie chirurgicale d'une URI selon le standard RFC 3986",
+                "heading": "3. Anatomie formelle d'une URI selon le standard IETF RFC 3986",
                 "body": (
-                    "Chaque partie d'une URL (`https://api.isgp.dz:8443/api/v1/formations?salle=Alger&page=2#section`) est "
-                    "exploitée différemment par votre serveur Flask :\n"
-                    "- **`scheme` (`https`)** : Le protocole utilisé (`http` en clair ou `https` chiffré par TLS).\n"
-                    "- **`authority` (`api.isgp.dz:8443`)** : Le nom d'hôte (`hostname`) et le port TCP (`port`).\n"
-                    "- **`path` (`/api/v1/formations`)** : Le chemin hiérarchique qui détermine quelle fonction `@app.route(...)` "
-                    "sera exécutée par Flask.\n"
-                    "- **`query` (`salle=Alger&page=2`)** : Située après `?`, contient les paramètres clé=valeur séparés par `&`, "
-                    "accessibles dans Flask via `request.args`."
+                    "La norme **RFC 3986** (*Uniform Resource Identifier : Generic Syntax*), corédigée par Tim Berners-Lee "
+                    "et Roy Fielding, découpe toute adresse Web en cinq segments syntaxiques précis que Python analyse "
+                    "nativement via `urllib.parse.urlsplit()` et que Flask expose séparément dans l'objet `request`.\n\n"
+                    "```text — Décomposition structurelle RFC 3986 et mappage Flask\n"
+                    "https://api.isgp.dz:8443/api/v1/formations?salle=Alger&page=2#details\n"
+                    "|--1--| |-------2------| |-------3-------| |--------4-------| |--5--|\n"
+                    "1. scheme    -> request.scheme   ('https')\n"
+                    "2. authority -> request.host     ('api.isgp.dz:8443' ; port implicite : 80 ou 443)\n"
+                    "3. path      -> request.path     ('/api/v1/formations' -> résolu par @app.route)\n"
+                    "4. query     -> request.args     ({'salle': 'Alger', 'page': '2'})\n"
+                    "5. fragment  -> [JAMAIS transmis sur le câble TCP au serveur HTTP !]\n"
+                    "```\n\n"
+                    "> [!NOTE] Encodage pourcent (`Percent-Encoding`) et rôle local du fragment `#`\n"
+                    "> Une URI ne pouvant contenir que des caractères ASCII sûrs sans espaces, tout caractère réservé ou accentué dans la Query String est encodé sous forme d'octets UTF-8 précédés de `%` (par exemple `Labo 1` devient `Labo%201` ou `Labo+1`). Quant au **fragment** situé après `#` (`#details`), il est dépouillé par le navigateur client avant l'envoi sur le socket TCP : votre serveur Flask ne le recevra jamais."
                 )
             }
         ],
@@ -579,7 +756,7 @@ ENRICHMENT_D0_D1 = {
                 ["`0.0.0.0`", "Any Interface (Écoute globale)", "Indique au serveur d'écouter sur toutes les adresses IP de la machine (locale + LAN)"],
                 ["Port `:80`", "HTTP par défaut", "Port implicite d'une URL `http://...` (non chiffré)"],
                 ["Port `:443`", "HTTPS par défaut", "Port implicite d'une URL `https://...` (chiffré par TLS/SSL)"],
-                ["Port `:5000` / `:8000`", "Ports de développement Python", "Ports utilisateurs (> 1024, ne nécessitent pas les droits administrateur `root`)",],
+                ["Port `:5000` / `:8000`", "Ports de développement Python", "Ports utilisateurs (> 1024, ne nécessitent pas les droits administrateur `root`)"],
                 ["Port `:5432` / `:3306`", "PostgreSQL / MySQL", "Ports d'écoute des serveurs de bases de données SQL"]
             ]
         },
@@ -596,8 +773,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_1/03_analyseur_uri_et_reseau.py` ci-dessus et modifiez l'URL analysée pour observer comment `urlsplit` et `parse_qs` extraient les paramètres multiples.",
-            "Supprimez `:8443` de l'URI dans le script et observez quelle valeur prend `composants.port` (`None`, car le port implicite de `https` est `443`)."
+            "Exécutez `day_1/03_analyseur_uri_et_reseau.py` ci-dessus, puis ajoutez un paramètre répété `?domaine=reseau&domaine=securite` pour observer comment `parse_qs()` regroupe naturellement les valeurs multiples dans une liste Python.",
+            "Retirez le port explicite `:8443` de l'URI analysée et vérifiez que l'attribut `.port` vaut alors `None`, signifiant que le client doit appliquer le port standard implicite du schéma (`443` pour `https`, `80` pour `http`)."
         ]
     },
 
@@ -606,48 +783,74 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l3": {
         "context": (
-            "Une fois la connexion TCP établie entre le client et le serveur, quels octets exacts sont envoyés sur "
-            "le câble réseau ?\n"
-            "Contrairement à une idée reçue, HTTP/1.1 n'est pas un format binaire mystérieux : c'est un **protocole "
-            "purement textuel** composé de lignes séparées par des retours à la ligne (`\\r\\n`). Savoir lire une "
-            "trame HTTP brute et comprendre le rôle exact des **En-têtes (`Headers`)** et des **Codes de Statut** "
-            "transforme votre façon de concevoir et de déboguer une API."
+            "Une fois la poignée de main TCP achevée entre le client et le serveur, quels octets exacts circulent "
+            "réellement dans le descripteur du socket ? Pour beaucoup de développeurs habitués aux bibliothèques de "
+            "haut niveau, le protocole HTTP demeure une abstraction floue cachée derrière `fetch()` ou `requests.get()`.\n\n"
+            "Or, la longévité exceptionnelle de **HTTP/1.1** (formalisé par les normes **RFC 9110** pour la sémantique "
+            "et **RFC 9112** pour la syntaxe sur le fil) tient précisément à la limpidité de sa structure textuelle. "
+            "Être capable de lire à l'œil nu une trame brute séparée par `\\r\\n`, de comprendre pourquoi `Content-Length` "
+            "compte des octets UTF-8 et non des caractères, et de maîtriser la sémantique exacte des en-têtes et codes "
+            "de statut transforme définitivement votre capacité à concevoir et diagnostiquer des APIs en production."
         ),
         "deep_sections": [
             {
-                "heading": "1. Pourquoi HTTP est un protocole « Sans État » (Stateless) ?",
+                "heading": "1. L'invariant d'absence d'état (Statelessness) et l'autonomie de chaque requête HTTP",
                 "body": (
-                    "Le protocole HTTP est dit **Stateless (sans état)** : chaque requête envoyée par un client est "
-                    "**totalement indépendante** des requêtes précédentes.\n"
-                    "- Le serveur ne conserve aucune « mémoire implicite » de qui a envoyé la requête précédente.\n"
-                    "- Conséquence fondamentale pour nos APIs : **chaque requête HTTP doit contenir dans ses en-têtes toutes "
-                    "les informations nécessaires à son traitement** (son jeton d'authentification `Authorization: Bearer ...`, "
-                    "le format de son corps `Content-Type: application/json`, et le format de réponse attendu `Accept: application/json`)."
+                    "La pierre angulaire architecturale du protocole HTTP — reprise et renforcée par le style REST — est "
+                    "son caractère **sans état (*Stateless*)**. Aux yeux du protocole, deux requêtes émises à dix millisecondes "
+                    "d'intervalle par le même client sont deux événements strictement indépendants : le serveur ne conserve "
+                    "aucune mémoire conversationnelle implicite entre deux appels sur ses travailleurs WSGI.\n\n"
+                    "> « Chaque requête du client vers le serveur doit contenir l'intégralité de l'information nécessaire à la compréhension de la requête, sans pouvoir s'appuyer sur un contexte stocké sur le serveur. » — Roy T. Fielding, Architectural Styles and the Design of Network-based Software Architectures, §5.1.3\n\n"
+                    "Cette contrainte, loin d'être une limitation, est le secret de la **scalabilité horizontale** des APIs "
+                    "modernes : parce que chaque requête embarque dans ses propres en-têtes sa preuve d'identité "
+                    "(`Authorization: Bearer ...`), la description de son format (`Content-Type: application/json`) et ses "
+                    "préférences de réponse (`Accept: application/json`), un répartiteur de charge Nginx peut distribuer la "
+                    "première requête d'un client vers le Serveur 1 et la suivante vers le Serveur 4 sans aucune perte de contexte."
                 )
             },
             {
-                "heading": "2. La frontière physique entre les En-têtes (`Headers`) et le Corps (`Body`) : `\\r\\n\\r\\n`",
+                "heading": "2. Délimitation binaire sur le socket TCP : `CRLF` (`\\r\\n\\r\\n`) et calcul UTF-8 de `Content-Length`",
                 "body": (
-                    "Lorsque le serveur Flask lit les octets qui arrivent sur le socket TCP, comment sait-il où s'arrêtent "
-                    "les en-têtes de métadonnées et où commence le JSON du corps de la requête ?\n"
-                    "- Chaque ligne d'en-tête se termine par la séquence `CR+LF` (`\\r\\n`).\n"
-                    "- La fin du bloc des en-têtes est marquée par **une ligne strictement vide** (soit deux retours à la "
-                    "ligne consécutifs : `\\r\\n\\r\\n`).\n"
-                    "- Ensuite, le serveur lit exactement le nombre d'octets indiqué par l'en-tête **`Content-Length`**. "
-                    "Attention : `Content-Length` compte les **octets UTF-8** (`len(texte.encode('utf-8'))`) et non le nombre "
-                    "de caractères `len(texte)` (car un caractère accentué comme `é` occupe 2 octets en UTF-8 !)."
+                    "Le protocole TCP ne transporte pas des « messages » découpés d'avance, mais un **flux continu d'octets "
+                    "(*byte stream*)**. Lorsqu'un travailleur Gunicorn ou Werkzeug lit les octets qui arrivent par petits "
+                    "blocs sur la carte réseau, il suit l'automate syntaxique strict de la **RFC 9112**. La première ligne "
+                    "(*Start-Line*) annonce la méthode, la cible et la version (`POST /api/v1/formations HTTP/1.1\\r\\n`), "
+                    "suivie des lignes d'en-têtes `Cle: Valeur\\r\\n` (dont les noms sont insensibles à la casse selon le "
+                    "standard). La frontière physique marquant la fin des métadonnées et le début immédiat du corps utile "
+                    "est matérialisée par **une séquence vide `\\r\\n\\r\\n`** (deux couples *Carriage Return + Line Feed*, "
+                    "octets hexadécimaux `0D 0A 0D 0A`).\n\n"
+                    "```http — Anatomie exacte d'une requête HTTP/1.1 sur le fil TCP\n"
+                    "POST /api/v1/formations HTTP/1.1\n"
+                    "Host: api.isgp.dz\n"
+                    "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbWluZSJ9.sig\n"
+                    "Content-Type: application/json; charset=utf-8\n"
+                    "Accept: application/json\n"
+                    "Content-Length: 49\n"
+                    "\n"
+                    "{\"titre\": \"Sécurité des APIs\", \"jours\": 5}\n"
+                    "```\n\n"
+                    "> [!WARNING] `Content-Length` mesure des octets UTF-8, jamais `len(str)` !\n"
+                    "> Une fois la séquence `\\r\\n\\r\\n` franchie, le parseur HTTP lit exactement le nombre d'**octets** annoncé par `Content-Length`. Or en encodage UTF-8, un caractère ASCII (`a`) pèse 1 octet, une lettre accentuée latine (`é`) pèse 2 octets, une lettre arabe (`م`) pèse 2 octets et certains symboles pèsent 4 octets. En Python, la taille réseau exacte vaut toujours `len(chaine.encode(\"utf-8\"))` et non `len(chaine)` : sous-estimer `Content-Length` tronque le JSON final et provoque un rejet `400 Bad Request` !"
                 )
             },
             {
-                "heading": "3. Taxonomie Complète des Codes de Statut HTTP (RFC 9110)",
+                "heading": "3. Sémantique contractuelle des familles d'en-têtes et taxonomie des codes RFC 9110",
                 "body": (
-                    "Le code à 3 chiffres situé sur la première ligne de la réponse (`HTTP/1.1 201 Created`) est le premier "
-                    "élément inspecté par tout programme client :\n"
-                    "- **Plage `2xx` (Succès)** : `200 OK` (succès avec corps JSON), `201 Created` (nouvelle ressource créée), "
-                    "`204 No Content` (succès sans corps, typique d'un `DELETE`).\n"
-                    "- **Plage `3xx` (Redirection & Cache)** : `301 Moved Permanently`, `304 Not Modified` (la version en cache du client est toujours à jour).\n"
-                    "- **Plage `4xx` (Erreur commise par le Client)** : Le serveur fonctionne parfaitement, mais la demande du client est refusée (`400`, `401`, `403`, `404`, `405`, `409`, `413`, `422`, `429`).\n"
-                    "- **Plage `5xx` (Défaillance du Serveur)** : Le client a envoyé une requête valide, mais le serveur a subi une panne interne (`500`, `502`, `503`, `504`)."
+                    "Dans une architecture professionnelle, les en-têtes HTTP constituent le **plan de contrôle (*Control "
+                    "Plane*)** tandis que le corps JSON constitue le **plan de données (*Data Plane*)**. Six familles "
+                    "d'en-têtes gouvernent ce dialogue : la négociation de représentation (`Content-Type` pour qualifier ce "
+                    "qui est envoyé, `Accept` pour réclamer le format de retour), l'authentification (`Authorization`, "
+                    "`WWW-Authenticate`, `X-API-Key`), la régulation de débit (`X-RateLimit-*`, `Retry-After`), la "
+                    "traçabilité distribuée (`X-Request-ID`), la gouvernance du cache (`Cache-Control`, `ETag`) et le "
+                    "cloisonnement navigateur (`Origin`, `Access-Control-Allow-*`).\n\n"
+                    "De même, le code numérique à trois chiffres de la ligne de statut (`HTTP/1.1 422 Unprocessable Content`) "
+                    "permet à tous les équipements intermédiaires — passerelles d'API, sondes Prometheus, SDK mobiles — de "
+                    "prendre des décisions automatiques sans inspecter votre JSON métier. La classe **`2xx`** certifie que "
+                    "l'intention du client a abouti (`200 OK`, `201 Created`, `204 No Content`) ; la classe **`3xx`** pilote "
+                    "les redirections et la validation de cache (`304 Not Modified`) ; la classe **`4xx`** impute "
+                    "explicitement le refus à la requête du client (qui ne doit pas la rejouer telle quelle) ; enfin, la "
+                    "classe **`5xx`** signale une défaillance interne du serveur ou d'une dépendance amont, autorisant "
+                    "les politiques de réessai contrôlé."
                 )
             }
         ],
@@ -696,8 +899,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_1/04_trame_http_et_headers.py` et vérifiez pourquoi `'Sécurité'` (8 caractères) occupe 10 octets en UTF-8 dans `Content-Length`.",
-            "Dans le Client HTTP, testez la route `/api/sandbox/status-demo/429` puis `/api/sandbox/status-demo/403`."
+            "Exécutez `day_1/04_trame_http_et_headers.py` et vérifiez l'écart exact entre `len('Sécurité')` (nombre de points de code Unicode) et `len('Sécurité'.encode('utf-8'))` (taille réelle inscrite dans `Content-Length`).",
+            "Dans le Client HTTP intégré, appelez successivement `/api/sandbox/status-demo/201`, `/api/sandbox/status-demo/403` et `/api/sandbox/status-demo/429` en observant les en-têtes HTTP associés à chaque statut."
         ]
     },
 
@@ -706,51 +909,76 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l4": {
         "context": (
-            "Sur un réseau réel (4G/5G mobile, Wi-Fi d'entreprise, liaison interbancaire), les coupures de connexion "
-            "sont quotidiennes. Si un client envoie une requête HTTP et que la connexion coupe juste avant de recevoir "
-            "la réponse, **le client peut-il renvoyer automatiquement la même requête sans risque ?**\n"
-            "La réponse à cette question fondamentale d'architecture s'appelle **l'Idempotence**. Ce chapitre explique "
-            "la sémantique mathématique des 5 verbes HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) et les règles "
-            "d'or de la sérialisation JSON (`json.dumps` / `json.loads`)."
+            "Sur un réseau distribué réel — couverture cellulaire 4G/5G fluctuante, tunnel VPN inter-sites ou liaison "
+            "interbancaire — la perte d'un paquet d'acquittement TCP en fin de transaction est un événement banal. "
+            "Lorsqu'un client émet une requête HTTP et que la connexion s'interrompt avant la réception de la ligne de "
+            "statut, une question critique d'ingénierie se pose immédiatement : **le client peut-il rejouer "
+            "automatiquement la même requête sans provoquer d'effet secondaire catastrophique ?**\n\n"
+            "La réponse formelle à ce problème d'incertitude réseau s'appelle **l'Idempotence**. Ce chapitre expose "
+            "les garanties algébriques attachées aux cinq méthodes HTTP fondamentales (`GET`, `PUT`, `DELETE`, `PATCH`, "
+            "`POST`) par la norme **RFC 9110**, puis établit les conventions industrielles de sérialisation JSON "
+            "(`json.dumps` / `json.loads`), d'enveloppes structurées et d'horodatage UTC ISO 8601."
         ),
         "deep_sections": [
             {
-                "heading": "1. Propriétés Mathématiques des Verbes HTTP : Méthodes Sûres (Safe) vs Idempotentes",
+                "heading": "1. Algèbre des verbes HTTP (RFC 9110) : Méthodes Sûres (Safe) et Méthodes Idempotentes",
                 "body": (
-                    "La norme RFC 9110 classe les méthodes HTTP selon deux critères décisifs pour la fiabilité réseau :\n"
-                    "- **Méthode Sûre (*Safe*)** : Une méthode qui fait uniquement de la **lecture** et ne modifie jamais "
-                    "l'état du serveur (`GET`, `HEAD`, `OPTIONS`).\n"
-                    "- **Méthode Idempotente (*Idempotent*)** : Une opération que l'on peut exécuter **1 fois, 2 fois ou "
-                    "100 fois de suite avec les mêmes paramètres en obtenant toujours exactement le même état final sur le serveur**.\n"
-                    "  - `GET /formations/1` est idempotent (et sûr).\n"
-                    "  - `PUT /formations/1` (remplacer la fiche n°1 par `{ \"titre\": \"A\" }`) est **idempotent** : l'exécuter "
-                    "5 fois laisse la fiche n°1 avec le titre `\"A\"`.\n"
-                    "  - `DELETE /formations/1` est **idempotent** : après 1 ou 5 suppressions, la fiche n°1 est supprimée.\n"
-                    "  - **`POST /formations` N'EST PAS IDEMPOTENT** : l'exécuter 3 fois crée **3 formations distinctes** "
-                    "(`#1`, `#2`, `#3`) ou débite 3 fois une carte bancaire !"
+                    "La spécification **RFC 9110** (Section 9.2) ne définit pas les verbes HTTP comme de simples étiquettes "
+                    "arbitraires, mais comme des **contrats comportementaux sur les effets de bord** que les proxys, les "
+                    "navigateurs et les bibliothèques clientes sont autorisés à exploiter automatiquement.\n\n"
+                    "> « Une méthode de requête est dite \"idempotente\" si l'effet escompté sur le serveur de multiples requêtes identiques avec cette méthode est le même que l'effet d'une unique requête de ce type. » — IETF RFC 9110, Section 9.2.2\n\n"
+                    "#### Conséquences opérationnelles de `GET`, `PUT`, `DELETE`, `PATCH` et `POST`\n\n"
+                    "Les méthodes **sûres (*Safe*)** — telles que `GET`, `HEAD` et `OPTIONS` — s'engagent à n'opérer aucune "
+                    "mutation d'état métier sur le serveur : l'observation ne modifie pas la ressource. Toute méthode sûre "
+                    "est par définition idempotente. Plus subtil est le cas de **`PUT /api/v1/formations/1`** et **`DELETE "
+                    "/api/v1/formations/1`** : ces deux méthodes modifient bien la base de données (elles ne sont donc pas "
+                    "*Safe*), mais elles sont **idempotentes**. Écraser une ou dix fois l'enregistrement `#1` par le même "
+                    "état cible laisse la base dans un état final rigoureusement identique ; de même, supprimer une seconde "
+                    "fois l'enregistrement `#1` renvoie peut-être `404` au lieu de `200`, mais l'état du serveur demeure "
+                    "inchangé (la ressource `#1` est absente).\n\n"
+                    "À l'opposé exact se dresse **`POST /api/v1/formations`**, qui n'est **ni sûr ni idempotent** : soumettre "
+                    "trois fois la même requête `POST` ordonne la création de trois enregistrements distincts (`#101`, `#102`, "
+                    "`#103`) ou déclenche trois débits bancaires consécutifs. Quant à **`PATCH`** (RFC 5789), il est idempotent "
+                    "lorsqu'il affecte une valeur absolue (`{\"salle\": \"Amphi B\"}`), mais cesse de l'être s'il exprime "
+                    "une opération relative telle qu'incrémenter un compteur (`{\"ajouter_places\": 5}`)."
                 )
             },
             {
-                "heading": "2. Sérialisation (`dumps`) et Désérialisation (`loads`) en Python",
+                "heading": "2. Pipeline de sérialisation (`json.dumps`) et désérialisation (`json.loads`) en UTF-8",
                 "body": (
-                    "Une carte réseau ne sait pas transporter un objet `dict` de la RAM Python : elle ne transporte que des "
-                    "séquences d'octets textuels.\n"
-                    "- **Sérialiser (`json.dumps(dictionnaire)`)** : Transforme l'objet mémoire Python en une chaîne de "
-                    "caractères formatée selon la norme JSON. Le paramètre `ensure_ascii=False` empêche l'échappement "
-                    "`\\u00e9` et préserve les caractères accentués ou arabes en UTF-8 natif.\n"
-                    "- **Désérialiser (`json.loads(chaine_json)`)** : Analyse (*parse*) la chaîne de texte reçue du réseau "
-                    "pour reconstruire le dictionnaire ou la liste en mémoire Python."
+                    "Dans la bibliothèque standard Python, le module `json` assure la traduction bidirectionnelle entre les "
+                    "structures mémoire (`dict`, `list`) et les chaînes textuelles conformes à la RFC 8259. Les fonctions "
+                    "terminées par la lettre **`s`** (*string*) — **`json.dumps()`** (*dump string*) et **`json.loads()`** "
+                    "(*load string*) — opèrent directement sur des chaînes en mémoire vive, par opposition à `json.dump()` "
+                    "et `json.load()` qui lisent ou écrivent un descripteur de fichier sur disque.\n\n"
+                    "```python — Sérialisation UTF-8 fidèle sans échappement ASCII superflu\n"
+                    "import json\n"
+                    "\n"
+                    "enveloppe = {\"organisme\": \"ISGP\", \"intitule\": \"Sécurité des APIs\", \"ouvert\": True}\n"
+                    "trame_json = json.dumps(enveloppe, ensure_ascii=False)\n"
+                    "octets_reseau = trame_json.encode(\"utf-8\")\n"
+                    "```\n\n"
+                    "> [!TIP] Le paramètre `ensure_ascii=False` en contexte francophone et arabophone\n"
+                    "> Par prudence historique, `json.dumps()` active par défaut `ensure_ascii=True`, ce qui convertit chaque caractère accentué ou arabe en séquence d'échappement hexadécimale de 6 octets (`\"S\\u00e9curit\\u00e9\"`), alourdissant inutilement le trafic et dégradant la lisibilité dans les journaux. En UTF-8 moderne (et nativement dans `jsonify()` de Flask 2.3+), l'encodage direct des caractères Unicode préserve à la fois la compacité et la clarté."
                 )
             },
             {
-                "heading": "3. Structure d'Enveloppe JSON et Format International des Dates (ISO 8601)",
+                "heading": "3. Architecture d'enveloppe JSON (`meta` / `data`) et horodatage international ISO 8601",
                 "body": (
-                    "Dans une API d'entreprise, on sépare systématiquement :\n"
-                    "- La clé **`\"meta\"`** : informations techniques sur la réponse (version de l'API, horodatage UTC au "
-                    "format international **ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`**, pagination).\n"
-                    "- La clé **`\"data\"`** : le contenu métier proprement dit.\n"
-                    "Pourquoi le format ISO 8601 (`2026-11-08T17:30:00Z`) est-il obligatoire ? Parce qu'il se trie par "
-                    "ordre alphabétique aussi bien que chronologique et élimine toute ambiguïté de fuseau horaire grâce au suffixe `Z` (*Zulu / UTC*)."
+                    "Exposer directement un tableau nu `[ {...}, {...} ]` à la racine d'un endpoint de collection constitue "
+                    "une dette technique classique : six mois plus tard, lorsqu'il devient nécessaire d'ajouter le nombre "
+                    "total de pages ou un curseur de continuation sans casser les clients existants, il est impossible "
+                    "d'attacher une propriété à un tableau JSON ! En structurant dès l'origine vos réponses autour d'un "
+                    "objet racine scindé entre **`\"meta\"`** (version du contrat, horodatage serveur, compteurs de pagination, "
+                    "`request_id`) et **`\"data\"`** (l'entité ou la liste d'entités métier), vous garantissez l'extensibilité "
+                    "durable de votre contrat.\n\n"
+                    "La même rigueur s'impose pour le transport du temps. JSON ne possédant aucun type natif pour les dates, "
+                    "l'industrie bannit formellement les formats régionaux ambigus tels que `\"08/11/2026\"` (interprété "
+                    "comme le 8 novembre à Alger et Paris, mais comme le 11 août à New York). Toute date-heure exposée par "
+                    "une API doit impérativement suivre la norme **ISO 8601 / RFC 3339 en temps universel coordonné (UTC)** "
+                    "avec le suffixe `Z` (*Zulu Time*), telle que `\"2026-11-08T17:30:00Z\"` : non seulement elle élimine "
+                    "tout bogue de fuseau horaire ou de changement d'heure d'été, mais son ordre lexicographique coïncide "
+                    "exactement avec l'ordre chronologique."
                 )
             }
         ],
@@ -784,8 +1012,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_1/02_serialisation_json.py` et vérifiez que `None` est devenu `null` et `True` est devenu `true` dans la chaîne JSON.",
-            "Ajoutez une clé `\"modules\": [\"HTTP\", \"Flask\", \"Sécurité\"]` dans le dictionnaire Python, sérialisez-le, puis relisez le 2ème module après `json.loads()`."
+            "Exécutez `day_1/02_serialisation_json.py` et vérifiez comment le singleton `None` et le booléen `True` ont été traduits en `null` et `true` au sein de la chaîne sérialisée.",
+            "Ajoutez une liste `\"modules\": [\"HTTP/1.1\", \"Flask WSGI\", \"Sécurité JWT\"]` dans la section `data`, sérialisez l'enveloppe complète, puis désérialisez-la avec `json.loads()` pour extraire le deuxième module."
         ]
     },
 
@@ -794,49 +1022,78 @@ ENRICHMENT_D0_D1 = {
     # =========================================================================
     "d1-l5": {
         "context": (
-            "Comment tester et déboguer une API qui exige une méthode `POST` ou `DELETE`, un corps JSON et un en-tête "
-            "`Authorization: Bearer <token>` alors que la barre d'adresse d'un navigateur Web (Chrome, Firefox, Edge) "
-            "ne sait envoyer que des requêtes `GET` sans en-têtes personnalisés ?\n"
-            "Un développeur d'API ne travaille jamais à l'aveugle : il utilise des **clients d'inspection HTTP**. "
-            "En production sur un serveur Linux distant (via SSH) ou dans un script d'intégration continue, **`curl`** "
-            "est le standard absolu. Sur son poste de développement, il le complète avec **Postman** (ou Bruno/Insomnia), "
-            "**HTTPie** et les fichiers **`.http`**. Ce chapitre vous rend autonome sur chacun de ces outils."
+            "Comment auditer, reproduire et diagnostiquer un endpoint qui exige une méthode `PATCH` ou `DELETE`, "
+            "un corps JSON précis et un en-tête cryptographique `Authorization: Bearer <token>`, alors que la barre "
+            "d'adresse d'un navigateur Web est structurellement cantonnée à émettre de simples requêtes `GET` "
+            "dépourvues d'en-têtes personnalisés ?\n\n"
+            "Un ingénieur backend ne devine jamais ce qui transite sur le fil réseau : il l'instrumente à l'aide de "
+            "**clients d'inspection HTTP dédiés**. Sur un serveur Linux de production accessible uniquement en SSH ou "
+            "au sein d'un pipeline CI/CD GitLab, l'utilitaire **`curl`** règne sans partage ; sur le poste de travail "
+            "de l'équipe, il s'articule avec les collections collaboratives **Postman / Bruno**, la concision de "
+            "**HTTPie** et les cahiers de requêtes versionnés **`.http`**. Ce chapitre vous donne la maîtrise "
+            "opérationnelle de cette chaîne d'outillage."
         ),
         "deep_sections": [
             {
-                "heading": "1. Pourquoi `curl` est le couteau suisse universel de tout ingénieur Backend",
+                "heading": "1. Pourquoi `curl` demeure l'instrument chirurgical irremplaçable en production",
                 "body": (
-                    "Créé en 1997 par Daniel Stenberg, **`curl` (*Client for URL*)** est préinstallé sur la quasi-totalité "
-                    "des serveurs Linux, macOS, Windows 10/11 et conteneurs Docker de la planète.\n"
-                    "- Lorsqu'une API tombe en panne en production à 2h du matin, vous vous connectez au serveur en ligne de "
-                    "commande : vous n'avez pas d'interface graphique Postman sur le serveur. Avec `curl -i` ou `curl -v`, "
-                    "vous forgez n'importe quelle requête HTTP en quelques secondes et inspectez les octets exacts renvoyés par Flask.\n"
-                    "- De plus, toute commande `curl` peut être copiée-collée dans un ticket d'incident, dans une documentation "
-                    "technique ou dans un script de test automatisé."
+                    "Créé en 1997 par l'ingénieur suédois Daniel Stenberg, **`curl` (*Client for URL*)** s'appuie sur la "
+                    "bibliothèque C `libcurl` déployée aujourd'hui sur plusieurs milliards d'appareils, de la moindre "
+                    "image Alpine Linux minimale aux routeurs industriels en passant par macOS et Windows 11. Lorsqu'un "
+                    "incident critique éclate à deux heures du matin entre deux conteneurs situés dans un sous-réseau privé "
+                    "sans interface graphique, ni Postman ni Chrome ne sont disponibles au bout de votre session SSH.\n\n"
+                    "En quelques secondes au clavier, `curl` permet de forger n'importe quelle trame HTTP/1.1 ou HTTP/2 "
+                    "exactement telle que vous l'avez conçue, sans cache fantôme, sans redirection silencieuse non désirée "
+                    "et sans politique CORS navigateur venant brouiller le diagnostic. Mieux encore : une commande `curl` "
+                    "est du **pur texte reproductible** que l'on consigne dans un rapport post-mortem, une spécification "
+                    "technique ou un test d'intégration Bash."
                 )
             },
             {
-                "heading": "2. Décoder la sortie de `curl -v` (Mode Verbeux) : les symboles `*`, `>` et `<`",
+                "heading": "2. Lecture d'une trace `curl -v` : interpréter les préfixes directionnels `*`, `>` et `<`",
                 "body": (
-                    "Lorsque vous lancez `curl -v http://127.0.0.1:5000/api/sandbox/bonjour`, `curl` préfixe chaque ligne "
-                    "de diagnostic par un symbole précis :\n"
-                    "- Les lignes commençant par **`*`** décrivent le travail interne de `curl` (résolution DNS, connexion TCP "
-                    "vers `127.0.0.1` port `5000`, négociation TLS).\n"
-                    "- Les lignes commençant par **`>`** montrent la **Requête HTTP sortante** envoyée par `curl` vers le serveur "
-                    "(`> GET /api/sandbox/bonjour HTTP/1.1`, `> Host: 127.0.0.1:5000`, `> Accept: */*`).\n"
-                    "- Les lignes commençant par **`<`** montrent les **En-têtes de la Réponse HTTP entrante** renvoyés par le "
-                    "serveur Flask (`< HTTP/1.1 200 OK`, `< Content-Type: application/json`)."
+                    "Tandis que l'option `-i` (`--include`) affiche sobrement la ligne de statut et les en-têtes de la "
+                    "réponse au-dessus du corps JSON, le drapeau **`-v` (`--verbose`)** ouvre une sonde complète sur chaque "
+                    "couche protocolaire traversée. Pour lire instantanément sa sortie sans confusion, il suffit de "
+                    "connaître la convention de ses trois marqueurs de marge.\n\n"
+                    "```bash — Anatomie directionnelle d'une session diagnostique curl -v\n"
+                    "$ curl -v --json '{\"identifiant\":\"stagiaire\",\"mot_de_passe\":\"isgp2026\"}' \\\n"
+                    "    \"http://127.0.0.1:5000/api/sandbox/auth/token\"\n"
+                    "*   Trying 127.0.0.1:5000...\n"
+                    "* Connected to 127.0.0.1 (127.0.0.1) port 5000 (#0)\n"
+                    "> POST /api/sandbox/auth/token HTTP/1.1\n"
+                    "> Host: 127.0.0.1:5000\n"
+                    "> Content-Type: application/json\n"
+                    "> Accept: application/json\n"
+                    "> Content-Length: 53\n"
+                    "<\n"
+                    "< HTTP/1.1 200 OK\n"
+                    "< Content-Type: application/json\n"
+                    "{\"access_token\": \"eyJ...\"}\n"
+                    "```\n\n"
+                    "Les lignes introduites par l'astérisque **`*`** documentent le cycle interne du moteur réseau `libcurl` "
+                    "(résolution DNS, adresse IP retenue, ouverture du socket TCP, vérification du certificat TLS). Les "
+                    "lignes précédées du chevron sortant **`>`** reproduisent octet pour octet les en-têtes HTTP émis par "
+                    "le client vers Flask. Enfin, les lignes marquées du chevron entrant **`<`** révèlent la ligne de statut "
+                    "et les en-têtes bruts renvoyés par le serveur WSGI avant l'impression du corps de réponse.\n\n"
+                    "> [!WARNING] Deux pièges classiques du shell avec `curl`\n"
+                    "> Premièrement, utiliser `-d '{\"cle\": 1}'` sans préciser `-H \"Content-Type: application/json\"` (ou le raccourci moderne `--json`) amène `curl` à déclarer par défaut `application/x-www-form-urlencoded`, ce qui fait que `request.get_json()` renvoie `None` côté Flask ! Deuxièmement, entourez **toujours** vos URLs de guillemets doubles `\"http://...?page=1&limit=5\"` : sans guillemets, le shell Bash interprète l'esperluette `&` comme une mise en tâche de fond et tronque tous les paramètres suivants."
                 )
             },
             {
-                "heading": "3. Structurer ses tests en équipe avec Postman, HTTPie et VS Code REST Client (`.http`)",
+                "heading": "3. Industrialisation en équipe : Collections Postman/Bruno, HTTPie et fichiers `.http`",
                 "body": (
-                    "Pour organiser des dizaines de routes au quotidien, trois outils complètent `curl` :\n"
-                    "- **Postman / Bruno / Insomnia** : Permettent de regrouper toutes les routes du projet dans une **Collection** "
-                    "et d'utiliser des variables comme `{{base_url}}` et `{{bearer_token}}`.\n"
-                    "- **HTTPie (`http`)** : Un client en ligne de commande pensé pour JSON (`http POST :5000/api/formations titre=\"Flask\" duree:=5`), qui colore automatiquement la sortie.\n"
-                    "- **Fichiers `.http` (REST Client dans VS Code)** : Un simple fichier texte versionné dans Git où chaque "
-                    "requête est séparée par `###` et exécutable d'un clic directement dans l'éditeur de code."
+                    "Lorsqu'un projet dépasse une vingtaine de routes et implique des équipes frontales et d'assurance "
+                    "qualité, trois outils complémentaires prennent le relais au quotidien. Les environnements graphiques "
+                    "**Postman**, **Bruno** ou **Insomnia** organisent le catalogue d'endpoints en *Collections* assorties "
+                    "de variables dynamiques (`{{base_url}}`, `{{bearer_token}}`) permettant de basculer en un clic de "
+                    "`http://127.0.0.1:5000` vers la pré-production `https://staging-api.isgp.dz`.\n\n"
+                    "En ligne de commande locale, **HTTPie** (`http POST :5000/api/v1/formations titre=\"Flask\" duree_jours:=5`) "
+                    "offre une ergonomie remarquable : l'opérateur `=` produit une chaîne JSON, l'opérateur `:=` produit un "
+                    "type JSON natif (entier, booléen, liste), et la réponse s'affiche automatiquement indentée avec "
+                    "coloration syntaxique. Enfin, les fichiers texte **`.http`** (exploités par l'extension *REST Client* "
+                    "dans VS Code et Antigravity IDE) permettent de conserver vos scénarios de requêtes séparés par `###` "
+                    "directement dans le dépôt Git au même niveau que le code Python qu'ils valident."
                 )
             }
         ],
@@ -879,9 +1136,8 @@ ENRICHMENT_D0_D1 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_1/05_outils_curl_postman_httpie.py` ci-dessus pour observer la sortie réelle des 3 commandes `curl -i`.",
-            "Ouvrez l'onglet **curl & Postman** dans la barre supérieure et testez les commandes de l'aide-mémoire interactif.",
-            "Téléchargez la Collection Postman (`.json`) et le fichier `.http` depuis l'onglet **curl & Postman**."
+            "Exécutez le script `day_1/05_outils_curl_postman_httpie.py` ci-dessus afin d'inspecter en direct les réponses réelles des commandes `curl -i` émises contre le serveur du laboratoire.",
+            "Basculez dans l'onglet **curl & Postman** de la barre supérieure pour tester les scénarios d'authentification et de chronométrage `-w`, puis téléchargez la Collection Postman et le fichier `.http` de référence."
         ]
     }
 }

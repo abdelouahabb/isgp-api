@@ -671,14 +671,14 @@ GLOSSARY_TERMS = [{'id': 'openssl_rand_secrets',
   'analogy': 'Stocker un jeton dans `localStorage` revient à poser ses clés sur la table du café (tout '
              'script XSS peut les voler). Un Cookie `HttpOnly; Secure; SameSite=Strict` place les clés '
              'dans un coffre blindé du navigateur que seul le serveur peut ouvrir.',
-  'explanation': '- **`Set-Cookie` (Serveur $\\rightarrow$ Client) / `Cookie` (Client $\\rightarrow$ '
+  'explanation': '- **`Set-Cookie` (Serveur -> Client) / `Cookie` (Client -> '
                  'Serveur)** : Émis via `response.set_cookie(...)`, lu via `request.cookies.get(...)`, '
                  'supprimé via `response.delete_cookie(...)` (`Max-Age=0`).\n'
                  '- **`HttpOnly`** (`httponly=True`) : Interdit à JavaScript (`document.cookie`) de '
-                 'lire le cookie $\\rightarrow$ **Bouclier contre le vol de session par XSS**.\n'
+                 'lire le cookie -> **Bouclier contre le vol de session par XSS**.\n'
                  '- **`Secure`** (`secure=True`) : Transmis uniquement sur **HTTPS (TLS)**.\n'
                  "- **`SameSite=Strict` ou `Lax`** : Empêche l'envoi automatique du cookie lors de "
-                 'requêtes inter-sites $\\rightarrow$ **Bouclier contre les attaques CSRF**.',
+                 'requêtes inter-sites -> **Bouclier contre les attaques CSRF**.',
   'code_example': 'resp = make_response(jsonify({"statut": "Connecté"}))\n'
                   'resp.set_cookie(\n'
                   '    "isgp_auth_token",\n'

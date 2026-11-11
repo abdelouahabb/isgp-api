@@ -356,12 +356,55 @@ function renderActiveLesson() {
 
   const detailContainer = document.getElementById("lesson-detail-container");
 
+  const tocEntries = [];
+  if (lesson.context) {
+    tocEntries.push({ id: "chap-sec-context", label: lesson.is_literature ? "Histoire & Mise en situation" : "Contexte d'ingénierie" });
+  }
+  if (lesson.analogy) {
+    tocEntries.push({ id: "chap-sec-analogy", label: "Modèle mental" });
+  }
+  if (lesson.deep_sections && lesson.deep_sections.length) {
+    lesson.deep_sections.forEach((sec, idx) => {
+      const shortHeading = String(sec.heading || "").replace(/^\d+\.\s*/, "").split(":")[0].trim();
+      tocEntries.push({
+        id: `chap-sec-deep-${idx}`,
+        label: shortHeading.length > 44 ? shortHeading.slice(0, 42) + "..." : shortHeading
+      });
+    });
+  }
+  if (lesson.explanation && lesson.explanation.length) {
+    tocEntries.push({ id: "chap-sec-axioms", label: "Principes directeurs" });
+  }
+  if ((lesson.mermaid_diagram && lesson.mermaid_diagram.code) || lesson.architecture_diagram) {
+    tocEntries.push({ id: "chap-sec-diagram", label: "Topologie & Flux" });
+  }
+  if (lesson.code && lesson.code.trim()) {
+    tocEntries.push({ id: "chap-sec-code", label: lesson.is_literature ? "Contrat annoté" : "Code & Analyse" });
+  }
+
+  const chapterTocHtml =
+    tocEntries.length > 2
+      ? `
+      <nav class="chapter-toc" aria-label="Sommaire du chapitre">
+        <span class="chapter-toc-label">Sommaire du chapitre :</span>
+        <div class="chapter-toc-links">
+          ${tocEntries
+            .map(
+              (t, i) =>
+                `<button type="button" class="chapter-toc-link" onclick="scrollToChapterSection('${t.id}')">${i + 1}. ${escapeHtml(t.label)}</button>`
+            )
+            .join("")}
+        </div>
+      </nav>
+    `
+      : "";
+
   const contextHtml = lesson.context
     ? `
-      <div class="doc-context-box">
-        <h4>${lesson.is_literature ? "1. Histoire, Philosophie &amp; Mise en Situation" : "1. Contexte &amp; Problématique d'Ingénierie"}</h4>
-        <div class="doc-context-text">${formatRichText(lesson.context)}</div>
-      </div>
+      <section id="chap-sec-context" class="doc-context-box">
+        <h4>${lesson.is_literature ? "I. Genèse Historique, Philosophie &amp; Mise en Situation" : "I. Contexte Architectural &amp; Problématique d'Ingénierie"}</h4>
+        <div class="doc-context-text">${formatEditorialDoc(lesson.context)}</div>
+      </section>
     `
     : "";
 
@@ -371,11 +414,11 @@ function renderActiveLesson() {
       <div class="deep-sections-wrapper">
         ${lesson.deep_sections
           .map(
-            (sec) => `
-          <div class="deep-section-card">
+            (sec, idx) => `
+          <section id="chap-sec-deep-${idx}" class="deep-section-card">
             <h5>${formatInlineText(sec.heading)}</h5>
-            <div class="deep-section-body">${formatRichText(sec.body)}</div>
-          </div>
+            <div class="deep-section-body">${formatEditorialDoc(sec.body)}</div>
+          </section>
         `
           )
           .join("")}
@@ -384,13 +427,20 @@ function renderActiveLesson() {
       : "";
 
   const explanationsHtml = (lesson.explanation || [])
-    .map((item) => `<div class="explanation-item">${formatRichText(item)}</div>`)
+    .map(
+      (item, idx) => `
+      <div class="principle-card">
+        <div class="principle-index">Principe ${idx + 1}</div>
+        <div class="principle-body">${formatEditorialDoc(item)}</div>
+      </div>
+    `
+    )
     .join("");
 
   const mermaidHtml =
     lesson.mermaid_diagram && lesson.mermaid_diagram.code
       ? `
-      <div class="mermaid-container">
+      <div id="chap-sec-diagram" class="mermaid-container">
         <div class="mermaid-title">Diagramme d'Architecture &amp; Séquence — ${escapeHtml(lesson.mermaid_diagram.title)}</div>
         <pre class="mermaid">${escapeHtml(lesson.mermaid_diagram.code)}</pre>
       </div>
@@ -399,7 +449,7 @@ function renderActiveLesson() {
 
   const archDiagramHtml = lesson.architecture_diagram
     ? `
-      <div class="arch-diagram-box">
+      <div id="chap-sec-diagram" class="arch-diagram-box">
         <h4>Schéma d'Architecture &amp; Flux d'Exécution</h4>
         <pre class="arch-diagram-pre">${escapeHtml(lesson.architecture_diagram)}</pre>
       </div>
@@ -588,7 +638,7 @@ function renderActiveLesson() {
   const codeWalkthroughHtml =
     lesson.code && lesson.code.trim()
       ? `
-      <div class="code-walkthrough-grid">
+      <div id="chap-sec-code" class="code-walkthrough-grid">
         <div class="code-panel">
           <div class="panel-bar">
             <span>${lesson.artifact_title ? escapeHtml(lesson.artifact_title) : "Fichier : " + escapeHtml(filePath)}</span>
@@ -614,30 +664,34 @@ function renderActiveLesson() {
       <div class="lesson-title-row">
         <h3>${formatInlineText(lesson.title)}</h3>
         <div class="btn-group">
-          <span class="category-tag">${lesson.is_literature ? "Prologue Littéraire — Culture &amp; Jargon" : "Fichier : " + escapeHtml(filePath)}</span>
+          <span class="category-tag">${lesson.is_literature ? "Monographie de Référence — Culture &amp; Jargon" : "Fichier : " + escapeHtml(filePath)}</span>
           <span class="category-tag">${lesson.is_literature ? "Lecture : " : "Durée : "}${escapeHtml(lesson.duration)}</span>
         </div>
       </div>
+
+      ${chapterTocHtml}
 
       ${contextHtml}
 
       ${
         lesson.analogy
           ? `
-        <div class="analogy-box">
+        <section id="chap-sec-analogy" class="analogy-box">
           <h4>Modèle Mental &amp; Analogie Fonctionnelle — ${formatInlineText(lesson.analogy.title)}</h4>
-          <div class="analogy-text">${formatRichText(lesson.analogy.text)}</div>
-        </div>
+          <div class="analogy-text">${formatEditorialDoc(lesson.analogy.text)}</div>
+        </section>
       `
           : ""
       }
 
       ${deepSectionsHtml}
 
-      <div class="explanation-box">
-        <h4>${lesson.is_literature ? "Points Clés à Retenir (Synthèse Fondamentale)" : "Synthèse Méthodique &amp; Règles d'Ingénierie"}</h4>
-        ${explanationsHtml}
-      </div>
+      <section id="chap-sec-axioms" class="explanation-box">
+        <h4>${lesson.is_literature ? "Principes Directeurs &amp; Lois Fondamentales à Retenir" : "Principes Directeurs &amp; Invariants d'Ingénierie"}</h4>
+        <div class="principles-grid">
+          ${explanationsHtml}
+        </div>
+      </section>
 
       ${mermaidHtml || archDiagramHtml}
       ${refTableHtml}
@@ -665,6 +719,13 @@ function renderActiveLesson() {
     </article>
   `;
   renderMermaidDiagrams(detailContainer);
+}
+
+function scrollToChapterSection(secId) {
+  const el = document.getElementById(secId);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function getAdjacentLessons(dayNum, lessonId) {
@@ -1355,7 +1416,7 @@ function renderGlossary() {
         <div class="glossary-analogy">
           <strong>Analogie :</strong> ${formatInlineText(item.analogy)}
         </div>
-        <div style="margin:0; font-size:15px; color:#374151; line-height:1.65;">${formatRichText(item.explanation)}</div>
+        <div class="glossary-prose">${formatEditorialDoc(item.explanation)}</div>
         <pre class="code-block" style="font-size:13.5px; padding:12px; border-radius:4px;">${escapeHtml(item.code_example)}</pre>
       </div>
     `
@@ -1629,26 +1690,162 @@ function formatInlineText(str) {
   return formatted.replace(/\x00CODE(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
 }
 
-function formatRichText(str) {
-  const lines = String(str ?? "").split("\n");
-  if (lines.length === 1) {
-    return formatInlineText(lines[0]);
+const WIRE_LANG_LABELS = {
+  http: "Trame Protocole HTTP",
+  json: "Document JSON (RFC 8259)",
+  yaml: "Spécification OpenAPI / YAML",
+  python: "Extrait Python",
+  sql: "Instruction SQL",
+  bash: "Session Terminal",
+  text: "Trace d'Architecture & Mémoire"
+};
+
+const CALLOUT_META = {
+  NOTE: {
+    cls: "note",
+    defaultTitle: "Note de Référence",
+    svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>'
+  },
+  IMPORTANT: {
+    cls: "important",
+    defaultTitle: "Invariant Fondamental",
+    svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>'
+  },
+  WARNING: {
+    cls: "warning",
+    defaultTitle: "Point de Vigilance Critique",
+    svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"></path></svg>'
+  },
+  TIP: {
+    cls: "tip",
+    defaultTitle: "Pratique d'Ingénierie Recommandée",
+    svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.74V17h8v-2.26A7 7 0 0 0 12 2z"></path></svg>'
   }
-  return lines
-    .map((line, idx) => {
-      if (!line.trim()) return "";
-      if (/^\s{4,}-\s+/.test(line)) {
-        return `<div class="rich-line-sub2">&ndash; ${formatInlineText(line.replace(/^\s+-\s+/, ""))}</div>`;
+};
+
+function formatEditorialBlocks(str, wrapSingleParagraph = false) {
+  const raw = String(str ?? "").replace(/\r\n/g, "\n");
+  if (!raw.trim()) return "";
+  if (!wrapSingleParagraph && !raw.includes("\n")) {
+    return formatInlineText(raw);
+  }
+
+  const lines = raw.split("\n");
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // 1. Bloc de protocole / trame / code encadré par ```lang ... ```
+    if (trimmed.startsWith("```")) {
+      const langSpec = trimmed.slice(3).trim();
+      const [langKeyRaw, ...customParts] = langSpec.split("—");
+      const langKey = (langKeyRaw || "text").trim().toLowerCase();
+      const customLabel = customParts.join("—").trim();
+      const barTitle = customLabel || WIRE_LANG_LABELS[langKey] || langSpec || "Extrait Technique";
+      i++;
+      const codeLines = [];
+      while (i < lines.length && !lines[i].trim().startsWith("```")) {
+        codeLines.push(lines[i]);
+        i++;
       }
-      if (/^\s*-\s+/.test(line)) {
-        return `<div class="rich-line-sub">&bull; ${formatInlineText(line.replace(/^\s*-\s+/, ""))}</div>`;
+      if (i < lines.length && lines[i].trim().startsWith("```")) i++;
+      blocks.push(
+        `<div class="doc-wire-block">` +
+          `<div class="doc-wire-bar"><span>${escapeHtml(barTitle)}</span></div>` +
+          `<pre class="doc-wire-pre">${escapeHtml(codeLines.join("\n"))}</pre>` +
+        `</div>`
+      );
+      continue;
+    }
+
+    // 2. Sous-titres éditoriaux (### ou ####)
+    const hMatch = trimmed.match(/^#{3,6}\s+(.+)$/);
+    if (hMatch) {
+      blocks.push(`<h6 class="doc-subhead">${formatInlineText(hMatch[1])}</h6>`);
+      i++;
+      continue;
+    }
+
+    // 3. Encadrés de référence (> [!NOTE|IMPORTANT|WARNING|TIP]) ou Citations (> ...)
+    if (trimmed.startsWith(">")) {
+      const quoteLines = [];
+      while (i < lines.length && lines[i].trim().startsWith(">")) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ""));
+        i++;
       }
-      if (/^\s*\d+\.\s+/.test(line)) {
-        return `<div class="rich-line-sub">${formatInlineText(line.trim())}</div>`;
+      const alertMatch = quoteLines[0].match(/^\[!(NOTE|IMPORTANT|WARNING|TIP)\]\s*(.*)$/i);
+      if (alertMatch) {
+        const kind = alertMatch[1].toUpperCase();
+        const meta = CALLOUT_META[kind] || CALLOUT_META.NOTE;
+        const titleText = alertMatch[2].trim() || meta.defaultTitle;
+        const bodyParagraphs = quoteLines
+          .slice(1)
+          .filter((l) => l.trim().length > 0)
+          .map((l) => `<p class="doc-callout-p">${formatInlineText(l)}</p>`)
+          .join("");
+        blocks.push(
+          `<aside class="doc-callout doc-callout-${meta.cls}">` +
+            `<div class="doc-callout-header">${meta.svg}<span>${formatInlineText(titleText)}</span></div>` +
+            `<div class="doc-callout-body">${bodyParagraphs}</div>` +
+          `</aside>`
+        );
+      } else {
+        const quoteHtml = quoteLines
+          .filter((l) => l.trim().length > 0)
+          .map((l) => `<p>${formatInlineText(l)}</p>`)
+          .join("");
+        blocks.push(`<blockquote class="doc-blockquote">${quoteHtml}</blockquote>`);
       }
-      return `<div class="${idx === 0 ? "rich-line-main" : "rich-line-p"}">${formatInlineText(line)}</div>`;
-    })
-    .join("");
+      continue;
+    }
+
+    // 4. Listes non ordonnées groupées (- ...)
+    if (/^\s*-\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*-\s+/.test(lines[i])) {
+        const isSub = /^\s{4,}-\s+/.test(lines[i]);
+        const content = lines[i].replace(/^\s*-\s+/, "");
+        items.push(`<li class="${isSub ? "doc-li-sub" : ""}">${formatInlineText(content)}</li>`);
+        i++;
+      }
+      blocks.push(`<ul class="doc-list">${items.join("")}</ul>`);
+      continue;
+    }
+
+    // 5. Listes numérotées groupées (1. ...)
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        const content = lines[i].replace(/^\s*\d+\.\s+/, "");
+        items.push(`<li>${formatInlineText(content)}</li>`);
+        i++;
+      }
+      blocks.push(`<ol class="doc-list doc-list-numbered">${items.join("")}</ol>`);
+      continue;
+    }
+
+    // 6. Paragraphe éditorial autonome (chaque ligne logique Python forme un paragraphe typographique aéré)
+    blocks.push(`<p class="doc-prose-p">${formatInlineText(trimmed)}</p>`);
+    i++;
+  }
+
+  return blocks.join("");
+}
+
+function formatEditorialDoc(str) {
+  return formatEditorialBlocks(str, true);
+}
+
+function formatRichText(str) {
+  return formatEditorialBlocks(str, false);
 }
 
 // ============================================================================

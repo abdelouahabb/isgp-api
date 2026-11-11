@@ -21,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=43" />
+  <link rel="stylesheet" href="/static/styles.css?v=44" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -3492,28 +3492,24 @@ class FormationCatalogueHandler(tornado.web.RequestHandler):
         </p>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; margin-bottom: 16px;">
-          <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-top: 4px solid #7c3aed; padding: 14px; border-radius: 6px;">
-            <h4 style="margin: 0 0 6px 0; color: #4c1d95; font-size: 15px;">Le Contrat d'API (Vérité Exécutable par Machine)</h4>
-            <p style="margin: 0 0 8px 0; font-size: 13.5px; line-height: 1.6; color: #1e293b;">
-              Spécification formelle, déterministe et analysable par un programme informatique (<code>OpenAPI 3.1</code>, <code>JSON Schema</code>, <code>Protobuf .proto</code>, <code>AsyncAPI</code>).
+          <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-top: 4px solid #7c3aed; padding: 16px; border-radius: 6px;">
+            <h4 style="margin: 0 0 8px 0; color: #4c1d95; font-size: 15px;">Le Contrat d'API (Vérité Exécutable par Machine)</h4>
+            <p style="margin: 0 0 10px 0; font-size: 13.5px; line-height: 1.68; color: #1e293b;">
+              Un contrat est une spécification mathématique déterministe lisible sans ambiguïté par un automate informatique (<code>OpenAPI 3.1</code> adossé à <code>JSON Schema</code>, <code>Protobuf .proto</code> ou <code>AsyncAPI</code>). Il fige les types scalaires et composites, les bornes numériques, les expressions régulières, les attributs obligatoires (<code>required</code>) ainsi que l'intégralité des codes de statut HTTP possibles (<code>200</code>, <code>201</code>, <code>401</code>, <code>403</code>, <code>422</code>, <code>429</code>) et l'enveloppe d'erreur normalisée <strong>RFC 9457 / 7807</strong>.
             </p>
-            <ul style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: #334155;">
-              <li>Définit les types exacts, bornes numériques, expressions régulières, champs obligatoires (<code>required</code>) et <code>nullable</code>.</li>
-              <li>Déclare exhaustivement les statuts HTTP (<code>200</code>, <code>201</code>, <code>401</code>, <code>403</code>, <code>422</code>, <code>429</code>) et le format d'erreur <strong>RFC 7807</strong>.</li>
-              <li><strong>Exécutable en CI/CD</strong> : linting automatique (<em>Spectral</em>), détection de <em>Breaking Changes</em> (<em>oasdiff</em>), serveurs de simulation (<em>Mock</em>) et tests de fuzzing (<em>Schemathesis</em>).</li>
-            </ul>
+            <p style="margin: 0; font-size: 13px; line-height: 1.65; color: #334155;">
+              <strong>Pouvoir industriel en CI/CD :</strong> loin d'être un texte passif, ce fichier pilote l'audit grammatical continu (<em>Spectral</em>), le blocage préventif des ruptures de compatibilité (<em>oasdiff</em>), l'émulation immédiate de serveurs de simulation (<em>Prism Mock</em>) et le test de robustesse par génération mathématique de charges limites (<em>Schemathesis</em>).
+            </p>
           </div>
 
-          <div style="background: #ecfeff; border: 1px solid #a5f3fc; border-top: 4px solid #0891b2; padding: 14px; border-radius: 6px;">
-            <h4 style="margin: 0 0 6px 0; color: #164e63; font-size: 15px;">La Documentation d'API (Expérience Humaine — DX)</h4>
-            <p style="margin: 0 0 8px 0; font-size: 13.5px; line-height: 1.6; color: #1e293b;">
-              Portail pédagogique destiné aux ingénieurs humains qui intègrent l'API, <strong>généré automatiquement à partir du Contrat</strong> et enrichi de guides métiers.
+          <div style="background: #ecfeff; border: 1px solid #a5f3fc; border-top: 4px solid #0891b2; padding: 16px; border-radius: 6px;">
+            <h4 style="margin: 0 0 8px 0; color: #164e63; font-size: 15px;">La Documentation d'API (Expérience Humaine — DX)</h4>
+            <p style="margin: 0 0 10px 0; font-size: 13.5px; line-height: 1.68; color: #1e293b;">
+              Une documentation constitue le portail cognitif conçu pour l'ingénieur humain chargé d'intégrer votre service. Elle articule le récit opérationnel qu'aucun schéma brut ne saurait raconter seul : prise en main en cinq minutes (<em>Quickstart</em>), cinématique d'obtention et de renouvellement des jetons OAuth 2.0, bac à sable d'essai et enchaînement chronologique des appels métiers de bout en bout.
             </p>
-            <ul style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: #334155;">
-              <li>Guides de démarrage rapide (<em>Quickstart en 5 minutes</em>), obtention des clés/jetons OAuth 2.0 et environnement Bac à Sable.</li>
-              <li>Scénarios métiers bout-en-bout (ex: « Comment inscrire un groupe de 20 stagiaires et récupérer la facture PDF »).</li>
-              <li>Référence interactive de chaque endpoint (<strong>Swagger UI</strong>, <strong>ReDoc</strong>, <strong>Scalar</strong>) compilée directement depuis <code>openapi.yaml</code> &#8594; <strong>zéro dérive possible</strong>.</li>
-            </ul>
+            <p style="margin: 0; font-size: 13px; line-height: 1.65; color: #334155;">
+              <strong>Garantie zéro dérive :</strong> son catalogue technique interactif (<strong>Swagger UI</strong>, <strong>ReDoc</strong> ou <strong>Scalar</strong>) n'est jamais rédigé à la main, mais projeté automatiquement depuis le fichier <code>openapi.yaml</code> officiel à chaque déploiement.
+            </p>
           </div>
         </div>
 
@@ -4089,6 +4085,6 @@ class FormationCatalogueHandler(tornado.web.RequestHandler):
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=43"></script>
+  <script src="/static/app.js?v=44"></script>
 </body>
 </html>

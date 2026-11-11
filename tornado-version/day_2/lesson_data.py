@@ -30,12 +30,26 @@ DAY_2_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "Un guichet orienté objet (RequestHandler) où chaque verbe HTTP est une méthode de classe",
-                "text": "Contrairement aux micro-frameworks basés sur des fonctions décorées, **Tornado** structure chaque ressource autour d'une **classe Python héritant de `tornado.web.RequestHandler`**. Si un client envoie un `GET`, Tornado appelle `def get(self):`. S'il envoie un `POST`, Tornado appelle `def post(self):`.\nLes pages Web résident dans le dossier **`templates/`** et sont rendues via **`self.render('accueil.html', ...)`**, tandis que les routes d'API RESTful renvoient du JSON nativement en passant un dictionnaire à **`self.write({...})`**."
+                "text": (
+                    "À la différence des micro-frameworks qui dispersent les routes sur une multitude de fonctions autonomes décorées, **Tornado** modélise chaque ressource réseau comme un contrôleur orienté objet héritant de **`tornado.web.RequestHandler`**. "
+                    "Lorsqu'un paquet `GET` franchit le socket non bloquant, Tornado instancie ce contrôleur et invoque `def get(self):` ; lorsqu'un `POST` arrive sur la même URI, il invoque `def post(self):` sur une instance fraîchement isolée.\n\n"
+                    "Cette cohésion architecturale permet de faire cohabiter élégamment le rendu de portails Web compilés depuis `templates/` via **`self.render('accueil.html', ...)`** et l'exposition d'endpoints d'API RESTful haute performance via **`self.write({...})`**."
+                )
             },
             "explanation": [
-                "**1. Comment Tornado sert à la fois des pages Web (`self.render`) et des APIs JSON (`self.write`)** :\n  - **Pour une page Web destinée à un navigateur** : On place le fichier HTML dans `day_2/templates/accueil.html` (configuré via `template_path=...` dans `tornado.web.Application`) et on appelle `self.render('accueil.html', organisme='ISGP', modules=...)`.\n  - **Pour un endpoint d'API REST** : Lorsqu'on passe un `dict` Python à **`self.write({'message': '...', 'statut': 'actif'})`**, Tornado le sérialise automatiquement en JSON UTF-8 et injecte l'en-tête `Content-Type: application/json; charset=UTF-8` !",
-                "**2. Le Modèle de Maturité de Richardson (Les 4 niveaux d'une API REST)** :\n  - **Niveau 0 (RPC)** : Une seule URL (`POST /api`) à laquelle on envoie des commandes diverses.\n  - **Niveau 1 (Les Ressources)** : Chaque entité métier possède sa propre URI (`/api/formations`, `/api/formations/12`).\n  - **Niveau 2 (Les Verbes & Codes HTTP)** : Dans un `RequestHandler` Tornado, les méthodes `get()`, `post()`, `put()`, `patch()`, `delete()` et `self.set_status(code)` implémentent naturellement le Niveau 2 de Richardson.\n  - **Niveau 3 (HATEOAS)** : La réponse JSON inclut des liens (`links`) vers les actions suivantes possibles.",
-                "**3. La boucle d'événements non-bloquante `tornado.ioloop.IOLoop`** :\n  - Contrairement à un serveur synchrone qui bloque un thread par client, Tornado repose sur **`epoll` (Linux) / `kqueue` (BSD)** via sa boucle d'événements **`IOLoop`**, capable de maintenir des dizaines de milliers de connexions simultanées (problème C10k)."
+                (
+                    "**Dualité native entre gabarits HTML compilés (`self.render`) et sérialisation JSON (`self.write`).** "
+                    "Lorsqu'une route s'adresse à un opérateur humain sur navigateur, `self.render('accueil.html', organisme='ISGP', modules=...)` compile le fichier situé dans `template_path` en bytecode Python et émet du `text/html; charset=UTF-8`. "
+                    "À l'inverse, dès qu'une méthode d'API transmet un dictionnaire Python `dict` à `self.write({'message': '...', 'statut': 'actif'})`, Tornado le convertit automatiquement en flux JSON UTF-8 et injecte l'en-tête normatif `Content-Type: application/json; charset=UTF-8` sans appel manuel à `json.dumps()`."
+                ),
+                (
+                    "**Alignement structurel de `RequestHandler` sur le Modèle de Maturité de Richardson.** "
+                    "Là où le Niveau 0 tunnelise des ordres RPC disparates sur une URL unique et où le Niveau 1 introduit des URIs nominales par ressource (`/api/v1/formations`), Tornado incarne nativement le **Niveau 2 industriel** en associant l'adresse de la ressource à la table de routage `Application` et l'intention métier aux méthodes `get()`, `post()`, `put()`, `patch()`, `delete()` assorties de `self.set_status(code)`, ouvrant la voie aux liens hypermédias `links` du Niveau 3 (HATEOAS)."
+                ),
+                (
+                    "**Multiplexage d'entrées-sorties non bloquantes par `tornado.ioloop.IOLoop` (Architecture C10K).** "
+                    "Plutôt que d'immobiliser un thread système coûteux en RAM par client connecté en attente d'octets réseau, Tornado enregistre ses sockets `O_NONBLOCK` auprès des primitives noyau **`epoll` (Linux)** ou **`kqueue` (BSD/macOS)** pilotées par sa boucle événementielle `IOLoop`, lui permettant d'absorber des dizaines de milliers de connexions simultanées au sein d'un processus unique."
+                )
             ],
             "code": _read("01_serveur_minimal_tornado.py"),
             "line_explanations": [
@@ -70,12 +84,24 @@ DAY_2_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "Le filtre par expression régulière qui capture et valide l'identifiant dès la table de routage",
-                "text": "Dans **Tornado**, la table de routage utilise la puissance native des **Expressions Régulières Python (`re`)**. Chaque groupe entre parenthèses `(...)` dans le motif d'URL est automatiquement extrait et passé comme argument à la méthode `def get(self, ...)` du `RequestHandler` !"
+                "text": (
+                    "Dans **Tornado**, la table d'aiguillage d'une `Application` ne s'appuie pas sur un mini-langage propriétaire limité, mais directement sur le moteur d'**expressions régulières compilées (`re`)** de la bibliothèque standard Python.\n\n"
+                    "Chaque parenthèse capturante `(...)` inscrite dans le motif d'URL agit simultanément comme un garde-fou syntaxique à la frontière du routeur et comme un extracteur automatique qui injecte la sous-chaîne capturée dans la signature de `def get(self, ...)`."
+                )
             },
             "explanation": [
-                "**1. Les groupes capturants Regex dans le routeur Tornado** :\n  - `r'/api/saluer/([^/]+)'` : Capture toute séquence de caractères jusqu'au prochain `/` et la passe en argument `def get(self, prenom):`.\n  - `r'/api/v1/stagiaires/([0-9]+)'` : Capture **uniquement des chiffres** (`0-9`). Si un client appelle `/api/v1/stagiaires/abc`, l'expression régulière ne correspond pas et Tornado renvoie immédiatement `404 Not Found` !",
-                "**2. Comparaison des 4 syntaxes de paramètres de chemin en ingénierie d'API** :\n  - **`([0-9]+)` / `(?P<id>[0-9]+)`** : Syntaxe par expression régulière de **Tornado** et `re` Python.\n  - **`<int:id>`** : Syntaxe à chevrons de **Flask / Werkzeug**.\n  - **`:id`** : Syntaxe de **Postman** et **Express.js**.\n  - **`{id}`** : Syntaxe standard **OpenAPI 3.0 / Swagger** et **FastAPI**.",
-                "**3. Anatomie complète de la requête dans un `RequestHandler` Tornado** :\n  - `self.request.method` : `'GET'`, `'POST'`, `'PUT'`, `'DELETE'`.\n  - `self.request.path` : Le chemin appelé (ex. `'/api/calcul-tva'`).\n  - `self.get_query_argument('ht', '1000.0')` : Extrait un paramètre de la Query String après `?`.\n  - `self.get_body_argument('titre', '')` : Extrait un champ de formulaire envoyé dans le corps `POST`.\n  - `self.request.headers` : Dictionnaire `HTTPHeaders` insensible à la casse.\n  - `tornado.escape.json_decode(self.request.body)` : Charge utile JSON désérialisée."
+                (
+                    "**Filtrage structurel en amont par groupes capturants d'expressions régulières.** "
+                    "Un motif tel que `r'/api/saluer/([^/]+)'` isole tout segment non vide jusqu'au séparateur suivant et le transmet en argument positionnel à `def get(self, prenom):`, tandis qu'un motif numérique strict `r'/api/v1/stagiaires/([0-9]+)'` rejette dès le routeur toute requête malformée comme `/api/v1/stagiaires/abc` en émettant un `404 Not Found` avant même d'instancier votre `RequestHandler`."
+                ),
+                (
+                    "**Interopérabilité entre les quatre conventions de variables de chemin de l'écosystème API.** "
+                    "Un architecte navigue quotidiennement entre quatre notations désignant le même concept de *Path Parameter* selon l'outil employé : les groupes Regex `([0-9]+)` ou nommés `(?P<id>[0-9]+)` dans le code serveur **Tornado**, les chevrons typés `<int:id>` propres à **Flask/Werkzeug**, le préfixe deux-points `:id` reconnu par l'interface **Postman** et Express.js, ainsi que les accolades normalisées `{id}` exigées par la spécification **OpenAPI 3.0 / RFC 6570**."
+                ),
+                (
+                    "**Inspection exhaustive de `HTTPServerRequest` via `self.request` et les accesseurs Tornado.** "
+                    "À l'intérieur de toute méthode d'un `RequestHandler`, Tornado expose la requête décodée à travers une interface cohérente : `self.request.method` et `self.request.path` décrivent la ligne de départ, `self.get_query_argument('ht', '1000.0')` extrait et décode un critère d'URL après `?`, `self.get_body_argument('titre', '')` lit un champ de formulaire `POST`, `self.request.headers` donne accès aux métadonnées HTTP de façon insensible à la casse, et `tornado.escape.json_decode(self.request.body)` désérialise la charge utile JSON."
+                )
             ],
             "code": _read("02_routes_et_parametres.py"),
             "line_explanations": [
@@ -109,12 +135,27 @@ DAY_2_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Compiler le gabarit HTML en bytecode Python (tornado.template) et décoder les formulaires via self.get_body_argument",
-                "text": "Le moteur **`tornado.template`** compile directement vos fichiers `.html` en fonctions Python en mémoire, ce qui le rend extrêmement rapide tout en échappant automatiquement les variables `{{ ... }}` contre les failles **XSS**.\nLorsqu'un utilisateur soumet un formulaire HTML `<form method='POST'>`, Tornado extrait les champs texte via **`self.get_body_argument('nom_champ')`** et les fichiers joints (`multipart/form-data`) via **`self.request.files`**."
+                "text": (
+                    "Au lieu d'interpréter lentement les gabarits texte à chaque requête entrante, le moteur natif **`tornado.template`** traduit vos fichiers `.html` directement en fonctions Python compilées en mémoire vive, alliant une vitesse d'exécution remarquable à un échappement automatique des expressions `{{ ... }}` contre toute injection **XSS**.\n\n"
+                    "Lorsqu'un opérateur soumet un formulaire Web `<form method='POST'>`, Tornado décode séparément les champs textuels encodés via **`self.get_body_argument('nom_champ')`** et les pièces jointes binaires (`multipart/form-data`) logées dans **`self.request.files`**."
+                )
             },
             "explanation": [
-                "**1. Syntaxe du moteur natif `tornado.template` (`self.render`)** :\n  - **`{{ expression }}`** : Évalue n'importe quelle expression Python (ex: `{{ f['titre'] }}`) et applique automatiquement `tornado.escape.xhtml_escape` pour bloquer toute injection **XSS**.\n  - **`{% for f in formations %} ... {% end %}`** : Boucle Tornado (notez que dans Tornado, tous les blocs se ferment simplement par **`{% end %}`** !).\n  - **`{% if condition %} ... {% end %}`** : Affichage conditionnel.\n  - **`{# commentaire #}`** : Commentaire supprimé lors de la compilation du template.",
-                "**2. Comment Tornado distingue un Formulaire HTML (`self.get_body_argument`) d'un appel API JSON (`json_decode`)** :\n  - Un formulaire `<form method='POST'>` envoie `Content-Type: application/x-www-form-urlencoded`. On lit ses champs avec **`self.get_body_argument('titre', '')`**.\n  - Un client API envoie `Content-Type: application/json`. On décode alors les octets de `self.request.body` avec **`tornado.escape.json_decode(self.request.body)`**.",
-                "**3. Upload de Fichiers (`enctype='multipart/form-data'`) avec `self.request.files`** :\n  - Dans Tornado, `self.request.files['document_pdf']` retourne une liste de dictionnaires représentant chaque fichier téléversé : `{'filename': '...', 'body': b'...', 'content_type': 'application/pdf'}`.\n  - On nettoie systématiquement `filename` (`os.path.basename` + filtrage Regex) pour empêcher toute attaque *Path Traversal* (`../../etc/passwd`)."
+                (
+                    "**Compilation en mémoire, auto-échappement Anti-XSS et bloc universel `{% end %}` dans `tornado.template`.** "
+                    "Dans un gabarit rendu par `self.render()`, toute expression `{{ f['titre'] }}` traverse automatiquement `tornado.escape.xhtml_escape` afin de neutraliser les chevrons `<script>` malveillants en entités HTML inoffensives. "
+                    "Les directives de contrôle telles que les boucles `{% for f in formations %}` et les embranchements `{% if condition %}` obéissent à une grammaire épurée propre à Tornado où chaque structure se referme uniformément par l'unique balise **`{% end %}`**, tandis que les annotations `{# commentaire #}` sont éliminées à la compilation."
+                ),
+                (
+                    "**Aiguillage du décodage selon le `Content-Type` : formulaire HTML (`get_body_argument`) contre API JSON (`json_decode`).** "
+                    "La soumission native d'un élément `<form method='POST'>` par un navigateur émet un corps encodé en `application/x-www-form-urlencoded` (`titre=Tornado&duree_jours=5`) que Tornado expose via `self.get_body_argument('titre', '')`. "
+                    "À l'opposé, un client programmatique annonçant `Content-Type: application/json` transmet un arbre JSON brut dans `self.request.body` qui doit être analysé explicitement par `tornado.escape.json_decode(self.request.body)`."
+                ),
+                (
+                    "**Réception binaire `multipart/form-data` via `self.request.files` et assainissement Anti-Path-Traversal.** "
+                    "Dès qu'un formulaire embarque un champ `<input type='file'>` sous `enctype='multipart/form-data'`, Tornado peuple `self.request.files['document_pdf']` avec une liste de descripteurs contenant `filename`, les octets `body` et le `content_type`. "
+                    "Avant toute écriture sur le système de fichiers, le contrôleur doit impérativement dépouiller `filename` via `os.path.basename()` et une liste blanche de caractères afin d'interdire toute traversée d'arborescence telle que `../../etc/passwd`."
+                )
             ],
             "code": _read("05_jinja_et_formulaires_html.py"),
             "line_explanations": [
@@ -148,12 +189,24 @@ DAY_2_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Ne jamais bloquer l'IOLoop en sérialisant 250 000 lignes d'un seul bloc",
-                "text": "Dans une architecture événementielle comme **Tornado**, sérialiser un tableau JSON de 80 Mo bloquerait l'`IOLoop` pendant plusieurs centaines de millisecondes. En production, **toute route retournant une collection doit impérativement implémenter la Pagination, le Filtrage et le Tri**."
+                "text": (
+                    "Sur un serveur événementiel monothreadé tel que **Tornado**, la sérialisation JSON est une opération purement processeur (CPU-bound) exécutée sur le fil principal : tenter d'encoder d'un seul tenant 250 000 enregistrements en une chaîne de 80 Mo confisquerait l'`IOLoop` durant plusieurs centaines de millisecondes, gelant instantanément toutes les autres connexions actives.\n\n"
+                    "En ingénierie de production, toute route exposant une collection de ressources doit donc imposer par construction le triptyque **Filtrage, Tri sécurisé et Pagination bornée**."
+                )
             },
             "explanation": [
-                "**1. Algorithme de Pagination par `page` et `limit` (Offset / Limit)** :\n  - Lecture sécurisée via `self.get_query_argument('page', '1')` et `self.get_query_argument('limit', '3')`.\n  - Plafonnement obligatoire : `limit = min(50, max(1, int(...)))`.\n  - Découpage de la tranche : `debut = (page - 1) * limit`, `fin = debut + limit`.",
-                "**2. Enveloppe de métadonnées de pagination (`meta`)** : Retourne `total_elements`, `total_pages`, `page_actuelle` et `a_page_suivante`.",
-                "**3. Sécurisation du Tri Dynamique (`?tri=duree_jours&ordre=desc`)** : Validation par **liste blanche (whitelist)** (`('id', 'duree_jours', 'titre')`)."
+                (
+                    "**Arithmétique de découpage `Offset / Limit` et bornage défensif des paramètres.** "
+                    "À partir des critères extraits via `self.get_query_argument('page', '1')` et `self.get_query_argument('limit', '3')`, le contrôleur impose systématiquement une borne inférieure et un plafond anti-DoS (`page = max(1, ...)` et `limit = min(50, max(1, ...))`) avant de calculer les indices de tranche `debut = (page - 1) * limit` et `fin = debut + limit`."
+                ),
+                (
+                    "**Auto-descriptivité de la collection par l'enveloppe de métadonnées (`meta`).** "
+                    "Plutôt que de livrer un tableau muet obligeant l'interface cliente à deviner s'il subsiste d'autres enregistrements, la réponse structure un bloc `meta` exposant `total_elements` (calculé sur l'ensemble filtré avant découpage), `total_pages` (obtenu par plafond entier `math.ceil`), `page_actuelle` et l'indicateur booléen `a_page_suivante`."
+                ),
+                (
+                    "**Protection du tri dynamique (`?tri=...&ordre=...`) par liste blanche stricte.** "
+                    "Afin d'empêcher un appelant de provoquer une `KeyError` sur un attribut inexistant ou une injection SQL sur une clause `ORDER BY`, le paramètre `tri` est systématiquement confronté à un tuple immuable de colonnes autorisées `('id', 'duree_jours', 'titre')` avant toute exécution du tri."
+                )
             ],
             "code": _read("03_pagination_filtrage_tri.py"),
             "line_explanations": [
@@ -187,11 +240,21 @@ DAY_2_DATA = {
             "duration": "50 min",
             "analogy": {
                 "title": "La classe de base BaseAuditHandler dont héritent tous les contrôleurs de l'API",
-                "text": "Dans Tornado, au lieu d'enregistrer des fonctions globales, on crée une **classe de base `BaseAuditHandler(tornado.web.RequestHandler)`** qui surcharge trois méthodes du cycle de vie : **`set_default_headers(self)`**, **`prepare(self)`** (exécutée avant la méthode HTTP) et **`on_finish(self)`** (exécutée après l'envoi de la réponse au client)."
+                "text": (
+                    "Dans l'architecture orientée objet de Tornado, la factorisation des préoccupations transversales (sécurité des en-têtes, traçabilité distribuée, chronométrage et journaux d'audit) ne repose pas sur un empilement opaque d'intercepteurs globaux, mais sur l'héritage explicite d'une classe socle **`BaseAuditHandler(tornado.web.RequestHandler)`**.\n\n"
+                    "En redéfinissant les points d'ancrage du cycle de vie **`set_default_headers(self)`**, **`prepare(self)`** en amont du verbe HTTP et **`on_finish(self)`** en aval de la transmission réseau, chaque contrôleur métier hérite instantanément d'une instrumentation de niveau bancaire."
+                )
             },
             "explanation": [
-                "**1. Ordre exact d'exécution des hooks d'un `RequestHandler` Tornado** :\n  1. `initialize(self, **kwargs)` : Reçoit les paramètres passés dans la table de routage.\n  2. `set_default_headers(self)` : Positionne les en-têtes par défaut (`X-Content-Type-Options: nosniff`, CORS) au début du traitement.\n  3. `prepare(self)` : S'exécute **avant** `get()`, `post()`, `put()`, `delete()`. Idéal pour démarrer un chronomètre (`self.heure_debut`), générer `self.request_id` ou vérifier un jeton global.\n  4. `get(self)` / `post(self)` / ... : Exécute la logique métier de la route.\n  5. `on_finish(self)` : S'exécute **après** que la réponse HTTP a été envoyée sur le socket réseau. Idéal pour écrire les logs d'audit et libérer des ressources.",
-                "**2. Stockage d'état par requête sur `self`** : Comme Tornado instancie **un nouvel objet `RequestHandler` par requête HTTP**, vous pouvez stocker `self.heure_debut`, `self.request_id` ou `self.current_user` directement sur `self` sans aucun conflit entre requêtes concurrentes !"
+                (
+                    "**Ordonnancement déterministe des cinq jalons du cycle de vie d'un `RequestHandler`.** "
+                    "Pour chaque requête entrante, Tornado exécute dans un ordre immuable `initialize(self, **kwargs)` pour injecter la configuration issue de la route, `set_default_headers(self)` pour poser les en-têtes de défense systématiques (`X-Content-Type-Options: nosniff`, CORS), puis `prepare(self)` juste avant la méthode HTTP afin d'initialiser le chronomètre monotone `time.perf_counter()`, d'attacher `X-Request-ID` ou d'interrompre précocement l'appel via `self.finish()`. "
+                    "Une fois la méthode métier (`get`, `post`, `put`, `delete`) achevée et les octets poussés vers le socket TCP, Tornado invoque toujours `on_finish(self)` pour consolider l'écriture du journal d'audit et libérer les descripteurs ouverts."
+                ),
+                (
+                    "**Isolation naturelle du contexte de requête sur l'instance éphémère `self`.** "
+                    "Parce que Tornado alloue **une nouvelle instance dédiée de `RequestHandler` par transaction HTTP** avant de la confier au ramasse-miettes après `on_finish()`, tous les attributs attachés à `self` (`self.heure_debut`, `self.request_id`, `self.current_user`) demeurent hermétiquement cloisonnés en mémoire, éliminant tout risque de collision entre deux coroutines concurrentes sur l'`IOLoop`."
+                )
             ],
             "code": _read("04_middlewares_et_audit_log.py"),
             "line_explanations": [

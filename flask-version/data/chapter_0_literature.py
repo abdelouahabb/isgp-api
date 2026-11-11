@@ -1,7 +1,7 @@
 """
-Chapitre 0 (Prologue Littéraire avant Python) — Édition FLASK.
-Histoire et philosophie des APIs, Grand Jargon (15 termes), Contrats vs Documentation,
-Swagger vs OpenAPI 3.1, Géopolitique Nord-Sud vs Est-Ouest et Délégation OAuth 2.0.
+Chapitre 0 (Traité Fondamental avant Python) — Édition FLASK.
+Histoire intellectuelle et ontologie des APIs, Grand Traité du Vocabulaire,
+Contrats OpenAPI 3.1 vs Documentation & Swagger, Géopolitique Nord-Sud / Est-Ouest & OAuth 2.0.
 """
 
 CHAPTER_0_LITERATURE = {'day_number': -1,
@@ -9,190 +9,265 @@ CHAPTER_0_LITERATURE = {'day_number': -1,
  'is_literature_chapter': True,
  'sidebar_tag': 'avant python',
  'folder': 'chapitre_0_litterature',
- 'badge': 'Chapitre 0 • Littérature & Jargon',
- 'title': "Prologue Littéraire : Qu'est-ce qu'une API, Jargon Complet, Contrats, Nord-Sud / Est-Ouest, "
-          'OAuth 2.0 & Swagger',
- 'goal': "Acquérir la culture fondamentale, l'histoire intellectuelle et la maîtrise exacte de tout le "
-         "vocabulaire des APIs modernes avant même d'écrire la première ligne de code Python.",
+ 'badge': 'Chapitre 0 • Traité Fondamental & Jargon',
+ 'title': "Traité Fondamental d'Ingénierie des APIs : Histoire, Vocabulaire, Contrats OpenAPI, Topologies Réseau & "
+          'OAuth 2.0',
+ 'goal': "Maîtriser l'histoire intellectuelle, la terminologie normative, la gouvernance des contrats "
+         "OpenAPI/Swagger et l'architecture de sécurité Nord-Sud / Est-Ouest avant d'écrire la première instruction "
+         'Python.',
  'starter_filename': '',
  'files': [],
  'lessons': [{'id': 'c0-l1',
               'is_literature': True,
-              'title': "0.1 — Littérature : Qu'est-ce qu'une API ? Histoire, Philosophie du Découplage & "
-                       "Styles d'Interfaces",
-              'duration': '45 min',
-              'context': "Avant d'apprendre la syntaxe d'un langage comme Python ou les rouages d'un "
-                         'serveur Web, posons la question que trop de formations survolent en trente '
-                         "secondes : **qu'est-ce réellement qu'une API, pourquoi a-t-elle été inventée, et "
-                         "pourquoi gouverne-t-elle aujourd'hui l'économie numérique mondiale ?**\n"
+              'title': "0.1 — Qu'est-ce qu'une API ? Histoire Intellectuelle, Philosophie du Découplage & Styles "
+                       "d'Interfaces",
+              'duration': '55 min',
+              'context': "Avant d'écrire la moindre instruction en Python ou d'ouvrir un port réseau, tout ingénieur "
+                         "doit s'arrêter sur une question que la plupart des tutoriels techniques expédient en deux "
+                         "phrases : **qu'est-ce véritablement qu'une API, à quelle crise historique de "
+                         "l'informatique répond-elle, et pourquoi constitue-t-elle aujourd'hui la pierre angulaire "
+                         "de toute l'économie numérique mondiale ?**\n"
                          '\n'
-                         "À l'aube de l'informatique dans les années 1960, les programmes étaient des "
-                         'blocs monolithiques enchevêtrés : le module de facturation lisait directement '
-                         'dans les octets internes du module de stock. La moindre modification dans la '
-                         "structure d'une table provoquait un effondrement en domino de toute "
-                         "l'entreprise. En **1972**, l'informaticien **David Parnas** publie un article "
-                         "fondateur à l'Université Carnegie Mellon introduisant le principe de "
-                         "**dissimulation de l'information (*Information Hiding*)** : un composant "
-                         'logiciel sain ne doit jamais exposer ses entrailles ; il ne doit tendre au monde '
-                         "extérieur qu'une **interface stable et minimale**.\n"
+                         'Au tournant des années 1960, les premiers grands systèmes informatiques bancaires, aériens '
+                         'et industriels étaient bâtis comme des monolithes indivisibles. Le programme de '
+                         "facturation connaissait l'adresse mémoire exacte et le format binaire interne des tables "
+                         "du programme d'inventaire. Cette promiscuité offrait une illusion de rapidité initiale, "
+                         "mais elle portait en germe une paralysie fatale : dès qu'un ingénieur modifiait la taille "
+                         "d'un champ ou réorganisait un fichier pour accélérer le calcul des stocks, dix autres "
+                         "programmes qui lisaient directement ces octets s'effondraient en cascade. Plus un logiciel "
+                         "grandissait, plus le coût de la moindre évolution tendait vers l'infini.\n"
                          '\n'
-                         'Trente ans plus tard, en **2002**, une note interne restée célèbre dans '
-                         "l'histoire de l'ingénierie — le **Mandat API de Jeff Bezos** chez Amazon — "
-                         'transforme ce principe académique en loi industrielle : *« Désormais, toutes les '
-                         'équipes exposeront leurs données et leurs fonctionnalités exclusivement à '
-                         'travers des interfaces de service. Aucune lecture directe dans la base de '
-                         "données d'une autre équipe ne sera tolérée. Chaque interface devra être conçue "
-                         'dès le premier jour comme si elle allait être ouverte à des développeurs '
-                         'externes sur Internet. »* De ce décret architectural est né le Cloud moderne '
-                         "(AWS) et l'architecture orientée services.",
-              'analogy': {'title': 'La Prise Électrique Murale et le Tableau de Bord Automobile',
-                          'text': 'Observez une prise électrique murale `230 V / 50 Hz`. Lorsque vous y '
-                                  'branchez le chargeur de votre ordinateur portable, ce dernier ignore '
-                                  "totalement si l'électricité qui arrive dans le cuivre provient d'une "
-                                  "centrale thermique au gaz, d'un barrage hydroélectrique, de panneaux "
-                                  "solaires sahariens ou d'une éolienne. La prise murale est une **API "
-                                  'matérielle parfaite** : elle garantit un contrat formel (tension, '
-                                  'fréquence, géométrie des broches — le **Quoi**) tout en masquant '
-                                  "intégralement l'usine de production située derrière le mur (le "
-                                  '**Comment**).\n'
+                         "En décembre **1972**, le chercheur **David Lorge Parnas** publie à l'Université Carnegie "
+                         'Mellon un article fondateur intitulé *« On the Criteria To Be Used in Decomposing Systems '
+                         "into Modules »*. Il y formule le principe qui gouverne encore toute l'architecture "
+                         "logicielle contemporaine : la **dissimulation de l'information (*Information Hiding*)**. "
+                         'Un module bien conçu ne doit jamais exposer sa mécanique intime ni ses structures de '
+                         'stockage ; il doit dresser autour de lui une **frontière hermétique** et ne tendre au '
+                         "reste du monde qu'un contrat minimal, explicite et durable.\n"
+                         '\n'
+                         '> « Les connexions entre les modules doivent reposer exclusivement sur des hypothèses que '
+                         "l'on s'engage à ne pas modifier, tout en dissimulant derrière l'interface chaque décision "
+                         "susceptible d'évoluer dans le futur. » — David L. Parnas, Communications of the ACM, 1972\n"
+                         '\n'
+                         'Trente ans plus tard, au printemps **2002**, cette théorie académique connaît sa '
+                         'consécration industrielle la plus spectaculaire à travers une note interne devenue '
+                         "légendaire : le **Mandat API de Jeff Bezos** chez Amazon. Face à l'enchevêtrement "
+                         'croissant des bases de données du géant du commerce électronique, la direction édicte une '
+                         "loi architecturale sans appel : désormais, aucune équipe n'est plus autorisée à lire "
+                         "directement dans la base de données d'une autre équipe, ni à partager un disque ou une "
+                         'mémoire commune. Toute communication devra transiter exclusivement par des **interfaces de '
+                         'service réseau**, et chaque interface devra être conçue dès le premier jour comme si elle '
+                         "devait demain être ouverte à des développeurs externes sur Internet. Ce décret radical n'a "
+                         "pas seulement sauvé l'agilité interne d'Amazon ; il a littéralement enfanté le *Cloud "
+                         'Computing* moderne (**AWS**).',
+              'analogy': {'title': 'La Prise Électrique Normalisée et le Poste de Pilotage Automobile',
+                          'text': 'Considérez une prise électrique murale `230 V / 50 Hz`. Lorsque vous y branchez '
+                                  "le chargeur d'un ordinateur portable à Alger, à Paris ou à Séoul, votre appareil "
+                                  "ignore souverainement si le courant qui traverse le cuivre provient d'une "
+                                  "centrale thermique au gaz, d'un barrage hydroélectrique, d'une ferme solaire "
+                                  "saharienne ou d'un réacteur nucléaire. L'opérateur national peut remplacer toute "
+                                  'une centrale électrique durant la nuit sans jamais vous obliger à changer de '
+                                  'chargeur au réveil. Pourquoi ? Parce que la prise murale matérialise une '
+                                  '**interface contractuelle parfaite** : elle fige le **Quoi** (la géométrie des '
+                                  'broches, la tension, la fréquence) afin de libérer totalement le **Comment** '
+                                  "(l'usine de production située derrière le béton).\n"
                                   '\n'
-                                  'Il en va exactement de même pour une **API logicielle** : une '
-                                  'application mobile de réservation de billets de train dialogue avec un '
-                                  'guichet numérique normalisé. Que la compagnie ferroviaire réécrive son '
-                                  "système central en Python, en Go ou en Rust, ou qu'elle migre ses "
-                                  "serveurs d'Alger vers Oran pendant la nuit, l'application mobile "
-                                  'continue de fonctionner au réveil sans la moindre mise à jour, tant que '
-                                  "la « prise murale » (l'API) n'a pas changé de forme."},
-              'deep_sections': [{'heading': '1. Définition Rigoureuse : La Frontière entre le « Quoi » et '
-                                            'le « Comment »',
-                                 'body': 'Le sigle **API** signifie ***Application Programming '
-                                         "Interface*** (*Interface de Programmation d'Application*). "
-                                         'Chaque mot porte un sens précis :\n'
-                                         "- **Application** : désigne n'importe quel composant logiciel "
-                                         'autonome détenant des données ou un savoir-faire métier (un '
-                                         'système bancaire, un moteur météo, un noyau Linux, un '
-                                         'gestionnaire de formations).\n'
-                                         "- **Programming** : souligne que cette interface n'est **pas** "
-                                         "dessinée pour l'œil humain (contrairement à une *GUI — Graphical "
-                                         'User Interface* composée de boutons colorés et de menus), mais '
-                                         'pour être appelée **de programme à programme**, sans '
-                                         'intervention manuelle, des milliers de fois par seconde.\n'
-                                         '- **Interface** : désigne la surface de contact, la frontière '
-                                         "contractuelle exacte où s'arrête la responsabilité du "
-                                         'fournisseur et où commence celle du consommateur.\n'
+                                  'Une **API logicielle** joue rigoureusement ce rôle entre deux systèmes '
+                                  "informatiques. Lorsqu'une application mobile de réservation ferroviaire interroge "
+                                  'le serveur de la compagnie nationale pour connaître les places disponibles sur le '
+                                  "train de 08h00, elle se branche sur une prise numérique normalisée. Que l'équipe "
+                                  'centrale réécrive demain son moteur de tarification en Python, en Go ou en Rust, '
+                                  "ou qu'elle migre ses bases de données vers un nouveau centre de calcul, "
+                                  "l'application installée sur des millions de téléphones continue de fonctionner "
+                                  'sans la moindre interruption tant que la forme de cette prise — le contrat de '
+                                  "l'API — demeure intacte."},
+              'deep_sections': [{'heading': "1. Ontologie d'une Interface de Programmation : La Frontière entre le « "
+                                            'Quoi » et le « Comment »',
+                                 'body': "L'acronyme **API** signifie ***Application Programming Interface*** — en "
+                                         "français, *Interface de Programmation d'Application*. Loin d'être un "
+                                         'simple jargon à la mode, chacun de ces trois termes définit avec une '
+                                         "précision chirurgicale la nature de l'objet que nous allons concevoir tout "
+                                         'au long de cet ouvrage.\n'
                                          '\n'
-                                         'Retenez cette loi fondamentale du génie logiciel : **une API est '
-                                         'une promesse publique posée devant un secret privé**. La '
-                                         'promesse publique décrit les questions acceptées et la forme des '
-                                         "réponses ; le secret privé protège la liberté de l'ingénieur de "
-                                         "réorganiser, d'optimiser ou de remplacer toute sa mécanique "
-                                         'interne sans jamais demander la permission à ses clients.'},
-                                {'heading': '2. Toutes les APIs ne sont pas sur le Web : Les 4 Grandes '
-                                            "Strates de l'Informatique",
-                                 'body': 'Dans le langage courant, on réduit souvent le mot « API » aux '
-                                         'seules APIs Web HTTP. Or, un architecte distingue **quatre '
-                                         "strates d'APIs** empilées les unes sur les autres dans chaque "
-                                         'ordinateur :\n'
-                                         '1. **Les APIs Système (Appels Système / *OS Syscalls*)** : la '
-                                         'frontière la plus basse, entre un programme ordinaire et le '
-                                         "noyau du système d'exploitation (Linux, Windows, macOS). Quand "
-                                         'un logiciel veut ouvrir un fichier sur disque ou envoyer un '
-                                         "paquet réseau, il appelle l'API POSIX du noyau (`open()`, "
-                                         '`read()`, `write()`, `socket()`).\n'
-                                         '2. **Les APIs de Bibliothèques en Mémoire (*In-Process APIs*)** '
-                                         ': lorsque vous importez un module dans votre code pour manipuler '
-                                         'des dates, chiffrer un document ou interroger une base de '
-                                         'données, les fonctions publiques offertes par ce module '
-                                         'constituent son API. En Python, la norme **PEP 249 (`DB-API '
-                                         '2.0`)** impose par exemple que tous les pilotes de bases de '
-                                         'données offrent exactement les mêmes verbes (`.connect()`, '
-                                         '`.cursor()`, `.execute()`).\n'
-                                         '3. **Les APIs Inter-Processus Locales (*IPC*) & Matérielles** : '
-                                         'permettent à deux programmes tournant sur la même machine de '
-                                         'dialoguer à très haute vitesse (sockets UNIX locaux, mémoire '
-                                         'partagée, pilotes graphiques GPU Vulkan/CUDA).\n'
-                                         '4. **Les APIs Réseau ou APIs Web (*Remote / Network APIs*)** : '
-                                         "la strate qui fait l'objet central de ce séminaire. Ici, le "
-                                         'consommateur et le fournisseur sont séparés par un réseau TCP/IP '
-                                         '— parfois dans la même salle serveur, parfois à dix mille '
-                                         "kilomètres de distance — et n'ont aucune obligation d'être "
-                                         'écrits dans le même langage informatique !'},
-                                {'heading': '3. Les Cinq Grands Dialectes des APIs Réseau : REST, gRPC, '
-                                            'GraphQL, Webhooks et Temps Réel',
-                                 'body': 'Comment deux machines séparées par un câble ou la fibre optique '
-                                         'structurent-elles leur conversation ? Cinq grands styles '
-                                         "architecturaux coexistent aujourd'hui dans l'industrie, chacun "
-                                         'né pour résoudre un problème précis :\n'
-                                         '- **REST (*Representational State Transfer*)** : formulé en '
-                                         '**2000** par **Roy Thomas Fielding** (co-auteur de la norme '
-                                         "HTTP) dans sa thèse de doctorat à l'Université de Californie à "
-                                         "Irvine. Au lieu d'inventer un nouveau protocole complexe "
-                                         "au-dessus du Web (comme le faisait l'ancien standard XML "
-                                         '**SOAP**), REST épouse la grammaire naturelle du Web : chaque '
-                                         'entité métier est une **Ressource** identifiée par une adresse '
-                                         "(**URI**, ex. `/formations/42`), manipulée à l'aide des verbes "
-                                         "standards d'HTTP (`GET` pour lire, `POST` pour créer, "
-                                         '`PUT`/`PATCH` pour modifier, `DELETE` pour supprimer) et décrite '
-                                         'le plus souvent au format universel **JSON**.\n'
-                                         '- **gRPC (*Google Remote Procedure Call*)** : créé par Google '
-                                         'pour relier ses centaines de milliers de serveurs internes. Au '
-                                         "lieu d'échanger du texte JSON lisible à l'œil nu, gRPC compresse "
-                                         'les données dans un format binaire ultra-dense (**Protocol '
-                                         'Buffers**) propulsé sur **HTTP/2 multiplexé**. Cinq à dix fois '
-                                         'plus léger que JSON, il règne sur les dialogues internes à haute '
-                                         'fréquence entre microservices.\n'
-                                         '- **GraphQL** : conçu par Facebook en 2012 (ouvert en 2015) pour '
-                                         'sauver la batterie des smartphones sur réseaux mobiles lents. Là '
-                                         'où REST oblige parfois un écran complexe à appeler quatre '
-                                         'adresses successives (*under-fetching*) ou à télécharger '
-                                         "cinquante colonnes inutiles pour n'en afficher que deux "
-                                         "(*over-fetching*), GraphQL permet au client d'envoyer le plan "
-                                         "exact des champs qu'il désire et de les recevoir en un seul "
-                                         'aller-retour.\n'
-                                         "- **Les Webhooks (*« L'API Inversée »*)** : imaginez commander "
-                                         "un passeport. Au lieu d'aller frapper au guichet de la mairie "
-                                         'toutes les dix minutes en demandant *« Est-il prêt ? »* '
-                                         '(gaspillage appelé *Polling*), vous laissez votre numéro de '
-                                         'téléphone, et la mairie vous appelle à la seconde où le document '
-                                         'est imprimé. Un Webhook est exactement cet appel retour '
-                                         'automatisé entre deux serveurs.\n'
-                                         '- **SSE (*Server-Sent Events*) & WebSockets** : maintiennent une '
-                                         'ligne téléphonique ouverte en permanence entre le client et le '
-                                         'serveur pour diffuser en direct des cours de bourse, la position '
-                                         "GPS d'un livreur ou les mots générés un par un par une "
-                                         'intelligence artificielle.'}],
-              'explanation': ["**1. Règle d'Or du Découplage** : Deux applications bien conçues ne "
-                              'partagent **jamais** directement leur disque dur ou leur base de données ; '
-                              "elles ne communiquent qu'à travers une API explicite.",
-                              '**2. Indépendance Technologique Totale** : Grâce aux standards ouverts du '
-                              'réseau (TCP/IP, HTTP, JSON), une application cliente écrite en Swift '
-                              '(iPhone), Kotlin (Android) ou TypeScript (Navigateur) dialogue '
-                              'naturellement avec un serveur Python, Java ou Rust sans jamais connaître sa '
-                              'nature interne.',
-                              "**3. Il n'existe pas un « meilleur » style d'API dans l'absolu, mais un "
-                              'outil adapté à chaque contexte** : **REST** demeure la langue franche '
-                              "universelle des APIs publiques et d'entreprise (plus de 85 % des "
-                              'intégrations mondiales), complété par **gRPC** en interne haute vitesse, '
-                              "**Webhooks** pour l'événementiel et **SSE / WebSockets** pour le flux "
-                              'continu.'],
-              'mermaid_diagram': {'title': "La Frontière d'Abstraction d'une API : Promesse Publique "
-                                           'Stable vs Mécanique Interne Libre',
+                                         '#### Le sens exact des trois termes fondateurs\n'
+                                         '\n'
+                                         'Le mot **Application** désigne tout système logiciel autonome détenteur '
+                                         "d'un patrimoine de données ou d'une compétence métier : un registre d'état "
+                                         "civil, un moteur d'autorisation monétique, un planificateur académique ou "
+                                         "le noyau même d'un système d'exploitation. Le mot **Programming** établit "
+                                         "quant à lui la distinction décisive avec l'interface graphique destinée "
+                                         'aux humains (*GUI — Graphical User Interface*). Une page Web illustrée de '
+                                         "couleurs, de menus déroulants et de boutons est conçue pour l'œil et la "
+                                         "souris d'une personne ; si un designer déplace un bouton ou reformule un "
+                                         "titre, l'être humain s'adapte en un clin d'œil, tandis qu'un robot "
+                                         'informatique qui tenterait de lire cette page (*web scraping*) se '
+                                         "briserait instantanément. Une API, à l'inverse, s'adresse directement "
+                                         "**d'un programme à un autre programme** : elle échange des structures de "
+                                         "données pures, dépourvues de tout habillage cosmétique, capables d'être "
+                                         "lues et émises à la cadence de dizaines de milliers d'opérations par "
+                                         'seconde. Enfin, le mot **Interface** nomme ce plan géométrique abstrait où '
+                                         "s'arrête la juridiction du fournisseur et où commence celle du "
+                                         'consommateur.\n'
+                                         '\n'
+                                         '> [!IMPORTANT] Loi Fondamentale du Génie Logiciel\n'
+                                         '> Une API est **une promesse publique scellée devant un secret privé**. La '
+                                         'promesse publique engage solennellement le fournisseur sur la grammaire '
+                                         'des requêtes acceptées, la structure des réponses et le sens des erreurs ; '
+                                         'le secret privé garantit en retour sa souveraineté absolue sur '
+                                         "l'architecture interne, les algorithmes et le stockage.\n"
+                                         '\n'
+                                         'Cette séparation résout simultanément un problème technique et un problème '
+                                         'humain. En ingénierie des organisations (connue sous le nom de **Loi de '
+                                         "Conway**, formulée par Melvin Conway en 1967), l'architecture d'un "
+                                         'logiciel finit toujours par refléter la structure de communication des '
+                                         "équipes qui le construisent. Dès lors que deux départements s'accordent "
+                                         "sur une API claire, l'équipe Mobile à Oran et l'équipe Backend à Alger "
+                                         'peuvent travailler, tester et livrer à leur propre rythme sans jamais se '
+                                         'bloquer mutuellement.'},
+                                {'heading': "2. Les Quatre Strates Géologiques des APIs dans l'Informatique Moderne",
+                                 'body': 'Dans les conversations courantes, le terme « API » est presque toujours '
+                                         "employé comme synonyme d'API Web accessible sur Internet. Pourtant, pour "
+                                         'un architecte système, les APIs Web ne représentent que le sommet émergé '
+                                         "d'un édifice composé de **quatre strates d'interfaces** superposées au "
+                                         'cœur de chaque machine.\n'
+                                         '\n'
+                                         "#### De l'anneau matériel du noyau jusqu'aux réseaux transcontinentaux\n"
+                                         '\n'
+                                         'Au niveau le plus profond réside la **strate des appels système (*OS '
+                                         'System Calls*)**, qui trace la frontière matérielle entre les programmes '
+                                         "ordinaires (*User Space*) et le noyau privilégié du système d'exploitation "
+                                         "(*Kernel Space*, tel que Linux). Aucun programme Python ou C n'a le droit "
+                                         "d'ordonner directement à une tête de lecture SSD de lire un secteur "
+                                         "magnétique ni à une carte réseau d'émettre une onde radio : il doit "
+                                         "obligatoirement invoquer l'API POSIX du noyau via des primitives "
+                                         'universelles comme `open()`, `read()`, `write()` ou `socket()`.\n'
+                                         '\n'
+                                         "Juste au-dessus s'étend la **strate des APIs de bibliothèques en mémoire "
+                                         '(*In-Process APIs*)**. Lorsque votre code Python importe la bibliothèque '
+                                         'standard `hashlib` pour calculer une empreinte cryptographique ou un '
+                                         'pilote conforme à la norme **PEP 249 (`DB-API 2.0`)** pour dialoguer avec '
+                                         "une base relationnelle, l'appel de fonction `.execute()` s'effectue à "
+                                         "l'intérieur du même processus mémoire, en quelques nanosecondes, sans "
+                                         'franchir la moindre carte réseau. Vient ensuite la **strate '
+                                         'inter-processus locale (*IPC — Inter-Process Communication*)**, où deux '
+                                         'logiciels distincts cohabitant sur le même serveur échangent des flux '
+                                         "d'octets à très haute vitesse via des *sockets UNIX* locaux (comme le fait "
+                                         'un frontal Nginx dialoguant avec un démon Python sur `/run/api.sock`).\n'
+                                         '\n'
+                                         "Enfin s'élève la **quatrième strate : les APIs Réseau (*Remote / Web "
+                                         "APIs*)**, objet central de ce traité. Ici, l'appelant et l'appelé sont "
+                                         'séparés par une pile réseau TCP/IP — parfois distants de trois mètres dans '
+                                         "une baie informatique, parfois séparés par l'océan Atlantique. Ce saut à "
+                                         'travers le réseau change radicalement les lois de la physique logicielle : '
+                                         'la latence passe de la nanoseconde à la dizaine de millisecondes, le câble '
+                                         "peut couper au milieu d'une phrase, et les deux extrémités ignorent tout "
+                                         'de leurs langages respectifs. Un smartphone programmé en Swift (iOS) ou '
+                                         "Kotlin (Android) dialogue d'égal à égal avec un serveur écrit en Python, "
+                                         "parce qu'ils partagent un espéranto universel sur le fil."},
+                                {'heading': "3. Anatomie Comparée des Cinq Grands Paradigmes d'APIs Réseau",
+                                 'body': 'Comment deux machines séparées par la fibre optique organisent-elles '
+                                         "concrètement leur dialogue ? L'histoire industrielle des trente dernières "
+                                         "années a façonné cinq grands styles d'architecture réseau. Aucun n'a aboli "
+                                         'les autres ; chacun règne sur le territoire dicté par ses contraintes '
+                                         'physiques.\n'
+                                         '\n'
+                                         "#### De la rigueur cérémonielle de SOAP à l'élégance universelle de REST\n"
+                                         '\n'
+                                         'À la fin des années 1990, les grandes banques et les opérateurs télécoms '
+                                         "ont d'abord adopté **SOAP (*Simple Object Access Protocol*)**, un "
+                                         'protocole normatif enveloppant chaque appel dans un lourd document **XML** '
+                                         'gouverné par un contrat **WSDL**. Si SOAP demeure présent dans la '
+                                         'compensation interbancaire historique, sa verbosité extrême et son '
+                                         "utilisation d'HTTP comme un simple tuyau aveugle ont provoqué une réaction "
+                                         "intellectuelle majeure. En **2000**, **Roy Thomas Fielding** — l'un des "
+                                         'principaux auteurs de la spécification HTTP originale — soutient à '
+                                         "l'Université de Californie à Irvine sa thèse de doctorat introduisant "
+                                         '**REST (*Representational State Transfer*)**.\n'
+                                         '\n'
+                                         "L'intuition géniale de Fielding consiste à cesser de lutter contre le Web "
+                                         "pour épouser sa grammaire native. Dans une architecture REST, l'API expose "
+                                         'des **Ressources** nominales identifiées par des adresses universelles '
+                                         '(**URI**, telles que `/api/v1/formations/42`), que le client manipule au '
+                                         "moyen des verbes standards d'HTTP (`GET`, `POST`, `PUT`, `PATCH`, "
+                                         "`DELETE`), en transportant l'état sous forme d'un document léger et "
+                                         'lisible : **JSON (`RFC 8259`)**.\n'
+                                         '\n'
+                                         "```http — Contraste Visuel : La Sobriété d'une Requête REST/JSON Moderne\n"
+                                         'GET /api/v1/formations/42 HTTP/1.1\n'
+                                         'Host: api.isgp.dz\n'
+                                         'Accept: application/json\n'
+                                         'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\n'
+                                         '```\n'
+                                         '\n'
+                                         '#### Les paradigmes spécialisés : gRPC, GraphQL, Webhooks et Flux '
+                                         'Continus\n'
+                                         '\n'
+                                         'Lorsque **Google** a dû faire dialoguer des centaines de milliers de '
+                                         "microservices internes des millions de fois par seconde, l'analyse "
+                                         "syntaxique répétée d'accolades et de guillemets JSON est devenue un coût "
+                                         'énergétique et processeur considérable. Google a alors ouvert en 2015 '
+                                         '**gRPC**, qui remplace le texte JSON par un encodage binaire ultra-compact '
+                                         '(**Protocol Buffers**) propulsé sur des flux **HTTP/2 multiplexés** : '
+                                         'idéal entre serveurs internes, bien que moins direct à inspecter depuis un '
+                                         'navigateur Web.\n'
+                                         '\n'
+                                         'Dans le même temps, **Facebook (Meta)** faisait face au problème inverse '
+                                         'sur les téléphones mobiles dotés de connexions 3G instables : afficher un '
+                                         "fil d'actualité complexe exigeait soit dix requêtes REST en cascade "
+                                         "(*under-fetching*), soit le téléchargement d'énormes objets JSON dont "
+                                         "l'écran n'utilisait que trois champs (*over-fetching*). De cette "
+                                         "contrainte est né **GraphQL**, où l'application mobile poste une requête "
+                                         "décrivant l'arbre exact des propriétés désirées et reçoit une réponse "
+                                         'taillée sur mesure en un seul aller-retour.\n'
+                                         '\n'
+                                         "Enfin, que faire lorsque l'information dépend d'un événement imprévisible "
+                                         "— par exemple la validation finale d'un virement bancaire trois heures "
+                                         'plus tard ? Interroger le serveur toutes les cinq secondes (*Polling*) '
+                                         "gaspille 99 % des requêtes pour s'entendre répondre « rien de nouveau ». "
+                                         "L'industrie recourt alors à deux mécanismes complémentaires : entre deux "
+                                         "serveurs, le **Webhook** (*« l'API inversée »*) permet au fournisseur "
+                                         "d'émettre lui-même une requête `POST` signée vers l'URL du client à la "
+                                         "seconde exacte où l'événement survient ; entre un serveur et un navigateur "
+                                         'ou un smartphone, **SSE (*Server-Sent Events*)** et **WebSockets (`RFC '
+                                         '6455`)** maintiennent une connexion TCP ouverte en continu pour diffuser '
+                                         'les données en temps réel.\n'
+                                         '\n'
+                                         '> [!TIP] Boussole de Décision Architecturale\n'
+                                         "> Il n'existe aucun style d'API universellement supérieur : **REST/JSON** "
+                                         'demeure la langue franche incontournable de plus de 85 % des APIs '
+                                         "publiques, partenaires et d'entreprise ; **gRPC** excelle dans les artères "
+                                         'internes à très haute fréquence ; **Webhooks**, **SSE** et **WebSockets** '
+                                         "prennent le relais dès que le temps réel événementiel s'impose."}],
+              'explanation': ['**Souveraineté par le découplage.** Deux systèmes logiciels sains ne partagent jamais '
+                              'leur mémoire vive, leurs fichiers sur disque ni leurs tables SQL. En imposant le '
+                              'passage exclusif par une API explicite, chaque équipe conserve la liberté totale de '
+                              "réécrire ou d'optimiser son moteur interne sans jamais briser ses consommateurs.",
+                              "**Neutralité technologique du réseau.** Parce qu'une API Web s'exprime à travers des "
+                              'protocoles standards (TCP/IP, TLS, HTTP, JSON) indépendants de tout constructeur, un '
+                              'serveur écrit en Python sert indistinctement des clients programmés en Swift, Kotlin, '
+                              'TypeScript, Java, Go ou C#.',
+                              "**Complémentarité des styles d'interfaces.** Maîtriser l'architecture REST/JSON "
+                              'constitue le socle fondamental de tout ingénieur backend, sur lequel viennent '
+                              'naturellement se greffer les Webhooks signés pour la notification asynchrone et les '
+                              'canaux SSE ou WebSockets pour le streaming temps réel.'],
+              'mermaid_diagram': {'title': "La Frontière d'Abstraction d'une API : Contrat Public Stable vs "
+                                           'Souveraineté Interne',
                                   'code': 'flowchart LR\n'
-                                          '    subgraph MondeExterne["Consommateurs Hétérogènes (Peu '
-                                          'importe leur langage)"]\n'
+                                          '    subgraph MondeExterne["Consommateurs Hétérogènes (Tout Langage / Tout '
+                                          'Réseau)"]\n'
                                           '      A1["Application Mobile iOS / Android"]\n'
-                                          '      A2["Portail Web Navigateur"]\n'
-                                          '      A3["Système Partenaire (Banque / ERP)"]\n'
+                                          '      A2["Portail Web Navigateur (PWA)"]\n'
+                                          '      A3["Système Partenaire B2B / Banque"]\n'
                                           '    end\n'
                                           '\n'
-                                          '    Frontiere["FRONTIÈRE D\'API (LE QUOI)\\nContrat Stable, '
+                                          '    Frontiere["FRONTIÈRE D\'API (LE QUOI)\\nContrat Public Stable, '
                                           'Authentifié & Versionné"]\n'
                                           '\n'
-                                          '    subgraph BoiteNoire["Implémentation Interne Masquée (LE '
+                                          '    subgraph BoiteNoire["Implémentation Interne Souveraine (LE '
                                           'COMMENT)"]\n'
-                                          '      B1["Logique Métier Serveur"]\n'
+                                          '      B1["Logique Métier Python"]\n'
                                           '      B2[("Moteur Base de Données")]\n'
-                                          '      B3["Files d\'Attente & Caches"]\n'
+                                          '      B3["Caches & Tâches Asynchrones"]\n'
                                           '      B1 --> B2\n'
                                           '      B1 --> B3\n'
                                           '    end\n'
@@ -201,482 +276,701 @@ CHAPTER_0_LITERATURE = {'day_number': -1,
                                           '    A2 --> Frontiere\n'
                                           '    A3 --> Frontiere\n'
                                           '    Frontiere --> B1'},
-              'reference_table': {'title': "Panorama Comparatif des 5 Styles d'APIs Réseau dans "
-                                           "l'Industrie",
-                                  'headers': ["Style d'API",
-                                              "Philosophie d'Échange",
-                                              'Format & Transport',
-                                              'Terrain de Prédilection'],
+              'reference_table': {'title': "Synthèse Comparative des Cinq Grands Paradigmes d'APIs Réseau",
+                                  'headers': ['Paradigme Architectural',
+                                              "Modèle Mental d'Échange",
+                                              'Transport & Encodage',
+                                              "Cas d'Usage de Référence"],
                                   'rows': [['**REST** *(Roy Fielding, 2000)*',
-                                            'Manipulation de **Ressources** identifiées par des URLs via '
-                                            'les verbes standards HTTP.',
-                                            'Texte **JSON** sur HTTP/1.1, HTTP/2 ou HTTP/3',
-                                            'APIs publiques, partenaires B2B, applications Web/Mobile, '
-                                            'administration.'],
-                                           ['**gRPC** *(Google, 2015)*',
-                                            'Appel de fonctions distantes typées à très haute vitesse.',
-                                            'Binaire **Protobuf** sur HTTP/2 multiplexé',
-                                            'Maillage interne de microservices à très faible latence '
-                                            '(Est-Ouest).'],
-                                           ['**GraphQL** *(Meta, 2015)*',
-                                            "Le client décrit sur mesure l'arbre exact des champs "
-                                            'souhaités.',
-                                            'Requête déclarative JSON sur HTTP',
-                                            'Interfaces mobiles complexes agrégeant de multiples sources.'],
-                                           ['**Webhook** *(API Inversée)*',
-                                            "Le fournisseur pousse une notification HTTP dès qu'un fait "
-                                            'métier survient.',
-                                            '`POST` JSON signé (`HMAC-SHA256`)',
-                                            'Confirmations de paiement, alertes logistiques, intégration '
-                                            'continue.'],
+                                            'Manipulation de **Ressources** nominales identifiées par URI via les '
+                                            'verbes HTTP standards.',
+                                            'Texte **JSON** (`RFC 8259`) sur HTTP/1.1, HTTP/2 ou HTTP/3',
+                                            'APIs publiques, écosystèmes B2B, portails Web/Mobile, systèmes '
+                                            "d'information."],
+                                           ['**gRPC** *(Google / CNCF, 2015)*',
+                                            'Invocation de procédures distantes fortement typées par contrat '
+                                            '`.proto`.',
+                                            'Binaire **Protocol Buffers** sur **HTTP/2** multiplexé',
+                                            'Communications internes Est-Ouest à très faible latence entre '
+                                            'microservices.'],
+                                           ['**GraphQL** *(Meta / Linux Foundation)*',
+                                            'Requête déclarative où le client sélectionne exactement le sous-arbre '
+                                            'de champs voulu.',
+                                            'JSON sur `POST /graphql`',
+                                            'Applications mobiles riches agrégeant de multiples sources '
+                                            'hétérogènes.'],
+                                           ['**Webhook** *(API Événementielle Inversée)*',
+                                            "Le serveur émetteur pousse une notification HTTP sortante dès qu'un "
+                                            'fait métier se produit.',
+                                            '`POST` JSON signé par `HMAC-SHA256`',
+                                            'Confirmation de paiement, suivi logistique, pipelines CI/CD Git.'],
                                            ['**SSE & WebSockets**',
-                                            'Canal réseau maintenu ouvert pour pousser des événements en '
-                                            'temps réel.',
-                                            'Flux HTTP `text/event-stream` ou TCP `101`',
-                                            'Tableaux de bord live, messagerie instantanée, streaming '
-                                            'IA.']]},
-              'pitfalls': [{'bad': "Confondre un **Site Web** (pages HTML/CSS destinées à l'œil humain) "
-                                   'avec une **API Web** (données structurées destinées à un autre '
-                                   'logiciel).',
-                            'good': "Distinguer l'interface graphique (*Frontend UI*) du service de "
-                                    "données sous-jacent (*API*) : le site Web moderne n'est lui-même "
-                                    "qu'un client parmi d'autres de votre API !",
-                            'why': 'Si votre serveur ne renvoie que du HTML décoré, une application mobile '
-                                   "native ou un partenaire comptable sera incapable d'exploiter "
-                                   'proprement vos données.'},
-                           {'bad': 'Donner directement les identifiants de sa base de données centrale à '
-                                   'cinq applications différentes pour « gagner du temps ».',
-                            'good': "Interdire tout accès direct à la base depuis l'extérieur et imposer "
-                                    'le passage exclusif par une API contrôlée.',
-                            'why': 'Une base partagée couple mortellement toutes les applications : '
-                                   "impossible de renommer une colonne, d'appliquer des règles métier "
-                                   "fines ou de limiter le débit d'un client abusif."}],
-              'practical_exercises': ["**Exercice d'observation du quotidien** : Sur votre smartphone, "
-                                      'ouvrez une application météo ou de transport. Identifiez clairement '
-                                      "ce qui relève de l'*Interface Utilisateur* (les icônes, les "
-                                      'couleurs stockées dans le téléphone) et ce qui provient '
-                                      "nécessairement d'un appel *API* silencieux en arrière-plan.",
-                                      "**Réflexion d'architecture (Mandat de Bezos)** : Une université "
-                                      'possède trois logiciels : *Scolarité*, *Bibliothèque* et '
-                                      '*Comptabilité*. Expliquez avec vos propres mots ce qui se passera '
-                                      'dans deux ans si la *Bibliothèque* lit directement les tables SQL '
-                                      'internes de la *Scolarité* au lieu de passer par une API.']},
+                                            "Maintien d'un canal persistant pour pousser un flux continu sans "
+                                            'réinterrogation.',
+                                            'Flux `text/event-stream` (unidirectionnel) ou `RFC 6455` (`101` '
+                                            'bidirectionnel)',
+                                            'Cotations financières en direct, messagerie temps réel, génération IA '
+                                            'mot à mot.']]},
+              'pitfalls': [{'bad': 'Confondre un **Site Web** (pages HTML/CSS destinées au regard humain) avec une '
+                                   '**API Web** (structures de données pures destinées à un programme).',
+                            'good': "Concevoir l'API comme le socle métier primaire : l'interface Web graphique "
+                                    "n'est alors plus qu'un consommateur privilégié de cette même API, au même titre "
+                                    "que l'application mobile.",
+                            'why': 'Un serveur qui mêle inextricablement calcul métier et balises HTML condamne '
+                                   "l'organisation à tout réécrire le jour où elle lance une application mobile ou "
+                                   'un partenariat externe.'},
+                           {'bad': 'Ouvrir un accès SQL direct à sa base de données centrale pour permettre à trois '
+                                   'autres services internes de « lire plus vite ».',
+                            'good': 'Interdire tout partage de base de données entre applications distinctes et '
+                                    "exposer les lectures/écritures exclusivement derrière un contrat d'API.",
+                            'why': "Une base de données partagée détruit l'encapsulation de Parnas : la moindre "
+                                   'migration de colonne casse simultanément tous les logiciels connectés sans '
+                                   'préavis.'}],
+              'practical_exercises': ["**Analyse d'un geste quotidien** : Lorsque vous ouvrez une application de VTC "
+                                      'ou de météo sur votre téléphone en mode avion, observez quels éléments '
+                                      "s'affichent immédiatement (l'interface graphique locale) et quels éléments "
+                                      "demeurent vides faute de pouvoir joindre l'API distante.",
+                                      "**Étude de cas d'architecture (Le Mandat de Bezos)** : Dans un institut "
+                                      "disposant d'un logiciel *Scolarité*, d'un logiciel *Comptabilité* et d'un "
+                                      "portail *Anciens Élèves*, décrivez les conséquences concrètes d'une refonte "
+                                      'du schéma SQL de *Scolarité* selon que *Comptabilité* lit directement les '
+                                      'tables SQL ou consomme une API `/api/v1/inscriptions`.']},
              {'id': 'c0-l2',
               'is_literature': True,
-              'title': '0.2 — Le Grand Jargon des APIs : Les 15 Termes Fondamentaux Démystifiés en '
-                       'Français Clair',
-              'duration': '55 min',
-              'context': "Chaque discipline d'ingénierie possède son argot technique. Lorsqu'un débutant "
-                         "assiste pour la première fois à une revue d'architecture, il entend fuser des "
-                         "phrases telles que : *« L'endpoint n'est pas idempotent, le payload échoue à la "
-                         'désérialisation en 400 avant la validation métier 422, il faut passer en '
-                         'pagination par curseur et durcir la backpressure pour tenir notre SLO p99 sous '
-                         'le SLA client ! »*\n'
+              'title': '0.2 — Le Grand Traité du Vocabulaire des APIs : Du Transport HTTP aux Engagements SRE',
+              'duration': '65 min',
+              'context': "En ingénierie comme en médecine ou en droit maritime, l'imprécision du vocabulaire se paie "
+                         "comptant lors des incidents de production. Lorsqu'une équipe confond une *Ressource* et sa "
+                         "*Représentation*, appelle *Route* ce qui relève d'un *Endpoint*, renvoie un code `400` à "
+                         "la place d'un `422`, ou déclare une opération « idempotente » alors qu'elle duplique des "
+                         'écritures comptables à chaque micro-coupure réseau, les réunions de diagnostic tournent au '
+                         'dialogue de sourds.\n'
                          '\n'
-                         "Rien dans cette phrase n'est sorcier : chacun de ces mots désigne une idée "
-                         "physique d'une grande simplicité. Prenons le temps, dans ce deuxième chapitre de "
-                         'littérature, de **définir une fois pour toutes les 15 termes cardinaux du jargon '
-                         "des APIs**, afin qu'aucun mot technique ne soit jamais plus une zone d'ombre "
-                         'pendant toute la suite de votre carrière.',
-              'analogy': {'title': 'La Valise Diplomatique et le Guichet Consulaire',
-                          'text': 'Imaginez un courrier officiel acheminé vers un consulat :\n'
-                                  '- Le **dossier administratif permanent** de citoyen conservé au '
-                                  'consulat est la **Ressource**.\n'
-                                  "- La **fiche imprimée en français ou en arabe** que l'on vous remet "
-                                  "aujourd'hui est une **Représentation** de cette ressource.\n"
-                                  "- L'**adresse exacte du dossier** est l'**URI** ; l'**action précise "
-                                  'demandée au guichet n°3** (*« Renouveler ce dossier »*) est '
-                                  "l'**Endpoint**.\n"
-                                  "- Les **mentions écrites sur l'enveloppe extérieure** (expéditeur, "
-                                  'cachet de sécurité, langue souhaitée, priorité) que les agents de tri '
-                                  "lisent sans ouvrir l'enveloppe sont les **Headers (En-têtes)**.\n"
-                                  "- Le **formulaire glissé à l'intérieur de l'enveloppe** est le "
-                                  '**Payload (Corps / Charge utile)**.\n'
-                                  '- Enfin, le **numéro de récépissé unique** qui garantit que si vous '
-                                  'déposez deux fois le même duplicata par erreur, on ne vous facturera '
-                                  "pas deux passeports, s'appelle l'**Idempotence**."},
-              'deep_sections': [{'heading': '1. Anatomie de la Cible et du Message : Ressource, '
-                                            'Représentation, URI, Endpoint, Headers & Payload',
-                                 'body': '- **Client vs Serveur** : Le *Client* est celui qui prend '
-                                         "l'initiative d'ouvrir la conversation (navigateur, mobile, mais "
-                                         'aussi un serveur A qui interroge un serveur B !) ; le *Serveur* '
-                                         'écoute patiemment sur un port réseau et répond aux requêtes.\n'
-                                         '- **Ressource vs Représentation** : Distinction subtile léguée '
-                                         'par Roy Fielding. La **Ressource** est le concept métier '
-                                         "abstrait (ex. *la formation n°42 de l'ISGP*). La "
-                                         '**Représentation** est la photographie concrète de cette '
-                                         'ressource encodée dans un format donné à un instant précis : la '
-                                         'même ressource peut être représentée en **JSON** pour une '
-                                         'application mobile, en **CSV** pour un tableur comptable ou en '
-                                         "**PDF** pour l'impression !\n"
-                                         "- **URI / URL vs Endpoint vs Route** : L'**URI** (*Uniform "
-                                         'Resource Identifier*, ex. `/api/formations/42`) nomme la '
-                                         "ressource. Dès qu'on lui associe une intention (un verbe HTTP "
-                                         'précis), on obtient un **Endpoint** : `GET /api/formations/42` '
-                                         '(consulter) et `DELETE /api/formations/42` (supprimer) partagent '
-                                         'la même URI mais constituent **deux endpoints distincts**. Quant '
-                                         'au mot **Route**, il désigne le motif générique écrit par le '
-                                         'développeur côté serveur (`/api/formations/{id}`) pour capturer '
-                                         'toutes les URIs de cette famille.\n'
-                                         '- **Headers (En-têtes) vs Payload / Body (Charge utile)** : Tout '
-                                         'message HTTP est coupé en deux par une ligne vide. En haut, les '
-                                         '**Headers** portent les métadonnées de pilotage (`Authorization` '
-                                         'pour la sécurité, `Content-Type` pour le format, `Cache-Control` '
-                                         'pour la mise en cache) ; en bas, le **Payload** transporte les '
-                                         'données métier elles-mêmes.'},
-                                {'heading': '2. Traverser le Fil de Cuivre : Sérialisation, Validation '
-                                            '(`400` vs `422`) & Négociation de Contenu (`406` / `415`)',
-                                 'body': '- **Sérialisation & Désérialisation** : Les objets vivants dans '
-                                         "la mémoire RAM d'un ordinateur ne peuvent pas voyager tels quels "
-                                         "dans une fibre optique, qui ne transporte qu'une suite linéaire "
-                                         "de bits `0` et `1`. **Sérialiser** (*Marshal / Dump*), c'est "
-                                         "aplatir un objet mémoire en une chaîne d'octets standardisée "
-                                         "(comme du texte JSON UTF-8) avant l'envoi. **Désérialiser** "
-                                         "(*Parse / Load*), c'est reconstruire l'objet vivant à "
-                                         "l'arrivée.\n"
-                                         '- **Erreur Syntaxique (`400 Bad Request`) vs Erreur Sémantique / '
-                                         'Métier (`422 Unprocessable Content`)** : Si un client envoie un '
-                                         'texte JSON tronqué auquel il manque une accolade fermante '
-                                         '(`{"prix": 100`), la désérialisation échoue immédiatement : le '
-                                         "serveur répond **`400 Bad Request`** (*« Je n'arrive même pas à "
-                                         'lire votre phrase »*). Si le JSON est grammaticalement parfait '
-                                         '(`{"prix": -500}`), mais qu\'un prix négatif viole les lois '
-                                         "comptables de l'entreprise, la validation métier échoue : le "
-                                         "serveur répond **`422 Unprocessable Content`** (*« J'ai très "
-                                         'bien lu votre phrase, mais elle enfreint le règlement métier '
-                                         '»*).\n'
-                                         '- **Content Negotiation (Négociation de Contenu)** : Par les '
-                                         "en-têtes `Content-Type` (ce que j'envoie) et `Accept` (ce que je "
-                                         "souhaite recevoir), client et serveur s'accordent sur la langue "
-                                         "d'échange. Envoyer un format refusé déclenche **`415 Unsupported "
-                                         'Media Type`** ; exiger en retour un format que le serveur ne '
-                                         'sait pas produire déclenche **`406 Not Acceptable`**.'},
-                                {'heading': "3. Les Deux Piliers de l'Échelle Industrielle : Statelessness "
-                                            '(Sans État) & Idempotence',
-                                 'body': "- **Statelessness (Absence d'État de Session en Mémoire)** : Une "
-                                         "API REST pure souffre volontairement d'une « amnésie immédiate » "
-                                         'entre deux requêtes. Elle ne garde dans sa mémoire vive aucun '
-                                         "souvenir du client qui vient de l'appeler il y a deux secondes : "
-                                         'chaque requête doit être **autoportante** et contenir sa propre '
-                                         "preuve d'identité. Pourquoi s'imposer une telle contrainte ? "
-                                         "Parce qu'elle offre la **scalabilité horizontale infinie** ! Si "
-                                         'le trafic double à 9h00 du matin, vous pouvez allumer dix '
-                                         'serveurs identiques derrière un répartiteur de charge : la '
-                                         "première requête d'Amine peut être traitée par le serveur n°1 et "
-                                         'sa deuxième requête par le serveur n°8 sans la moindre '
-                                         'friction.\n'
-                                         '- **Idempotence & `Idempotency-Key`** : En mathématiques comme '
-                                         'en informatique, une opération est dite **idempotente** si '
-                                         "l'appliquer une seule fois ou dix fois d'affilée produit "
-                                         'exactement le même résultat final sur le système. Consulter un '
-                                         'solde (`GET`), remplacer une adresse par une valeur précise '
-                                         '(`PUT`) ou supprimer le dossier n°42 (`DELETE`) sont '
-                                         'naturellement idempotents (supprimer une seconde fois un dossier '
-                                         'déjà supprimé ne supprime pas un autre dossier). En revanche, '
-                                         "**créer un virement bancaire (`POST /virements`) n'est PAS "
-                                         'idempotent par défaut** ! Si le téléphone du client traverse un '
-                                         'tunnel au moment où la banque valide le débit, le téléphone ne '
-                                         'reçoit pas la confirmation et renvoie la requête '
-                                         'automatiquement. Pour empêcher un double prélèvement '
-                                         'catastrophique, les APIs sérieuses exigent un identifiant unique '
-                                         "d'intention appelé **`Idempotency-Key`** : la banque reconnaît "
-                                         'le récépissé déjà traité et renvoie le reçu initial sans débiter '
-                                         'un centime de plus.'},
-                                {'heading': '4. Gouverner le Volume et la Qualité : Pagination Curseur, '
-                                            'Rate-Limit / Backpressure, Latence `p99` & `SLI / SLO / SLA`',
-                                 'body': '- **Pagination `Offset` vs `Cursor (Keyset)`** : Renvoyer un '
-                                         "million de factures d'un coup ferait exploser la mémoire du "
-                                         'serveur et du téléphone. On découpe donc en pages. La pagination '
-                                         'débutante par décalage (`OFFSET 100000 LIMIT 20`) oblige la base '
-                                         "de données à compter et jeter cent mille lignes avant d'en "
-                                         'livrer vingt (très lent !). La pagination industrielle par '
-                                         '**curseur** (`après la facture #98412, donne-moi les 20 '
-                                         "suivantes`) saute directement au bon endroit de l'index en moins "
-                                         "d'une milliseconde.\n"
-                                         '- **Rate-Limiting, Quotas & Backpressure (`429 Too Many '
-                                         'Requests`)** : Pour empêcher un script fou (ou un attaquant) '
-                                         "d'écraser le service commun, on plafonne la cadence instantanée "
-                                         '(*Rate-Limit*, ex. 20 appels/seconde) et le volume mensuel '
-                                         '(*Quota*). Lorsque le plafond est atteint, le serveur exerce une '
-                                         '**contre-pression (*Backpressure*)** explicite : statut **`429 '
-                                         'Too Many Requests`** accompagné de la consigne `Retry-After: 30` '
-                                         '(*« Patientez 30 secondes avant de réessayer »*).\n'
-                                         '- **Latence `p50 / p95 / p99` vs Débit (*Throughput*)** : Le '
-                                         '*Débit* mesure combien de requêtes par seconde (`req/s` ou '
-                                         '`RPS`) le serveur traite ; la *Latence* mesure le temps '
-                                         "d'attente d'un client en millisecondes. Les ingénieurs ne "
-                                         'regardent **jamais la moyenne arithmétique** (qui masque les '
-                                         'souffrances extrêmes), mais les **percentiles** : dire que '
-                                         '**`p99 = 120 ms`** signifie que 99 % des requêtes répondent en '
-                                         'moins de 120 ms, et isole le 1 % le plus lent (*Tail Latency*).\n'
-                                         '- **La Trilogie `SLI` / `SLO` / `SLA`** :\n'
-                                         '  - **SLI (*Service Level Indicator*)** = Le thermomètre factuel '
-                                         'mesuré en direct (*« Ce mois-ci, 99,94 % des requêtes ont réussi '
-                                         'en moins de 150 ms »*).\n'
-                                         "  - **SLO (*Service Level Objective*)** = La cible d'excellence "
-                                         "que l'équipe technique s'impose en interne (*« Notre objectif "
-                                         'est de rester au-dessus de 99,95 % »*).\n'
-                                         '  - **SLA (*Service Level Agreement*)** = Le contrat juridique '
-                                         'signé par la direction avec le client final, assorti de '
-                                         'pénalités financières si la disponibilité tombe sous un seuil '
-                                         'promis (ex. `99,9 %`, soit pas plus de **43 minutes et 50 '
-                                         "secondes** d'indisponibilité cumulée sur un mois entier !)."}],
-              'explanation': ['**1. Précision du diagnostic** : Savoir nommer la différence entre `400` '
-                              '(désérialisation impossible), `415` (format MIME refusé) et `422` (règle '
-                              "métier enfreinte) fait gagner des heures d'investigation entre équipes.",
-                              "**2. Concevoir pour l'échec réseau** : Sur mobile (4G/5G, ascenseurs, "
-                              'tunnels), les coupures et les réessais automatiques sont la norme '
-                              "quotidienne — d'où le caractère vital de l'**Idempotence** sur toute "
-                              'opération financière ou critique.',
-                              '**3. Toujours garder une marge entre SLO interne et SLA commercial** : Si '
-                              'votre contrat juridique client (**SLA**) promet `99,9 %`, fixez votre '
-                              "alerte interne d'ingénierie (**SLO**) à `99,95 %` afin d'intervenir bien "
-                              'avant de devoir payer des indemnités contractuelles.'],
-              'mermaid_diagram': {'title': "Cartographie Visuelle du Jargon lors d'un Échange API Complet",
+                         "Plutôt que d'égrener une liste alphabétique sèche que la mémoire oublie sitôt refermée, ce "
+                         "deuxième chapitre met en scène les **quinze concepts cardinaux de l'ingénierie des APIs** "
+                         "à travers le récit complet du cycle de vie d'un échange réel — depuis la formulation de "
+                         "l'adresse par le client jusqu'aux contrats de haute disponibilité qui gouvernent les "
+                         'grands centres de données.',
+              'analogy': {'title': "L'Expédition Postale Internationale Certifiée et le Guichet Douanier",
+                          'text': "Pour visualiser d'un seul regard tout le vocabulaire d'une API, suivez le "
+                                  "parcours d'un pli recommandé international. L'étiquette collée à l'extérieur du "
+                                  'carton correspond aux **En-têtes (*Headers*)** : le facteur et la douane y lisent '
+                                  "l'adresse du destinataire (**URI**), la nature déclarée de la marchandise "
+                                  "(`Content-Type`), le laissez-passer diplomatique de l'expéditeur "
+                                  "(`Authorization`) et un numéro de suivi unique garantissant qu'un pli présenté "
+                                  "deux fois ne sera enregistré qu'une seule fois (**`Idempotency-Key`**). Aucun "
+                                  "agent postal n'a besoin d'éventrer le carton pour acheminer ou filtrer l'envoi.\n"
+                                  '\n'
+                                  "À l'intérieur du carton repose la **Charge Utile (*Payload* ou *Body*)**, "
+                                  'soigneusement mise à plat dans un format universel (**Sérialisation JSON**) pour '
+                                  "supporter le transport. À l'arrivée devant le complexe administratif, un portier "
+                                  'central (**Reverse Proxy & Load Balancer**) contrôle la cadence des visiteurs '
+                                  "(**Rate-Limiting**) avant d'orienter le pli vers l'un des dix guichets identiques "
+                                  "et sans mémoire d'un visiteur à l'autre (**Statelessness**), le tout sous un "
+                                  'engagement contractuel de délai maximal (**SLA**).'},
+              'deep_sections': [{'heading': "1. Acte I — Les Acteurs, l'Identité et la Matière : Client, Serveur, "
+                                            'Ressource, Représentation, URI, Endpoint et Route',
+                                 'body': 'Tout échange réseau met en présence deux rôles asymétriques : le '
+                                         "**Client**, qui prend l'initiative de la conversation en émettant une "
+                                         'requête, et le **Serveur**, démon logiciel maintenu continuellement en '
+                                         "éveil sur un port réseau dans l'attente de traiter ces demandes. "
+                                         'Contrairement à une idée reçue tenace, « Client » ne signifie nullement « '
+                                         'navigateur Web ou téléphone » : dès que votre propre serveur Python '
+                                         "interroge l'API d'une passerelle de paiement ou d'un service "
+                                         'météorologique, **votre serveur devient le Client** de cet interlocuteur '
+                                         'le temps de cet appel.\n'
+                                         '\n'
+                                         '#### Ressource abstraite contre Représentation concrète\n'
+                                         '\n'
+                                         'Sur quoi porte leur dialogue ? Dans le modèle REST de Roy Fielding, le '
+                                         "serveur expose des **Ressources**, c'est-à-dire des entités métier "
+                                         "conceptuelles : *la formation numéro 42*, *le dossier de l'étudiant "
+                                         'Amine*, *le relevé mensuel de novembre*. Or, une entité abstraite ne '
+                                         'voyage pas telle quelle sur un câble de cuivre : le client et le serveur '
+                                         "s'échangent une **Représentation** de cette ressource à un instant donné. "
+                                         'La *même* formation numéro 42 peut ainsi être livrée en **JSON** '
+                                         '(`application/json`) à une application mobile, en **CSV** (`text/csv`) au '
+                                         'tableur du contrôleur de gestion, ou en **PDF** (`application/pdf`) pour '
+                                         "l'impression officielle. Ce mécanisme d'accord préalable porte le nom de "
+                                         '**Négociation de Contenu (*Content Negotiation*)** : le client annonce ce '
+                                         "qu'il envoie via `Content-Type` (et essuie un refus **`415 Unsupported "
+                                         "Media Type`** s'il expédie un format interdit) et déclare ce qu'il "
+                                         'souhaite recevoir via `Accept` (recevant **`406 Not Acceptable`** si le '
+                                         'serveur ne sait pas produire ce format).\n'
+                                         '\n'
+                                         '#### La nuance chirurgicale entre URI, Endpoint et Route\n'
+                                         '\n'
+                                         'Pour désigner la ressource, le client utilise une **URI (*Uniform Resource '
+                                         "Identifier*, `RFC 3986`)**, dont la forme réseau concrète est l'**URL**, "
+                                         'telle que `/api/v2/formations/42`. Attention toutefois à ne pas confondre '
+                                         'cette simple adresse avec un **Endpoint** : un Endpoint est la '
+                                         "**combinaison précise d'un verbe HTTP et d'une URI**. Ainsi, `GET "
+                                         '/api/v2/formations/42` (consulter la formation) et `DELETE '
+                                         '/api/v2/formations/42` (supprimer la formation) partagent exactement la '
+                                         'même URI, mais constituent **deux Endpoints distincts** dotés de '
+                                         "permissions et d'effets opposés ! Quant au mot **Route**, il désigne le "
+                                         'motif paramétré écrit côté serveur (par exemple '
+                                         '`/api/v2/formations/<int:id>` ou `/api/v2/formations/{id}`) capable de '
+                                         "capturer une infinité d'URIs concrètes (`/42`, `/43`, `/900`) pour les "
+                                         'aiguiller vers la fonction Python correspondante.'},
+                                {'heading': "2. Acte II — L'Enveloppe, le Colis et le Typage : Headers, Payload, "
+                                            'Sérialisation et le Duel `400` contre `422`',
+                                 'body': "Lorsqu'une requête ou une réponse HTTP franchit le réseau, elle est "
+                                         'structurée en deux compartiments strictement séparés par une ligne vide '
+                                         'réglementaire (`\\r\\n\\r\\n`). En tête voyagent les **En-têtes '
+                                         '(*Headers*)**, paires `Clé: Valeur` dédiées au pilotage du protocole, à la '
+                                         'sécurité, au cache et au traçage (`Authorization`, `Content-Type`, `ETag`, '
+                                         '`X-Request-ID`). Les passerelles intermédiaires inspectent ces métadonnées '
+                                         'à la vitesse du fil sans jamais toucher au contenu métier. En dessous '
+                                         'voyage la **Charge Utile (*Payload* ou *Body*)**, qui transporte les '
+                                         'données proprement dites lors des créations (`POST`) ou des modifications '
+                                         '(`PUT`, `PATCH`), tandis que les lectures (`GET`) et suppressions '
+                                         '(`DELETE`) voyagent habituellement sans corps.\n'
+                                         '\n'
+                                         '#### De la mémoire vive aux octets réseau : Sérialisation et '
+                                         'Désérialisation\n'
+                                         '\n'
+                                         'Un dictionnaire Python ou un objet métier vit dans la mémoire vive (RAM) '
+                                         'de votre serveur sous forme de pointeurs mémoires éclatés que nulle carte '
+                                         'réseau ne peut transmettre directement. La **Sérialisation** est '
+                                         "l'opération qui aplatit cet objet vivant en une séquence linéaire d'octets "
+                                         'UTF-8 (le plus souvent du texte JSON conforme à la norme `RFC 8259`) prête '
+                                         "à traverser la fibre optique. À l'autre extrémité du câble, la "
+                                         '**Désérialisation** accomplit la métamorphose inverse : elle lit la suite '
+                                         "d'octets reçus, vérifie la grammaire JSON et reconstruit en mémoire une "
+                                         'structure manipulable par le langage cible.\n'
+                                         '\n'
+                                         '#### Pourquoi distinguer `400 Bad Request` et `422 Unprocessable Content` '
+                                         'change tout au débogage\n'
+                                         '\n'
+                                         "C'est précisément à la charnière entre désérialisation et logique métier "
+                                         "qu'apparaît l'une des nuances les plus précieuses du standard HTTP moderne "
+                                         '(`RFC 9110`). Lorsque le client expédie un texte JSON tronqué à qui il '
+                                         'manque une accolade fermante — par exemple `{"titre": "Audit API", '
+                                         '"duree_jours":` — le désérialiseur échoue dès la lecture syntaxique : le '
+                                         'serveur ne comprend même pas la phrase et répond **`400 Bad Request`**. En '
+                                         'revanche, lorsque le client envoie un document JSON parfaitement bien '
+                                         'formé sur le plan grammatical, tel que `{"titre": "", "duree_jours": -5}`, '
+                                         'la désérialisation réussit pleinement, mais les règles métier de '
+                                         "l'organisation interdisent une formation sans titre ou d'une durée "
+                                         'négative : le serveur répond alors **`422 Unprocessable Content`**, '
+                                         "idéalement accompagné d'une enveloppe d'erreur normalisée **`RFC 9457 / "
+                                         'RFC 7807` (*Problem Details*)**.\n'
+                                         '\n'
+                                         "```http — Réponse d'Erreur Métier Normalisée (HTTP 422 + RFC 7807 Problem "
+                                         'Details)\n'
+                                         'HTTP/1.1 422 Unprocessable Content\n'
+                                         'Content-Type: application/problem+json; charset=utf-8\n'
+                                         '\n'
+                                         '{\n'
+                                         '  "type": "https://api.isgp.dz/erreurs/validation-metier",\n'
+                                         '  "title": "Règles de validation non respectées",\n'
+                                         '  "status": 422,\n'
+                                         '  "detail": "La durée de la formation doit être comprise entre 1 et 30 '
+                                         'jours ouvrés."\n'
+                                         '}\n'
+                                         '```'},
+                                {'heading': '3. Acte III — Les Deux Lois Physiques de la Scalabilité : Statelessness '
+                                            'et Idempotence (`Idempotency-Key`)',
+                                 'body': 'Deux propriétés architecturales séparent les prototypes fragiles des '
+                                         "plateformes capables d'encaisser des millions de transactions sans faillir "
+                                         ": l'absence d'état conversatif (**Statelessness**) et l'**Idempotence**.\n"
+                                         '\n'
+                                         "#### L'Absence d'État (*Statelessness*) : la clé de la multiplication "
+                                         'horizontale\n'
+                                         '\n'
+                                         'Une API REST authentique est dite **sans état (*stateless*)** parce '
+                                         "qu'aucun serveur applicatif ne conserve en mémoire locale le « souvenir » "
+                                         "des requêtes précédentes d'un client. Chaque requête entrante doit être "
+                                         'intégralement autosuffisante et transporter avec elle son jeton '
+                                         "d'identité, ses paramètres de page et son contexte. La conséquence "
+                                         'industrielle de cette contrainte est prodigieuse : si la requête numéro 1 '
+                                         "d'Amine atterrit sur le Serveur A à 10h00min01s et sa requête numéro 2 sur "
+                                         'le Serveur D à 10h00min02s, le Serveur D la traite instantanément sans '
+                                         "avoir à interroger le Serveur A. Lors d'un pic national d'inscriptions, "
+                                         'vous pouvez passer de deux à quarante serveurs en quelques secondes, ou '
+                                         'perdre brutalement une machine entière sans déconnecter le moindre '
+                                         'utilisateur.\n'
+                                         '\n'
+                                         "#### L'Idempotence face aux coupures réseau : éviter le cauchemar du "
+                                         'double débit\n'
+                                         '\n'
+                                         'En mathématiques comme dans la norme `RFC 9110`, une opération est dite '
+                                         "**idempotente** lorsque le fait de l'exécuter **une seule fois ou dix fois "
+                                         'de suite avec les mêmes paramètres produit rigoureusement le même état '
+                                         'final sur le serveur**. Attention au faux-ami fréquent : idempotent ne '
+                                         'veut pas dire « qui ne modifie rien » (propriété appelée *Safe*, réservée '
+                                         "à `GET`, `HEAD` et `OPTIONS`). Remplacer l'adresse d'une salle via `PUT "
+                                         '/formations/42` ou supprimer un enregistrement via `DELETE /formations/42` '
+                                         'modifie bel et bien la base lors du premier appel ; mais si la réponse se '
+                                         'perd dans un tunnel ferroviaire et que le téléphone renvoie exactement le '
+                                         "même `PUT` ou le même `DELETE` trois secondes plus tard, l'état final de "
+                                         'la base demeure strictement identique.\n'
+                                         '\n'
+                                         '> [!WARNING] Le Piège Mortel du `POST` Non Idempotent sur Réseau Mobile\n'
+                                         "> Le verbe `POST` n'est **pas** nativement idempotent : appeler deux fois "
+                                         '`POST /api/v2/paiements` crée par défaut deux débits bancaires distincts ! '
+                                         "Or, lorsqu'un client mobile perd la 4G une demi-seconde *après* que le "
+                                         "serveur a débité sa carte mais *avant* d'avoir reçu l'accusé `201 "
+                                         "Created`, l'application mobile ignore si l'opération a abouti et réessaie "
+                                         'légitimement.\n'
+                                         '\n'
+                                         'Pour rendre un `POST` critique totalement sûr face aux réessais '
+                                         'automatiques, les architectures financières et de commerce électronique '
+                                         "(popularisées par Stripe et formalisées à l'IETF) exigent que le client "
+                                         "génère un identifiant universel unique (`UUID v4`) par intention d'achat "
+                                         "et le transmette dans l'en-tête **`Idempotency-Key`**. Lors du premier "
+                                         'passage, le serveur exécute le paiement et mémorise la réponse associée à '
+                                         'cette clé ; lors de tout réessai portant la même `Idempotency-Key`, il '
+                                         "reconnaît instantanément l'empreinte et renvoie le reçu original **sans "
+                                         'jamais débiter une seconde fois**.'},
+                                {'heading': "4. Acte IV — Gouverner le Volume et l'Événement : Pagination (`Offset` "
+                                            'vs `Cursor`), Webhooks et SDKs',
+                                 'body': "Dès qu'une table métier franchit le cap des cent mille ou des dix millions "
+                                         "d'enregistrements, renvoyer l'intégralité de la collection sur un seul "
+                                         'appel `GET /historique` saturerait simultanément la mémoire vive du '
+                                         'serveur Python, la bande passante réseau et le processeur du smartphone '
+                                         "client. Toute collection d'API professionnelle impose donc une "
+                                         '**Pagination**.\n'
+                                         '\n'
+                                         '#### Pourquoi la pagination par curseur (`Keyset / Cursor`) détrône '
+                                         '`OFFSET` à grande échelle\n'
+                                         '\n'
+                                         'La méthode la plus intuitive, dite **pagination par décalage (`Offset '
+                                         'Pagination`)**, repose sur des paramètres tels que `?page=5000&limit=20`, '
+                                         'traduits en SQL par `LIMIT 20 OFFSET 100000`. Simple pour les petits '
+                                         'catalogues administratifs, elle souffre de deux tares sévères à haute '
+                                         "volumétrie : d'une part, pour sauter cent mille lignes, le moteur de base "
+                                         'de données doit réellement les balayer une par une en mémoire avant de les '
+                                         "jeter, faisant exploser le temps de réponse à mesure qu'on avance dans les "
+                                         "pages ; d'autre part, si une nouvelle ligne est insérée en tête de liste "
+                                         "pendant que l'utilisateur tourne la page, tous les éléments se décalent "
+                                         "d'un rang et un enregistrement apparaît en double. Les grandes APIs "
+                                         'industrielles privilégient dès lors la **pagination par curseur (`Cursor / '
+                                         'Keyset Pagination`)**, de la forme `?after_id=98412&limit=20` : grâce à '
+                                         "l'index B-Tree de la clé primaire (`WHERE id > 98412 ORDER BY id ASC LIMIT "
+                                         "20`), la dix-millième page s'extrait en moins d'une milliseconde "
+                                         'exactement comme la première, sans le moindre doublon.\n'
+                                         '\n'
+                                         '#### Du Polling aveugle au Webhook signé et au confort du SDK\n'
+                                         '\n'
+                                         "Dans le même esprit d'économie de ressources, lorsqu'un traitement "
+                                         "extérieur prend plusieurs minutes, on remplace l'interrogation répétitive "
+                                         'par un **Webhook** : le client enregistre une URL de réception '
+                                         '(`https://ecole.dz/webhooks/paiements`), et le fournisseur pousse un '
+                                         "`POST` JSON muni d'un en-tête `X-Signature-256` calculé par "
+                                         '**HMAC-SHA256** afin que le destinataire vérifie mathématiquement '
+                                         "l'authenticité de l'émetteur. Enfin, pour épargner aux développeurs "
+                                         'clients la rédaction manuelle des appels HTTP, des réessais et des '
+                                         "signatures, les éditeurs d'APIs publient des **SDKs (*Software Development "
+                                         'Kits*)** — bibliothèques prêtes à installer (`pip install ...`, `npm '
+                                         "install ...`) qui encapsulent l'API réseau sous la forme élégante de "
+                                         'fonctions natives du langage hôte.'},
+                                {'heading': "5. Acte V — L'Ingénierie de Production et la Fiabilité (SRE) : Reverse "
+                                            'Proxy, Rate-Limiting (`429`), Latence `p99` et `SLI / SLO / SLA`',
+                                 'body': 'En production réelle, un démon applicatif Python (Gunicorn, Uvicorn ou '
+                                         "Tornado) n'est jamais exposé nu face à l'océan hostile d'Internet. Devant "
+                                         "lui veille un **Mandataire Inverse (*Reverse Proxy*)** doublé d'un "
+                                         '**Répartiteur de Charge (*Load Balancer*)** tel que **Nginx**, **Envoy** '
+                                         'ou **HAProxy**. Ce gardien frontal assure le chiffrement TLS 1.3, filtre '
+                                         'les requêtes malformées, absorbe les connexions lentes et distribue '
+                                         'équitablement les appels sains entre plusieurs processus Python tout en '
+                                         'écartant sans délai un nœud défaillant (*Failover*).\n'
+                                         '\n'
+                                         '#### Protéger la survie collective : `Rate-Limiting`, `429` et '
+                                         '*Backpressure*\n'
+                                         '\n'
+                                         'Que se passe-t-il si un script partenaire contient une boucle infinie '
+                                         'accidentelle qui bombarde votre API de cinq mille requêtes par seconde ? '
+                                         'Sans garde-fou, ce seul client dit *« voisin bruyant »* (*Noisy Neighbor*) '
+                                         "confisque tous les travailleurs Python et prive l'ensemble de vos "
+                                         'utilisateurs légitimes de service. Le **Rate-Limiting** installe un quota '
+                                         "par identité ou par adresse IP ; dès que le plafond est franchi, l'API "
+                                         "oppose le statut normatif **`429 Too Many Requests`** assorti de l'en-tête "
+                                         '**`Retry-After: 30`**, exerçant ainsi une **contre-pression '
+                                         '(*Backpressure*)** explicite qui commande au client de patienter trente '
+                                         'secondes avant toute nouvelle tentative.\n'
+                                         '\n'
+                                         '#### Mesurer la qualité réelle : Débit, Latence `p99` et la Trilogie `SLI '
+                                         '/ SLO / SLA`\n'
+                                         '\n'
+                                         'Pour piloter cette usine en production, les ingénieurs **SRE (*Site '
+                                         'Reliability Engineering*)** séparent deux grandeurs physiques : le **Débit '
+                                         '(*Throughput*)**, mesuré en requêtes par seconde (`req/s`), et la '
+                                         "**Latence**, durée individuelle d'un aller-retour en millisecondes. Or, en "
+                                         'ingénierie des systèmes, **la moyenne arithmétique ment** : si 99 requêtes '
+                                         "répondent en `10 ms` et qu'une seule bloque pendant `10 secondes`, la "
+                                         'moyenne affiche un trompeur `110 ms` qui masque la souffrance bien réelle '
+                                         "d'un client sur cent. L'industrie mesure donc toujours les **percentiles "
+                                         'de queue (`p95`, `p99`)** : afficher `p99 = 85 ms` garantit que 99 % des '
+                                         'appels se terminent en moins de 85 millisecondes.\n'
+                                         '\n'
+                                         '> [!NOTE] La Hiérarchie Exacte entre SLI, SLO et SLA\n'
+                                         '> Le **SLI (*Service Level Indicator*)** est le chiffre réel mesuré par '
+                                         'vos sondes (ex. `99,96 %` de réponses non-5xx ce mois-ci). Le **SLO '
+                                         "(*Service Level Objective*)** est l'objectif d'exigence interne que "
+                                         "s'impose l'équipe d'ingénierie (ex. `>= 99,95 %`, ce qui fixe un *budget "
+                                         "d'erreur* précis). Le **SLA (*Service Level Agreement*)** est le contrat "
+                                         'juridique et commercial signé avec le client (ex. `99,9 %`, soit au '
+                                         "maximum **43 minutes et 50 secondes** d'indisponibilité cumulée par mois), "
+                                         "au-dessous duquel l'opérateur verse des pénalités financières."}],
+              'explanation': ["**Précision sémantique des codes d'état.** Distinguer rigoureusement un échec de "
+                              'désérialisation syntaxique (`400 Bad Request`), un format MIME non pris en charge '
+                              '(`415 Unsupported Media Type`), une infraction aux règles métier (`422 Unprocessable '
+                              'Content`) et un dépassement de quota (`429 Too Many Requests`) permet aux '
+                              "applications clientes d'automatiser leur réaction sans devinette.",
+                              "**Résilience face à l'incertitude du réseau.** Parce qu'un réseau IP peut toujours "
+                              "perdre l'accusé de réception d'une opération pourtant exécutée, la combinaison de "
+                              'serveurs *stateless* interchangeables et de clés `Idempotency-Key` sur les écritures '
+                              "critiques constitue l'assurance-vie des architectures financières et "
+                              'transactionnelles.',
+                              '**Marge de sécurité entre objectif technique et promesse juridique.** Une '
+                              'organisation mature fixe systématiquement son alerte interne (**SLO**, par exemple '
+                              '`99,95 %`) plus haut que son engagement contractuel (**SLA**, par exemple `99,90 %`) '
+                              "afin que l'équipe d'astreinte corrige toute dégradation bien avant le franchissement "
+                              'du seuil juridique.'],
+              'mermaid_diagram': {'title': "Trajectoire Complète d'un Appel API à Travers les 15 Concepts du "
+                                           "Vocabulaire d'Ingénierie",
                                   'code': 'sequenceDiagram\n'
                                           '    participant C as Client (Mobile / SDK)\n'
-                                          '    participant RP as Reverse Proxy / API Gateway\n'
+                                          '    participant RP as Reverse Proxy / Load Balancer\n'
                                           '    participant S as Serveur API Stateless\n'
                                           '\n'
-                                          "    Note over C: Sérialise l'objet en Payload JSON<br/>+ Ajoute "
-                                          'Headers (Auth, Content-Type, Idempotency-Key)\n'
+                                          "    Note over C: Sérialise l'objet en Payload JSON<br/>+ En-têtes "
+                                          '(Authorization, Content-Type, Idempotency-Key)\n'
                                           '    C->>RP: Appel Endpoint : POST /api/v2/inscriptions\n'
-                                          '    Note over RP: Vérifie Rate-Limit (sinon 429 + Retry-After)\n'
+                                          '    Note over RP: Contrôle Rate-Limit (sinon 429 + Retry-After)\n'
                                           '    RP->>S: Achemine vers la Route correspondante\n'
-                                          '    Note over S: 1. Désérialise JSON (sinon 400)<br/>2. Valide '
-                                          'règles métier (sinon 422)<br/>3. Vérifie Idempotency-Key\n'
-                                          '    S-->>C: 201 Created + Représentation JSON de la Ressource '
-                                          '(SLI : 38 ms)'},
-              'reference_table': {'title': 'Aide-Mémoire Récapitulatif des 15 Termes du Jargon '
-                                           "d'Ingénierie API",
-                                  'headers': ["Terme d'Ingénierie",
-                                              'Sens Exact en Une Phrase',
-                                              'Exemple Parlants'],
+                                          '    Note over S: 1. Désérialise JSON (sinon 400)<br/>2. Valide règles '
+                                          'métier (sinon 422)<br/>3. Vérifie Idempotency-Key\n'
+                                          '    S-->>C: 201 Created + Représentation JSON de la Ressource (SLI : 38 '
+                                          'ms)'},
+              'reference_table': {'title': 'Récapitulatif Synoptique des 15 Concepts Fondamentaux du Vocabulaire des '
+                                           'APIs',
+                                  'headers': ["Concept d'Ingénierie",
+                                              'Définition Rigoureuse',
+                                              'Illustration Concrète'],
                                   'rows': [['**Ressource vs Représentation**',
-                                            "L'entité métier abstraite vs son habillage de données (JSON, "
-                                            'CSV, PDF).',
-                                            'La formation #42 vs son export JSON.'],
+                                            "L'entité métier conceptuelle face à sa matérialisation sérialisée dans "
+                                            'un format donné.',
+                                            'La formation #42 vs sa vue JSON ou son certificat PDF.'],
                                            ['**URI vs Endpoint vs Route**',
-                                            "L'adresse de la ressource vs le couple `Verbe + URI` vs le "
-                                            'motif côté serveur.',
-                                            '`/formations/42` vs `DELETE /formations/42`.'],
+                                            "L'identifiant de la ressource vs le couple `Verbe + URI` vs le motif de "
+                                            'capture côté serveur.',
+                                            '`/formations/42` vs `DELETE /formations/42` vs `/formations/<int:id>`.'],
                                            ['**Headers vs Payload**',
-                                            "Métadonnées sur l'enveloppe vs données métier dans le colis.",
-                                            '`Authorization` vs `{"titre": "Audit"}`.'],
+                                            "Métadonnées protocolaires d'enveloppe face au corps contenant les "
+                                            'données métier.',
+                                            '`Authorization`, `ETag` vs `{"titre": "Audit API"}`.'],
                                            ['**Sérialisation / Désérialisation**',
-                                            "Conversion objet mémoire <-> flux d'octets transportable sur "
-                                            'le réseau.',
-                                            'Objet -> texte JSON UTF-8 -> Objet.'],
+                                            'Transformation bidirectionnelle entre objets en mémoire RAM et flux '
+                                            "linéaire d'octets UTF-8.",
+                                            '`dict` Python <-> texte JSON (`RFC 8259`).'],
                                            ['**`400` vs `422`**',
-                                            'Syntaxe illisible / cassée (`400`) vs syntaxe valide mais '
-                                            'valeur interdite (`422`).',
-                                            'JSON coupé vs `duree_jours: -3`.'],
+                                            'Octets syntaxiquement illisibles (`400`) contre structure valide '
+                                            'violant une règle métier (`422`).',
+                                            'JSON tronqué vs `duree_jours: -5`.'],
                                            ['**Content Negotiation (`406`/`415`)**',
-                                            'Accord sur le format MIME envoyé (`Content-Type`) et attendu '
+                                            'Négociation du type MIME expédié (`Content-Type`) et désiré en retour '
                                             '(`Accept`).',
-                                            'Refuser une image déguisée (`415`).'],
+                                            "Rejet d'un exécutable déguisé (`415`)."],
                                            ['**Statelessness (Sans État)**',
-                                            'Aucune mémoire de session gardée sur un serveur particulier '
-                                            'entre 2 appels.',
-                                            'Permet 10 serveurs interchangeables.'],
+                                            'Absence totale de contexte de session retenu dans la mémoire locale '
+                                            "d'un nœud serveur.",
+                                            'Quatre serveurs interchangeables derrière un Load Balancer.'],
                                            ['**Idempotence & `Idempotency-Key`**',
-                                            'Exécuter 1 fois ou N fois laisse exactement le même état '
-                                            'final.',
-                                            'Éviter de débiter une carte bancaire 2 fois.'],
+                                            "Invariance de l'état final du système qu'une requête soit reçue une "
+                                            'fois ou répétée.',
+                                            'Zéro double débit bancaire après micro-coupure 4G.'],
                                            ['**Pagination `Offset` vs `Cursor`**',
-                                            'Sauter N lignes lentement vs reprendre instantanément après '
-                                            'le dernier ID vu.',
-                                            '`?after_id=98412&limit=20` (< 1 ms).'],
+                                            'Saut coûteux de `N` lignes contre reprise directe par index B-Tree '
+                                            'après le dernier identifiant.',
+                                            '`?after_id=98412&limit=20` en `< 1 ms`.'],
                                            ['**Webhook**',
-                                            "Appel HTTP retour déclenché par le serveur lorsqu'un "
-                                            'événement survient.',
-                                            'Notification instantanée de paiement reçu.'],
+                                            'Requête HTTP `POST` sortante signée déclenchée par le serveur dès '
+                                            "l'occurrence d'un fait métier.",
+                                            'Notification instantanée de règlement validé.'],
                                            ['**SDK**',
-                                            "Bibliothèque prête à l'emploi encapsulant les appels HTTP "
-                                            "d'une API.",
-                                            'Kit officiel Stripe ou Google Cloud.'],
+                                            'Bibliothèque cliente idiomatique encapsulant le transport HTTP, '
+                                            "l'authentification et les erreurs.",
+                                            "Client Python officiel d'un prestataire Cloud."],
                                            ['**Reverse Proxy & Load Balancer**',
-                                            'Gardien frontal qui protège les serveurs et répartit le '
-                                            'trafic entrant.',
-                                            'Nginx devant 4 instances applicatives.'],
+                                            'Frontal réseau assurant terminaison TLS, filtrage et répartition de '
+                                            'charge multi-instances.',
+                                            'Nginx distribuant le trafic vers 4 processus Python.'],
                                            ['**Rate-Limit & Backpressure (`429`)**',
-                                            'Plafonnement du débit par client et consigne explicite de '
-                                            'ralentissement.',
-                                            '`429` + `Retry-After: 30`.'],
+                                            "Plafonnement du débit par consommateur accompagné d'une consigne "
+                                            'temporelle `Retry-After`.',
+                                            'Protection contre un script client en boucle infinie.'],
                                            ['**Latence `p99` vs Throughput**',
-                                            'Temps de réponse garanti pour 99 % des appels vs nombre de '
-                                            'requêtes/seconde.',
-                                            '`p99 = 85 ms` à `2 000 req/s`.'],
+                                            'Temps de réponse maximal garanti pour 99 % des requêtes face au volume '
+                                            'global par seconde.',
+                                            '`p99 = 85 ms` sous une charge de `2 000 req/s`.'],
                                            ['**SLI / SLO / SLA**',
-                                            'Mesure observée (`SLI`), cible interne (`SLO`) et contrat '
-                                            'juridique (`SLA`).',
-                                            'Mesuré `99,96 %` / Cible `99,95 %` / Contrat `99,9 %`.']]},
-              'pitfalls': [{'bad': "Croire qu'« idempotent » veut dire « qui ne modifie rien » (lecture "
-                                   'seule).',
-                            'good': 'Comprendre que `PUT` et `DELETE` **modifient bien** les données à la '
-                                    'première exécution, mais que les répéter une 2e ou 3e fois avec les '
-                                    'mêmes paramètres ne provoque aucun effet supplémentaire.',
-                            'why': 'Ce sont les méthodes *Safe* (`GET`, `HEAD`, `OPTIONS`) qui ne '
-                                   "modifient rien ; l'idempotence concerne la stabilité du résultat face "
-                                   'aux répétitions.'},
-                           {'bad': "Se vanter d'une « latence moyenne de 50 ms » alors que 2 % des clients "
-                                   'attendent 14 secondes.',
-                            'good': 'Piloter la qualité de service avec les percentiles **`p95`** et '
-                                    '**`p99`**.',
-                            'why': 'Les clients mécontents qui abandonnent leur panier se trouvent '
-                                   'précisément dans le `p99`, totalement invisible dans une simple '
-                                   'moyenne.'}],
-              'practical_exercises': ["**Distinction `400` vs `422`** : Un formulaire d'inscription envoie "
-                                      'un âge égal à `250` dans un JSON parfaitement formé. Quel code HTTP '
-                                      'un architecte rigoureux renvoie-t-il, et pourquoi ?',
-                                      '**Calcul concret de SLA** : Une banque signe un SLA de '
-                                      'disponibilité de `99,99 %` (« quatre neufs ») sur son API '
-                                      "monétique. Combien de minutes d'indisponibilité maximale cela "
-                                      'représente-t-il sur une année entière de 365 jours ? *(Réponse à '
-                                      'vérifier : à peine 52 minutes par an !)*']},
+                                            "Mesure télémétrique réelle (`SLI`), cible d'ingénierie (`SLO`) et "
+                                            'contrat juridique (`SLA`).',
+                                            'Mesuré `99,96 %` / Cible `99,95 %` / Contrat `99,90 %`.']]},
+              'pitfalls': [{'bad': "Croire qu'une méthode **idempotente** est une méthode en lecture seule qui ne "
+                                   'modifie jamais la base de données.',
+                            'good': 'Distinguer les méthodes *Safe* (`GET`, `HEAD`, `OPTIONS`, sans effet de bord) '
+                                    "des méthodes *Idempotentes* (`PUT`, `DELETE`), qui modifient bien l'état au "
+                                    'premier appel mais laissent ce même état inchangé en cas de répétition '
+                                    'identique.',
+                            'why': 'Confondre ces deux propriétés conduit à mal configurer les politiques de réessai '
+                                   'automatique des passerelles réseau et des clients HTTP.'},
+                           {'bad': 'Renvoyer `200 OK` avec un corps `{"succes": false, "erreur": "Accès interdit"}` '
+                                   "lorsqu'une opération échoue.",
+                            'good': "Aligner systématiquement le code d'état HTTP (`401`, `403`, `404`, `422`, "
+                                    "`429`, `500`) avec la nature réelle de l'événement et décrire le détail dans un "
+                                    'corps `RFC 7807`.',
+                            'why': 'Un faux `200 OK` trompe les sondes SRE (qui comptabilisent un SLI de 100 % de '
+                                   'réussite en pleine panne !), corrompt les caches HTTP et met en échec les SDKs '
+                                   'clients.'}],
+              'practical_exercises': ['**Diagnostic sur le vif** : Un partenaire bancaire envoie `POST '
+                                      '/api/v1/virements` avec le corps JSON `{"montant": "mille dinars"}`. '
+                                      'S\'agit-il d\'une erreur `400`, `415` ou `422` ? Et s\'il envoie `{"montant": '
+                                      '1000` (sans accolade fermante) ?',
+                                      "**Calcul de budget d'erreur SRE** : Sur un mois de 30 jours (`43 200 "
+                                      "minutes`), calculez la durée maximale d'indisponibilité tolérée par un SLA de "
+                                      '`99,9 %` comparé à un SLA de `99,99 %` (*Four Nines*).']},
              {'id': 'c0-l3',
               'is_literature': True,
-              'artifact_title': "Exemple de Contrat Formel OpenAPI 3.1 (Lisible par l'Humain ET par la "
-                                'Machine — Sans Python)',
-              'title': "0.3 — Contrats d'API, Documentation & la Véritable Histoire de Swagger face à "
+              'artifact_title': "Extrait Normatif d'un Contrat Formel OpenAPI 3.1 (Lisible par l'Humain et "
+                                'Exécutable par la Machine)',
+              'title': "0.3 — Contrats d'API, Documentation Vivante & la Véritable Histoire de Swagger face à "
                        'OpenAPI',
-              'duration': '45 min',
-              'context': "Imaginez deux équipes d'ingénieurs travaillant sur le même projet national : une "
-                         "équipe à Oran développe l'application mobile des candidats, tandis qu'une équipe "
-                         'à Alger construit le serveur central des inscriptions. Elles ont trois mois pour '
-                         "livrer. Si elles se contentent d'échanger un document Word ou quelques messages "
-                         'par messagerie instantanée la première semaine, que se passera-t-il le '
-                         'quatre-vingt-dixième jour lors du branchement final ? Un désastre prévisible : '
-                         "là où l'application mobile envoie `date_naissance`, le serveur attend "
-                         '`birthDate` ; là où le mobile attend un nombre entier, le serveur renvoie du '
-                         'texte.\n'
+              'duration': '55 min',
+              'context': "Imaginez deux équipes d'ingénieurs séparées par quatre cents kilomètres mais travaillant "
+                         "sur le même programme national : à Oran, une première équipe conçoit l'application mobile "
+                         'destinée aux candidats ; à Alger, une seconde équipe bâtit le serveur central chargé '
+                         "d'instruire les dossiers d'inscription. Le calendrier leur accorde quatre-vingt-dix jours "
+                         "avant l'ouverture officielle du concours. Si ces deux équipes se contentent, lors de la "
+                         "réunion de lancement, d'échanger un document bureautique statique ou quelques captures "
+                         "d'écran sur une messagerie instantanée, l'issue du quatre-vingt-dixième jour relève d'une "
+                         "certitude mathématique : l'intégration finale échouera. Là où l'application mobile "
+                         'transmet un champ nommé `date_naissance` sous forme de chaîne française `14/09/1998`, le '
+                         'serveur attend `birthDate` au format international `ISO 8601` (`1998-09-14`) ; là où le '
+                         'téléphone espère un identifiant numérique, le serveur renvoie un code alphanumérique.\n'
                          '\n'
-                         'Pour conjurer ce fléau industriel, le génie logiciel a opéré une séparation '
-                         'décisive entre deux notions que tout architecte doit distinguer avec précision : '
-                         "le **Contrat d'API** et la **Documentation d'API** — une histoire intimement "
-                         "liée à la naissance de **Swagger** en 2010 et d'**OpenAPI** en 2015.",
-              'analogy': {'title': "Le Plan d'Architecte Coté au Millimètre face au Livret d'Accueil "
-                                   'Illustré',
-                          'text': "Lors de la construction d'un hôpital moderne, deux documents bien "
-                                  'distincts coexistent :\n'
-                                  "1. **Le Plan d'Exécution BIM / CAO (Le Contrat d'API)** : un fichier "
-                                  "numérique mathématique et normé. Les machines de découpe laser s'en "
-                                  "servent directement pour usiner les poutres d'acier, et un logiciel "
-                                  'détecte automatiquement si une gaine électrique traverse une '
-                                  "canalisation d'eau avant même le premier coup de pioche.\n"
-                                  "2. **Le Guide d'Orientation des Visiteurs (La Documentation d'API)** : "
-                                  'une brochure claire, pédagogique et illustrée qui explique aux médecins '
-                                  'et aux patients comment accéder aux urgences ou à la radiologie — '
-                                  '**imprimée directement à partir du plan officiel** pour être certain '
-                                  "qu'aucun couloir n'a changé de place !"},
-              'deep_sections': [{'heading': "1. Contrat d'API vs Documentation d'API : Vaincre la « Dérive "
-                                            'Documentaire » (Documentation Drift)',
-                                 'body': "- **Le Contrat d'API (Vérité Exécutable par la Machine)** : "
-                                         "C'est un fichier structuré selon une grammaire formelle stricte "
-                                         '(**OpenAPI 3.1**, **JSON Schema**, **Protocol Buffers** pour '
-                                         "gRPC, ou **AsyncAPI** pour l'événementiel). Parce qu'un "
-                                         "ordinateur sait le lire sans ambiguïté, ce contrat n'est pas un "
-                                         'texte passif : il peut **bloquer automatiquement** une livraison '
-                                         'logicielle qui casserait un champ existant, **simuler un serveur '
-                                         'factice (*Mock Server*)** dès le premier jour du projet, '
-                                         '**générer les bibliothèques clientes (SDKs)** et **bombarder '
-                                         "l'API de milliers de tests automatiques (*Fuzzing*)** pour "
-                                         "vérifier qu'elle tient parole.\n"
-                                         "- **La Documentation d'API (Expérience Humaine — *Developer "
-                                         "Experience / DX*)** : C'est le portail destiné au cerveau humain "
-                                         'du développeur qui découvre votre service. Elle raconte le '
-                                         "*pourquoi* et l'*ordre des étapes* : comment obtenir ses accès, "
-                                         'par quel scénario commencer (*Quickstart*), que faire face à tel '
-                                         "refus métier, accompagnée d'une console d'essai interactive.\n"
-                                         "- **La Loi d'Unicité de la Source** : Toute documentation "
-                                         'rédigée à la main dans un Wiki séparé du code est condamnée à '
-                                         "mentir sous six semaines : c'est la **dérive documentaire "
-                                         '(*Documentation Drift*)**. En ingénierie moderne, **la '
-                                         'documentation de référence est générée automatiquement à partir '
-                                         "du Contrat d'API**."},
-                                {'heading': '2. Deux Philosophies de Conception : Contract-First vs '
-                                            'Code-First & Gouvernance des Changements',
-                                 'body': "D'où vient ce fameux fichier de contrat ? Deux écoles légitimes "
-                                         "se partagent l'industrie :\n"
-                                         "- **L'École *Contract-First* (*Design-First*)** : Architectes, "
-                                         'équipes Mobile et équipes Backend rédigent et signent ensemble '
-                                         "le fichier `openapi.yaml` **avant d'écrire la moindre ligne de "
-                                         'code applicatif**. Dès que le contrat est validé, chaque équipe '
-                                         "travaille en parallèle en toute autonomie. C'est la voie royale "
-                                         'des grandes banques, des télécoms et des écosystèmes '
-                                         'multi-équipes.\n'
-                                         "- **L'École *Code-First*** : Le développeur écrit directement "
-                                         'ses structures de données typées dans son langage de '
-                                         'programmation, et le framework compile automatiquement le '
-                                         "contrat OpenAPI à chaque démarrage. C'est l'approche "
-                                         'ultra-productive popularisée en Python par **FastAPI** ou '
-                                         '**APIFlask**.\n'
+                         "L'industrie logicielle a payé des milliards d'euros de retards avant d'ériger en "
+                         'discipline formelle la distinction cardinale qui occupe ce troisième chapitre : **un '
+                         "Contrat d'API n'est pas une Documentation d'API**. Confondre ces deux artefacts — tout "
+                         'comme confondre le nom commercial **Swagger** avec la norme internationale **OpenAPI** — '
+                         "expose immanquablement un projet au poison silencieux le plus répandu de l'informatique "
+                         "d'entreprise : la **dérive documentaire (*Documentation Drift*)**, ce moment fatal où le "
+                         'texte que lisent les développeurs ne décrit plus le code qui tourne réellement en '
+                         'production.',
+              'analogy': {'title': "Le Plan d'Exécution Numérique BIM face au Livret d'Orientation des Visiteurs",
+                          'text': "Lors de l'édification d'un centre hospitalier universitaire contemporain, deux "
+                                  "familles de documents cohabitent sur le chantier, mais elles ne s'adressent ni "
+                                  "aux mêmes acteurs ni aux mêmes outils. Au cœur du bureau d'études règne la "
+                                  '**maquette numérique cotée au millimètre (*plan BIM / CAO*)** : un fichier '
+                                  'mathématique rigoureux dont la grammaire est lue directement par des machines. '
+                                  "Les fraiseuses à commande numérique s'en servent pour découper les poutrelles "
+                                  "d'acier sans intervention humaine, et un moteur de vérification géométrique "
+                                  "bloque automatiquement le chantier si une gaine d'oxygène traverse par erreur un "
+                                  "conduit haute tension. Ce plan exécutable par des automates est l'équivalent "
+                                  "exact du **Contrat d'API**.\n"
+                                  '\n'
+                                  "À l'entrée principale de l'hôpital achevé, en revanche, on remet aux médecins "
+                                  "nouvellement affectés et aux visiteurs un **guide d'orientation illustré** : il "
+                                  'explique en français courant par quelle aile commencer son parcours, comment '
+                                  "accéder au service d'imagerie et quelles consignes respecter en zone stérile. Ce "
+                                  "guide pédagogique correspond à la **Documentation d'API**. Or voici le secret des "
+                                  "chantiers bien gouvernés : ce livret humain n'est jamais redessiné à la main de "
+                                  "mémoire ; ses plans d'étage sont **imprimés automatiquement à partir de la "
+                                  "maquette BIM officielle**, rendant mathématiquement impossible l'existence d'un "
+                                  'couloir fantôme sur la brochure.'},
+              'deep_sections': [{'heading': '1. Contrat Exécutable contre Documentation Narrative : Vaincre la '
+                                            'Dérive Documentaire',
+                                 'body': "Un **Contrat d'API** est une spécification formelle rédigée selon une "
+                                         "grammaire déterministe qu'un programme informatique peut analyser sans la "
+                                         "moindre place à l'interprétation humaine : **OpenAPI 3.1** (adossé à "
+                                         '**JSON Schema Draft 2020-12**) pour les architectures HTTP/REST, '
+                                         '**Protocol Buffers (`.proto`)** pour les échanges binaires gRPC, ou '
+                                         "**AsyncAPI** pour les courtiers d'événements asynchrones. Parce que sa "
+                                         "structure est calculable, ce contrat cesse d'être un parchemin inerte "
+                                         "rangé sur une étagère : il devient un moteur actif au cœur de l'usine "
+                                         'logicielle.\n'
                                          '\n'
-                                         '**Comment faire évoluer un contrat en production sans trahir ses '
-                                         'clients ?**\n'
-                                         '- **Évolution *Non-Breaking* (Compatible ascendante)** : Ajouter '
-                                         "une nouvelle adresse d'API, ajouter un paramètre de filtre "
-                                         "**optionnel**, ou enrichir la réponse JSON d'un champ "
-                                         'supplémentaire. Selon la célèbre **Loi de Postel** (*Principe de '
-                                         'Robustesse de Jon Postel, 1980*), un bon client ignore poliment '
-                                         "les champs supplémentaires qu'il ne connaît pas encore.\n"
-                                         '- **Évolution *Breaking* (Rupture de contrat !)** : Supprimer un '
-                                         'champ existant, renommer `montant` en `amount`, transformer un '
-                                         'entier en objet, ou rendre obligatoire un champ autrefois '
-                                         'facultatif. Un changement *Breaking* **interdit** de modifier '
-                                         "l'adresse existante en silence : il impose d'ouvrir une nouvelle "
-                                         'version (`/api/v2/...`) tout en maintenant `/api/v1/...` pendant '
-                                         'une période de préavis annoncée par les en-têtes normalisés '
-                                         '**RFC 8594** (`Deprecation: true` et `Sunset`, la date '
-                                         "d'extinction programmée)."},
-                                {'heading': "3. Qu'est-ce que Swagger exactement ? Du Projet de Tony Tam "
-                                            '(2010) à la Norme OpenAPI (Linux Foundation, 2015)',
-                                 'body': 'Pourquoi entend-on tous les jours les deux mots **Swagger** et '
-                                         '**OpenAPI**, parfois utilisés à tort comme synonymes ? '
-                                         "L'histoire mérite d'être connue avec précision :\n"
-                                         '- **2010 (La Naissance de Swagger)** : **Tony Tam**, ingénieur '
-                                         'chez Wordnik (dictionnaire en ligne), cherche un moyen simple de '
-                                         'décrire ses APIs REST en JSON afin de générer automatiquement '
-                                         'une page Web de documentation et des SDKs. Il baptise ce format '
-                                         '**Swagger** (`v1.0`, puis le très populaire `Swagger 2.0` en '
-                                         "2014). Le projet est ensuite racheté par l'éditeur **SmartBear "
-                                         'Software**.\n'
-                                         '- **Novembre 2015 (Le Tournant Historique)** : Les géants '
-                                         'mondiaux de la technologie (Google, Microsoft, IBM, PayPal, '
-                                         'Capital One) souhaitent adopter ce format comme norme '
-                                         "planétaire, à condition qu'il n'appartienne pas à une seule "
-                                         'entreprise privée. Dans un geste décisif, SmartBear fait don de '
-                                         'la spécification à la **Linux Foundation**, qui fonde '
-                                         "l'**OpenAPI Initiative (OAI)**.\n"
-                                         '- **Depuis 2016 (La Séparation Finale des Rôles)** :\n'
-                                         '  1. **OpenAPI (`OAS 3.0`, puis `OAS 3.1`)** désigne désormais '
-                                         '**LA SPÉCIFICATION OUVERTE (le Contrat)** — exactement comme '
-                                         '**HTML5** est la norme ouverte des pages Web ou **SQL** la norme '
-                                         'des bases relationnelles. Depuis `OpenAPI 3.1`, les schémas de '
-                                         'données y sont 100 % identiques au standard international **JSON '
-                                         'Schema**.\n'
-                                         "  2. **Swagger** désigne quant à lui **LA SUITE D'OUTILS "
-                                         'LOGICIELS** (maintenue par SmartBear) qui travaillent autour '
-                                         "d'un contrat OpenAPI : **Swagger Editor** (pour rédiger le "
-                                         'contrat), **Swagger UI** (la célèbre page Web interactive dotée '
-                                         "du bouton *« Try it out »* qui permet d'essayer chaque endpoint "
-                                         'en direct dans son navigateur), et **Swagger Codegen** (pour '
-                                         "générer du code). Et parce qu'OpenAPI est une norme libre, "
-                                         "d'autres outils remarquables lisent exactement le même fichier : "
-                                         '**ReDoc**, **Scalar**, **Stoplight Spectral** ou '
-                                         '**Schemathesis** !'}],
-              'explanation': ["**1. Formulation exacte en entretien ou en comité d'architecture** : *« "
-                              "Nous décrivons notre contrat d'API selon la spécification **OpenAPI 3.1**, "
-                              "et nous l'exposons visuellement aux développeurs grâce à l'outil **Swagger "
-                              'UI** (ou ReDoc). »*',
-                              "**2. Un contrat sert autant à la sécurité qu'à la documentation** : Une "
-                              "passerelle d'API moderne peut charger votre fichier `openapi.yaml` et "
-                              "rejeter dès l'entrée du réseau toute requête qui ne respecte pas le contrat "
-                              '(champ inconnu, chaîne trop longue, type invalide).',
-                              "**3. Lecture de l'extrait ci-dessous** : Observez le court contrat "
-                              '`openapi.yaml` présenté ci-dessous — même sans connaître un seul langage de '
-                              'programmation, vous comprenez en dix secondes quelle adresse appeler, '
-                              'quelle permission posséder et quelles données fournir !'],
+                                         "#### Les quatre pouvoirs industriels d'un contrat lisible par machine\n"
+                                         '\n'
+                                         "Dès lors qu'une équipe dispose d'un fichier `openapi.yaml` canonique, "
+                                         'quatre automatismes transforment immédiatement son quotidien. '
+                                         'Premièrement, un **serveur de simulation (*Mock Server*)** tel que *Prism* '
+                                         'peut être démarré en dix secondes dès le premier matin du projet : '
+                                         "l'équipe mobile d'Oran interroge déjà de véritables adresses HTTP "
+                                         "réalistes sans attendre que l'équipe d'Alger ait écrit une seule ligne de "
+                                         'Python. Deuxièmement, des compilateurs génèrent automatiquement les '
+                                         '**bibliothèques clientes typées (*SDKs*)** en TypeScript, Swift, Kotlin ou '
+                                         "Java. Troisièmement, des outils d'audit grammatical comme *Stoplight "
+                                         "Spectral* inspectent chaque modification dans le pipeline d'intégration "
+                                         'continue pour imposer les conventions de nommage et de sécurité de '
+                                         "l'organisation. Quatrièmement, des moteurs de test par propriétés tels que "
+                                         '**Schemathesis** lisent le contrat et bombardent le serveur réel de '
+                                         'milliers de charges utiles limites générées mathématiquement afin de '
+                                         "prouver qu'aucun écart ne subsiste entre la promesse écrite et le "
+                                         'comportement effectif du code.\n'
+                                         '\n'
+                                         "La **Documentation d'API**, quant à elle, relève de l'**expérience "
+                                         'développeur (*Developer Experience — DX*)**. Un contrat pur énumère '
+                                         'sobrement cent cinquante endpoints par ordre alphabétique ; il ne raconte '
+                                         'pas à un ingénieur pressé dans quel ordre chronologique enchaîner trois '
+                                         'appels pour finaliser un dossier, comment renouveler un jeton expiré ni '
+                                         "comment interpréter les codes d'erreur métier. Une documentation "
+                                         "exemplaire — à l'image de celles de Stripe ou de Twilio — marie donc deux "
+                                         "strates : des guides narratifs rédigés pour l'intelligence humaine "
+                                         "(*Quickstart*, scénarios d'intégration, politique de quotas) et un "
+                                         'catalogue technique interactif intégralement compilé depuis le contrat '
+                                         'formel.\n'
+                                         '\n'
+                                         "> [!IMPORTANT] La Loi d'Unicité de la Source de Vérité (Single Source of "
+                                         'Truth)\n'
+                                         '> Toute spécification technique maintenue manuellement dans un document '
+                                         'Word, un PDF ou une page Wiki décorrélée du dépôt de code entre en dérive '
+                                         "documentaire sous moins de six semaines : lors d'un incident nocturne, un "
+                                         'développeur corrigera un champ dans le code en oubliant de mettre à jour '
+                                         'le Wiki. Dans une ingénierie de référence, la documentation technique '
+                                         "n'est jamais écrite à côté du contrat ; elle est une projection visuelle "
+                                         'directe et automatisée du contrat lui-même.'},
+                                {'heading': '2. Contract-First contre Code-First, Loi de Postel et Gouvernance du '
+                                            'Cycle de Vie (RFC 8594)',
+                                 'body': "Une question stratégique anime régulièrement les comités d'architecture : "
+                                         'faut-il rédiger le contrat `openapi.yaml` avant le code applicatif, ou '
+                                         'laisser le code applicatif engendrer le contrat ? Deux écoles légitimes se '
+                                         "partagent l'état de l'art, chacune excellant dans un contexte "
+                                         'organisationnel précis.\n'
+                                         '\n'
+                                         "Dans l'approche **Contract-First (*Design-First*)**, architectes, équipes "
+                                         'clientes et équipes serveur conçoivent, débattent et signent ensemble le '
+                                         'fichier `openapi.yaml` sous contrôle de version Git avant toute '
+                                         'implémentation. Ce contrat devient le traité diplomatique qui permet à dix '
+                                         "équipes distribuées d'avancer simultanément sans se bloquer mutuellement ; "
+                                         "c'est la discipline privilégiée des banques, des opérateurs télécoms, des "
+                                         "administrations publiques et des programmes d'Open Banking. À l'inverse, "
+                                         "dans l'approche **Code-First**, les ingénieurs expriment les schémas de "
+                                         'données directement dans le système de types de leur langage de '
+                                         'programmation — par exemple via des modèles **Pydantic** dans **FastAPI** '
+                                         "ou **Marshmallow / APIFlask** dans l'écosystème **Flask** — et le serveur "
+                                         'synthétise à la volée un contrat OpenAPI mathématiquement fidèle au code '
+                                         "exécuté. Cette seconde voie garantit par construction l'absence totale "
+                                         "d'écart entre l'implémentation et le schéma publié, à condition "
+                                         "d'instaurer dans l'intégration continue un comparateur automatique "
+                                         '(*OpenAPI Diff*) qui bloque toute modification accidentelle cassant les '
+                                         'clients existants.\n'
+                                         '\n'
+                                         '#### Loi de Postel et frontière entre évolution compatible et rupture de '
+                                         'contrat\n'
+                                         '\n'
+                                         "Dès qu'une API compte son premier consommateur en production, son contrat "
+                                         'devient un engagement vivant soumis au célèbre principe de robustesse '
+                                         'formulé en janvier **1980** par **Jon Postel** dans la norme fondatrice du '
+                                         'protocole TCP :\n'
+                                         '\n'
+                                         '> « Soyez conservateur dans ce que vous émettez, et soyez libéral dans ce '
+                                         'que vous acceptez de la part des autres. » — Jon Postel, RFC 761 '
+                                         '(Transmission Control Protocol), section 2.10, 1980\n'
+                                         '\n'
+                                         'Traduite dans le gouvernement des APIs modernes, la loi de Postel trace '
+                                         'une frontière juridique nette entre deux natures de changements. Une '
+                                         'évolution est dite **compatible ascendante (*Non-Breaking Change*)** '
+                                         "lorsqu'elle préserve intégralement le fonctionnement des logiciels clients "
+                                         'déjà déployés : exposer un nouvel endpoint, accepter un paramètre de '
+                                         "recherche **facultatif** doté d'une valeur par défaut saine, ou enrichir "
+                                         "une réponse JSON d'une propriété additionnelle qu'un client bien conçu "
+                                         "ignorera sans broncher. À l'opposé, supprimer ou renommer une clé "
+                                         "existante (`montant` changé en `amount`), modifier le type d'une propriété "
+                                         '(transformer un entier `42` en objet `{"valeur": 42}`), restreindre les '
+                                         'valeurs acceptées ou rendre obligatoire en entrée un champ autrefois '
+                                         'optionnel constitue une **rupture de contrat (*Breaking Change*)**.\n'
+                                         '\n'
+                                         'Contrairement à une application Web dont le navigateur recharge le code '
+                                         'chaque matin, une application mobile installée sur des centaines de '
+                                         "milliers de téléphones ou un connecteur comptable gravé dans l'ERP d'un "
+                                         'partenaire industriel ne se met pas à jour sur simple décret du '
+                                         "fournisseur. Toute rupture exige donc d'ouvrir une nouvelle branche "
+                                         'versionnée (`/api/v2/inscriptions`) tout en maintenant '
+                                         '`/api/v1/inscriptions` en service durant une période de transition '
+                                         'officielle, annoncée dans chaque réponse HTTP par les en-têtes normalisés '
+                                         '**Deprecation** et **Sunset** (**RFC 8594**) :\n'
+                                         '\n'
+                                         "```http — Signalement normalisé d'extinction programmée d'une version "
+                                         "d'API (RFC 8594)\n"
+                                         'HTTP/1.1 200 OK\n'
+                                         'Content-Type: application/json; charset=utf-8\n'
+                                         'Deprecation: @1767225600\n'
+                                         'Sunset: Wed, 30 Jun 2027 23:59:59 GMT\n'
+                                         'Link: <https://api.isgp.dz/docs/migrations/v1-vers-v2>; rel="deprecation"; '
+                                         'type="text/html"\n'
+                                         '```'},
+                                {'heading': "3. Qu'est-ce véritablement que Swagger ? De l'Invention de Tony Tam "
+                                            "(2010) à l'OpenAPI Initiative (2015)",
+                                 'body': "Rares sont les termes de l'industrie logicielle aussi fréquemment employés "
+                                         "l'un pour l'autre que **Swagger** et **OpenAPI**. Pourtant, leur "
+                                         'distinction repose sur un tournant historique précis qui éclaire toute '
+                                         "l'organisation de l'outillage contemporain.\n"
+                                         '\n'
+                                         "En **2010**, l'ingénieur **Tony Tam**, alors architecte chez *Wordnik* (un "
+                                         'dictionnaire anglophone en ligne dont le catalogue de données était '
+                                         'consommé par de nombreux partenaires), fait face à la corvée épuisante de '
+                                         'maintenir à la main la documentation et les kits clients de ses services '
+                                         'REST. Il imagine alors un descripteur JSON simple permettant à son serveur '
+                                         'de décrire lui-même ses routes, ses paramètres et ses modèles, assorti '
+                                         "d'une petite interface Web capable d'interroger ces routes en direct. Il "
+                                         "baptise l'ensemble **Swagger** (`v1.0`, suivi en 2014 du célèbre **Swagger "
+                                         "2.0**). Le succès est fulgurant ; au printemps 2015, l'éditeur d'outils de "
+                                         'test **SmartBear Software** acquiert la technologie.\n'
+                                         '\n'
+                                         "C'est alors que se noue, en **novembre 2015**, un acte diplomatique "
+                                         'majeur. Les plus grandes entreprises technologiques et financières de la '
+                                         'planète — Google, Microsoft, IBM, PayPal, Capital One, Intuit — souhaitent '
+                                         'ériger ce format au rang de langue universelle des APIs REST, mais '
+                                         'refusent légitimement de bâtir toute leur infrastructure mondiale sur une '
+                                         'marque déposée appartenant à un unique éditeur privé. Avec une remarquable '
+                                         'clairvoyance industrielle, Tony Tam et SmartBear acceptent de céder '
+                                         'gratuitement la propriété intellectuelle de la spécification à une '
+                                         'fondation neutre à but non lucratif : la **Linux Foundation**, qui crée '
+                                         "aussitôt l'**OpenAPI Initiative (OAI)**.\n"
+                                         '\n'
+                                         "#### La règle d'or terminologique depuis le 1er janvier 2016\n"
+                                         '\n'
+                                         'Depuis cette scission historique, les deux noms désignent deux réalités '
+                                         'strictement distinctes. **OpenAPI** (**OAS 3.0** en 2017, puis **OAS 3.1** '
+                                         "en 2021 qui scelle l'alignement intégral à cent pour cent avec le standard "
+                                         'international **JSON Schema**) est **la norme ouverte et neutre** : la '
+                                         "grammaire universelle dans laquelle s'écrit le contrat `openapi.yaml` ou "
+                                         '`openapi.json`, exactement comme **HTML5** est la norme ouverte du W3C '
+                                         'pour les pages Web. **Swagger**, quant à lui, demeure la marque '
+                                         'commerciale de **la suite de logiciels** développée par SmartBear autour '
+                                         'de cette norme : **Swagger Editor** pour rédiger un contrat dans son '
+                                         'navigateur, **Swagger Codegen** pour générer des squelettes de code, et '
+                                         "surtout **Swagger UI**, l'interface Web interactive mondialement connue "
+                                         "qui lit n'importe quel contrat OpenAPI pour afficher ses routes et offrir "
+                                         "aux développeurs le fameux bouton *« Try it out »* permettant d'exécuter "
+                                         'de vraies requêtes HTTP sans quitter la page de documentation.\n'
+                                         '\n'
+                                         "> [!TIP] La formulation exacte d'un architecte en revue de conception\n"
+                                         '> Ne dites plus *« Nous allons écrire le Swagger v3 de notre API »*. Dites '
+                                         "avec précision : *« Nous modélisons notre contrat d'interface selon la "
+                                         'norme ouverte **OpenAPI 3.1**, nous le validons en continu avec '
+                                         "**Spectral** et **Schemathesis**, et nous l'exposons sous forme de portail "
+                                         'interactif grâce à **Swagger UI** (ou à ses alternatives modernes lisant '
+                                         'le même contrat OpenAPI, telles que **ReDoc** et **Scalar**). »*'}],
+              'explanation': ['**Distinction ontologique entre Contrat et Documentation.** Le contrat (`OpenAPI '
+                              '3.1`, `Protobuf`, `AsyncAPI`) est une vérité mathématique lisible par la machine '
+                              'permettant la simulation, la génération de SDKs, le filtrage sur passerelle et le '
+                              "test automatisé ; la documentation est l'expérience pédagogique humaine générée "
+                              "directement à partir de ce contrat afin d'éradiquer toute dérive documentaire.",
+                              '**Gouvernance des évolutions et Loi de Postel.** Un contrat publié engage son auteur '
+                              "vis-à-vis de clients qu'il ne maîtrise pas : toute modification non rétrocompatible "
+                              "(*Breaking Change*) interdit d'altérer silencieusement la route existante et impose "
+                              "un versionnement explicite accompagné des en-têtes d'extinction normalisés "
+                              '`Deprecation` et `Sunset` (`RFC 8594`).',
+                              '**Séparation historique entre OpenAPI et Swagger.** Depuis le transfert du format à '
+                              'la Linux Foundation fin 2015, **OpenAPI** désigne la spécification standard ouverte '
+                              "du contrat, tandis que **Swagger** (`Swagger UI`, `Swagger Editor`) désigne l'une des "
+                              "familles d'outils logiciels capables de lire, d'éditer et de rendre ce contrat "
+                              'interactif.'],
               'code': 'openapi: 3.1.0\n'
                       'info:\n'
                       '  title: API Officielle des Formations ISGP\n'
@@ -700,257 +994,343 @@ CHAPTER_0_LITERATURE = {'day_number': -1,
                       "        '401': { description: Jeton d'accès manquant ou expiré }\n"
                       "        '422': { description: Données non conformes au contrat }",
               'line_explanations': [{'lines': '1-4',
-                                     'text': "En-tête normatif : annonce l'adhésion à la spécification "
-                                             'ouverte **OpenAPI 3.1.0** ainsi que le titre et la version '
+                                     'text': "En-tête normatif déclarant l'adhésion à la spécification ouverte "
+                                             "**OpenAPI 3.1.0** ainsi que l'intitulé officiel et la version "
                                              'sémantique (`2.1.0`) du contrat.'},
                                     {'lines': '5-8',
-                                     'text': "Déclaration de l'**Endpoint** : associe l'URI "
-                                             "`/api/v2/inscriptions` à l'intention de création `post`."},
+                                     'text': "Déclaration formelle de l'**Endpoint** associant l'URI versionnée "
+                                             "`/api/v2/inscriptions` à l'opération HTTP de création `post`."},
                                     {'lines': '9-18',
-                                     'text': "Exigences formelles sur le **Payload** d'entrée (`JSON "
-                                             'Schema`) : deux champs sont obligatoires (`required`), '
-                                             '`formation_id` doit être un entier >= 1 et `email_stagiaire` '
-                                             'une adresse courriel valide.'},
+                                     'text': "Contraintes structurelles sur le **Payload** d'entrée exprimées en pur "
+                                             '**JSON Schema** : présence impérative (`required`) de deux attributs '
+                                             'typés et bornés (`minimum: 1`, `format: email`).'},
                                     {'lines': '19-22',
-                                     'text': 'Engagements de sortie du serveur : promet explicitement les '
-                                             "codes `201` (création), `401` (défaut d'identité) et `422` "
-                                             '(violation des règles des lignes 14-18).'}],
-              'mermaid_diagram': {'title': "L'Écosystème Industriel autour d'un Seul Contrat OpenAPI 3.1",
+                                     'text': 'Engagements contractuels de sortie garantissant aux consommateurs les '
+                                             "statuts `201` (création), `401` (défaut d'authentification) et `422` "
+                                             '(violation sémantique du schéma).'}],
+              'mermaid_diagram': {'title': "L'Écosystème Industriel Gravité autour d'un Contrat Unique OpenAPI 3.1",
                                   'code': 'flowchart LR\n'
-                                          '    Contrat["CONTRAT UNIQUE\\nopenapi.yaml (Norme OpenAPI '
-                                          '3.1)"]\n'
-                                          '    Contrat --> UI["Portail Interactif \'Try it out\'\\nSwagger '
-                                          'UI / Scalar / ReDoc"]\n'
-                                          '    Contrat --> Mock["Serveur de Simulation (Mock)\\nTravail '
-                                          'parallèle Mobile & Backend"]\n'
-                                          '    Contrat --> SDK["Génération Automatique de SDKs\\nOpenAPI '
-                                          'Generator / Swagger Codegen"]\n'
-                                          '    Contrat --> QA["Contrôle Qualité & Fuzzing\\nSpectral + '
-                                          'Schemathesis"]'},
-              'reference_table': {'title': 'Tableau de Synthèse : Ne Plus Jamais Confondre Contrat, '
-                                           'Documentation, OpenAPI et Swagger',
-                                  'headers': ['Notion',
+                                          '    Contrat["CONTRAT UNIQUE\\nopenapi.yaml (Norme OpenAPI 3.1)"]\n'
+                                          '    Contrat --> UI["Portail Interactif \'Try it out\'\\nSwagger UI / '
+                                          'Scalar / ReDoc"]\n'
+                                          '    Contrat --> Mock["Serveur de Simulation (Mock)\\nTravail parallèle '
+                                          'Mobile & Backend"]\n'
+                                          '    Contrat --> SDK["Génération Automatique de SDKs\\nOpenAPI Generator / '
+                                          'Swagger Codegen"]\n'
+                                          '    Contrat --> QA["Audit Qualité & Fuzzing\\nSpectral + Schemathesis"]'},
+              'reference_table': {'title': 'Synthèse Terminologique : Contrat, Documentation, OpenAPI et Swagger',
+                                  'headers': ['Concept',
                                               'Nature Exacte',
-                                              'Rôle Principal',
-                                              'Analogie du Quotidien'],
+                                              'Fonction Industrielle',
+                                              "Équivalent dans l'Ingénierie du Web"],
                                   'rows': [["**Contrat d'API**",
-                                            'Spécification formelle lisible par machine',
-                                            'Garantir mathématiquement les entrées, sorties, erreurs et '
-                                            'règles.',
-                                            "Le plan d'architecte coté au millimètre."],
+                                            'Spécification formelle exécutable par machine',
+                                            'Figer sans ambiguïté les routes, types, bornes, sécurité et erreurs.',
+                                            "Le code source et la grammaire formelle d'un protocole."],
                                            ["**Documentation d'API**",
-                                            "Portail pédagogique lisible par l'humain",
-                                            "Guider le développeur (tutoriels, cas d'usage, essais live).",
-                                            "Le livret d'accueil généré depuis le plan."],
+                                            "Portail pédagogique destiné à l'humain",
+                                            "Accompagner l'intégration par des guides, exemples et essais en direct.",
+                                            'Un manuel interactif compilé automatiquement depuis le contrat.'],
                                            ['**OpenAPI (`OAS 3.1`)**',
-                                            'Norme standard ouverte (Linux Foundation)',
-                                            'Grammaire universelle JSON/YAML décrivant une API REST.',
-                                            'La norme **HTML5** du W3C.'],
+                                            'Standard international ouvert (Linux Foundation)',
+                                            'Grammaire universelle JSON/YAML décrivant un contrat HTTP/REST.',
+                                            'La recommandation ouverte **HTML5** publiée par le W3C.'],
                                            ['**Swagger**',
-                                            "Famille d'outils logiciels (SmartBear)",
-                                            'Éditer (`Swagger Editor`), afficher/tester (`Swagger UI`) et '
-                                            'générer du code.',
-                                            'Les navigateurs **Chrome / Firefox** qui lisent HTML5.']]},
-              'pitfalls': [{'bad': 'Maintenir à la main un fichier Word « '
-                                   'Spécifications_API_Finale_v4_bis.docx » envoyé par courriel aux '
-                                   'partenaires.',
-                            'good': 'Versionner un contrat `openapi.yaml` (ou le générer depuis vos '
-                                    'schémas typés) et exposer automatiquement **Swagger UI** / **ReDoc**.',
-                            'why': 'Un document Word ne peut ni valider les requêtes en temps réel, ni '
-                                   'empêcher la dérive documentaire dès la première correction urgente.'},
-                           {'bad': 'Renommer un champ JSON du jour au lendemain sur une API déjà utilisée '
-                                   'par des applications mobiles en production.',
-                            'good': "Conserver l'ancien champ ou publier une version `/api/v2/` en "
-                                    'signalant la transition via les en-têtes `Deprecation` et `Sunset`.',
-                            'why': 'Contrairement à un site Web, vous ne pouvez pas forcer tous les '
-                                   "utilisateurs d'iPhone/Android à mettre à jour leur application à la "
-                                   'même minute !'}],
-              'practical_exercises': ["**Analyse d'impact (*Breaking* vs *Non-Breaking*)** : Dans le "
-                                      'contrat `openapi.yaml` ci-dessus, si vous ajoutez demain une '
-                                      'propriété optionnelle `commentaire: { type: string }`, est-ce un '
-                                      'changement *Breaking* ou *Non-Breaking* ? Et si vous ajoutez '
-                                      '`telephone` dans la liste `required` ?',
-                                      '**Exploration concrète** : Cliquez en haut à droite sur le bouton '
-                                      "`Swagger UI (/api/docs)` (ou l'onglet `Architecture, OAuth2 & "
-                                      'Swagger`) pour observer comment **Swagger UI** transforme un '
-                                      'contrat JSON OpenAPI en console interactive.']},
+                                            "Suite logicielle d'outillage (SmartBear)",
+                                            'Éditer (`Swagger Editor`), explorer et tester (`Swagger UI`) un contrat '
+                                            'OpenAPI.',
+                                            'Les navigateurs (**Firefox**, **Chrome**) qui interprètent et affichent '
+                                            'HTML5.']]},
+              'pitfalls': [{'bad': 'Diffuser par courriel aux équipes partenaires un document bureautique statique '
+                                   'intitulé « Specifications_API_v4_finale_bis.docx ».',
+                            'good': 'Versionner dans Git un contrat formel `openapi.yaml` (ou le synthétiser '
+                                    'automatiquement depuis des modèles typés) et publier son rendu interactif via '
+                                    '**Swagger UI** ou **ReDoc**.',
+                            'why': 'Un document bureautique échappe à tout contrôle automatisé lors des livraisons '
+                                   'et ment inévitablement dès le premier correctif urgent poussé en production.'},
+                           {'bad': 'Renommer ou supprimer un attribut JSON directement sur une route `/api/v1/` déjà '
+                                   'consommée par des applications mobiles déployées dans la nature.',
+                            'good': 'Préserver la compatibilité ascendante sur `/api/v1/` ou introduire `/api/v2/` '
+                                    'en notifiant le calendrier de retrait via les en-têtes HTTP normalisés '
+                                    '`Deprecation` et `Sunset` (`RFC 8594`).',
+                            'why': "Le fournisseur d'une API ne contrôle jamais le rythme de mise à jour des "
+                                   'terminaux mobiles ni des progiciels partenaires connectés à son '
+                                   'infrastructure.'}],
+              'practical_exercises': ["**Qualification d'impact contractuel** : Sur l'extrait `openapi.yaml` "
+                                      "présenté dans ce chapitre, déterminez si l'ajout d'une propriété facultative "
+                                      '`organisme_payeur: { type: string }` constitue une évolution compatible ou '
+                                      "une rupture, puis comparez ce cas à l'ajout de `numero_telephone` dans le "
+                                      'tableau `required`.',
+                                      "**Inspection d'une console Swagger UI réelle** : Ouvrez le bouton `Swagger UI "
+                                      "(/api/docs)` dans l'en-tête supérieur de cette application afin d'observer "
+                                      "comment un contrat JSON OpenAPI est transformé en interface d'essai "
+                                      'interactive.']},
              {'id': 'c0-l4',
               'is_literature': True,
-              'title': '0.4 — Géopolitique du Réseau : Flux Nord-Sud vs Est-Ouest, Zero-Trust & Opérations '
-                       'Déléguées OAuth 2.0',
-              'duration': '55 min',
-              'context': 'Nous arrivons au sommet intellectuel de ce prologue littéraire : **comment '
-                         "circule l'information à l'échelle d'une grande organisation, et comment fait-on "
-                         "pour qu'un service interne agisse légalement *au nom d'un citoyen ou d'un "
-                         'client* sans ouvrir une brèche catastrophique dans tout le système ?**\n'
+              'title': '0.4 — Géopolitique du Réseau : Flux Nord-Sud vs Est-Ouest, Modèle Zero-Trust & Délégation '
+                       'OAuth 2.0',
+              'duration': '60 min',
+              'context': 'Nous atteignons à présent le sommet architectural de ce prologue : **comment circulent '
+                         "réellement les requêtes à l'intérieur d'un système d'information contemporain, et par quel "
+                         "prodige cryptographique un service logiciel interne peut-il agir légalement au nom d'un "
+                         "citoyen ou d'un client sans jamais détenir son mot de passe ni compromettre le reste de "
+                         "l'entreprise ?**\n"
                          '\n'
-                         'Pour comprendre pourquoi les protocoles **OAuth 2.0**, **OpenID Connect '
-                         '(OIDC)**, **mTLS** et **Token Exchange** ont été inventés, il ne faut surtout '
-                         "pas commencer par lire des formules cryptographiques : il faut d'abord dessiner "
-                         "la **carte géographique des flux réseau** d'un centre de données moderne, qui se "
-                         "divise en deux mondes aux lois radicalement opposées : l'axe **Nord-Sud** et "
-                         "l'axe **Est-Ouest**.",
-              'analogy': {'title': "L'Aéroport International et la Clé de Voiturier (Valet Key)",
-                          'text': 'Visualisez un grand aéroport international :\n'
-                                  '1. **Le Flux Nord-Sud (La Frontière Extérieure)** : Les voyageurs '
-                                  'arrivent de la ville dans le hall public et franchissent la police aux '
-                                  'frontières et les portiques à rayons X pour entrer en zone sous douane. '
-                                  "C'est le passage du monde extérieur imprévisible vers le périmètre "
-                                  'protégé.\n'
-                                  "2. **Le Flux Est-Ouest (L'Activité Latérale sur le Tarmac)** : Une fois "
-                                  'un avion posé, vingt véhicules techniques (avitaillement carburant, '
-                                  'bagagistes, restauration, maintenance) circulent latéralement entre les '
-                                  "hangars pour préparer ce seul vol. Si l'aéroport laissait n'importe qui "
-                                  "en gilet jaune monter dans le cockpit sous prétexte qu'il a déjà "
-                                  'franchi la grille extérieure, la sécurité serait illusoire : sur le '
-                                  'tarmac aussi, chaque technicien porte un badge biométrique nominatif '
-                                  '(**Zero-Trust**).\n'
-                                  "3. **La Clé de Voiturier (*OAuth 2.0*)** : Au parking de l'aéroport, "
-                                  'vous ne confiez jamais le double des clés de votre maison ni les '
-                                  'papiers de vente de votre voiture au voiturier ; vous lui remettez une '
-                                  "**clé bridée** qui l'autorise uniquement à déplacer le véhicule jusqu'à "
-                                  'la place B12 pendant dix minutes, sans pouvoir ouvrir le coffre !'},
-              'deep_sections': [{'heading': '1. Communications Nord-Sud vs Est-Ouest : La Géométrie Cachée '
-                                            'des Systèmes Modernes',
-                                 'body': "Sur les plans d'architectes réseau, Internet est "
-                                         'traditionnellement dessiné en haut de la feuille (**le Nord**) '
-                                         "et les serveurs de l'entreprise en bas (**le Sud**), alignés "
-                                         "côte à côte de gauche à droite (**de l'Ouest vers l'Est**) :\n"
-                                         '- **La Communication Nord-Sud (Verticale : Client Externe <-> '
-                                         "Bordure du SI)** : C'est la requête qui arrive du smartphone "
-                                         "d'Amine sur la 4G publique et frappe la porte d'entrée de votre "
-                                         "infrastructure. Parce qu'Internet est un milieu hostile et lent, "
-                                         'cette frontière est gardée par une succession de boucliers : '
-                                         'protection anti-DDoS, pare-feu applicatif (**WAF**), chiffrement '
-                                         'HTTPS public (**TLS 1.3**), répartiteur de charge (**Nginx**) et '
-                                         "passerelle d'API (**API Gateway**).\n"
-                                         '- **La Communication Est-Ouest (Horizontale : Microservice A <-> '
-                                         'Microservice B)** : Que se passe-t-il une fois cette porte '
-                                         'franchie ? Dans une architecture moderne découpée en services '
-                                         "spécialisés, la seule action *« S'inscrire à une formation »* "
-                                         'déclenche en coulisses **cinq à quinze appels latéraux '
-                                         'Est-Ouest** : le *Service Inscriptions* interroge le *Service '
-                                         'Catalogue*, vérifie les droits auprès du *Service Stagiaires*, '
-                                         'ordonne le règlement au *Service Paiement*, demande le reçu au '
-                                         "*Service PDF* et déclenche le *Service Courriel*. C'est "
-                                         "l'**effet d'éventail (*Fan-Out*)** : dans un grand cloud, **plus "
-                                         'de 80 % des paquets réseau circulent en Est-Ouest !**'},
-                                {'heading': '2. De la Chute du « Château-Fort » au Zero-Trust : Pourquoi '
-                                            "l'Est-Ouest Mène Droit à la Délégation",
-                                 'body': 'Pendant longtemps a régné la doctrine dite du **« Château-Fort '
-                                         'et des Douves » (*Castle-and-Moats*)** : on construisait une '
-                                         'muraille épaisse en bordure Nord-Sud, mais une fois à '
-                                         "l'intérieur du réseau local privé de l'entreprise, tous les "
-                                         "serveurs s'acceptaient mutuellement sans mot de passe ni "
-                                         'chiffrement.\n'
+                         "Beaucoup d'ingénieurs abordent les normes **OAuth 2.0**, **OpenID Connect (OIDC)**, "
+                         "**mTLS** ou **Token Exchange (`RFC 8693`)** comme une forêt aride d'acronymes déconnectés "
+                         "du réel, parce qu'ils tentent d'en mémoriser les échanges protocolaires avant d'avoir "
+                         "compris la géographie physique qui les a rendus indispensables. Tout s'éclaire pourtant "
+                         "d'un seul coup dès que l'on trace sur un plan la frontière qui sépare deux régimes de "
+                         "circulation aux contraintes diamétralement opposées : l'axe vertical **Nord-Sud** et l'axe "
+                         'horizontal **Est-Ouest**.',
+              'analogy': {'title': "L'Aéroport International sous Douane et la Clé de Voiturier Bridée (Valet Key)",
+                          'text': "Représentez-vous l'organisation d'un grand aéroport international. Lorsque les "
+                                  "passagers arrivent en taxi depuis la ville et pénètrent dans l'aérogare publique, "
+                                  'ils franchissent une frontière souveraine équipée de portiques biométriques, de '
+                                  "scanners à rayons X et d'officiers de la police aux frontières : c'est le flux "
+                                  '**Nord-Sud**, passage hautement filtré entre le monde extérieur non maîtrisé et '
+                                  "l'enceinte opérationnelle.\n"
+                                  '\n'
+                                  "Regardez maintenant par la baie vitrée vers les pistes : pour qu'un seul "
+                                  "long-courrier décolle à l'heure, quinze véhicules spécialisés — camion-citerne de "
+                                  'kérosène, tracteur de piste, camionnette de restauration, équipe de maintenance '
+                                  "avionique, convoi de bagages — se croisent latéralement d'un hangar à l'autre. "
+                                  'Cette intense chorégraphie interne correspond au flux **Est-Ouest**. Or aucun '
+                                  "directeur de la sûreté aérienne n'accepterait qu'un conducteur de chariot à "
+                                  "bagages pénètre librement dans la tour de contrôle sous prétexte qu'il a déjà "
+                                  'franchi la grille extérieure le matin même : sur le tarmac aussi, chaque porte '
+                                  'exige un badge nominatif limité à une fonction précise (**Zero-Trust**).\n'
+                                  '\n'
+                                  'Enfin, lorsque ce même voyageur confie sa berline au parking avec voiturier de '
+                                  "l'aéroport avant d'embarquer, il ne remet jamais au préposé ses papiers "
+                                  "d'identité ni le double des clés de son domicile. Les constructeurs automobiles "
+                                  'ont inventé à cet effet la **clé de voiturier (*Valet Key*)** : une clé '
+                                  'secondaire bridée qui autorise le démarreur à parcourir cinq cents mètres à '
+                                  "vitesse réduite pour garer le véhicule, tout en refusant mécaniquement d'ouvrir "
+                                  "la boîte à gants verrouillée ou le coffre. Un jeton **OAuth 2.0** n'est rien "
+                                  "d'autre qu'une clé de voiturier mathématique et minutée."},
+              'deep_sections': [{'heading': "1. Topologie Nord-Sud contre Topologie Est-Ouest : L'Effet d'Éventail "
+                                            '(Fan-Out)',
+                                 'body': 'Par une convention cartographique héritée des premiers schémas de '
+                                         'télécommunications, les architectes dessinent le réseau public Internet '
+                                         'tout en haut de leurs plans (**le Nord**) et les travées de serveurs du '
+                                         'centre de données en contrebas (**le Sud**), alignées côte à côte sur une '
+                                         "ligne horizontale allant **de l'Ouest vers l'Est**.\n"
                                          '\n'
-                                         'Cette époque est révolue. Les cyberattaques majeures des dix '
-                                         'dernières années ont toutes suivi le même scénario de '
-                                         "**mouvement latéral** : l'attaquant trouve une faille mineure "
-                                         'dans un service périphérique anodin (par exemple un '
-                                         'convertisseur de logos), puis profite de la confiance aveugle du '
-                                         'réseau interne Est-Ouest pour envoyer directement des ordres au '
-                                         "*Service Paiement* ! La réponse de l'ingénierie moderne "
-                                         "s'appelle l'architecture **Zero-Trust (*Confiance Zéro*)** : "
-                                         "**l'adresse réseau locale ne prouve rien ; chaque appel interne "
-                                         'Est-Ouest doit prouver cryptographiquement qui parle, et au nom '
-                                         'de qui il parle.**'},
-                                {'heading': "3. La Naissance d'OAuth 2.0 et d'OpenID Connect : Déléguer "
-                                            'sans Jamais Donner son Mot de Passe',
-                                 'body': "Comment prouver qu'une application ou un service agit "
-                                         "légitimement au nom d'un être humain ? Dans les années 2000, des "
-                                         'sites demandaient carrément aux utilisateurs : *« Entrez '
-                                         "l'adresse et le mot de passe de votre messagerie pour que nous "
-                                         "importions votre carnet d'adresses »*. Donner son mot de passe "
-                                         'principal à un tiers violait toutes les règles élémentaires de '
-                                         'sécurité.\n'
+                                         'On appelle **communication Nord-Sud** tout échange vertical qui franchit '
+                                         "la frontière externe du système d'information : la requête émise par le "
+                                         "smartphone d'un candidat sur un réseau mobile 4G ou par le serveur d'une "
+                                         'banque partenaire vers votre domaine public `https://api.isgp.dz`. Ce '
+                                         'trajet traverse un environnement hostile, imprévisible et géographiquement '
+                                         'étendu, où la latence se compte en dizaines de millisecondes. Il est donc '
+                                         'systématiquement canalisé à travers une **zone démilitarisée de bordure '
+                                         '(*Edge*)** empilant bouclier anti-déni de service (**Anti-DDoS**), '
+                                         'pare-feu applicatif (**WAF**), terminaison cryptographique **TLS 1.3**, '
+                                         "répartiteur de charge et **passerelle d'API (*API Gateway*)**.\n"
                                          '\n'
-                                         "Publié par l'IETF en **2012** (**RFC 6749**, aujourd'hui "
-                                         'consolidé dans **OAuth 2.1**), **OAuth 2.0** résout élégamment '
-                                         'ce dilemme en séparant le monde en **quatre acteurs** :\n'
-                                         '1. **Le Propriétaire de la Ressource (*Resource Owner*)** : '
-                                         "l'utilisateur humain (ex. *Amine*).\n"
-                                         "2. **Le Client (*Client Application*)** : l'application Web ou "
-                                         "mobile qu'Amine utilise.\n"
-                                         "3. **Le Serveur d'Autorisation (*Authorization Server / IdP*)** "
-                                         ': le tiers de confiance unique (Keycloak, Auth0, Google, '
-                                         'Microsoft Entra) qui connaît Amine, vérifie son identité et '
-                                         'fabrique des « clés de voiturier » temporaires signées.\n'
-                                         '4. **Le Serveur de Ressources (*Resource Server*)** : **votre '
-                                         "API**, qui ne voit jamais le mot de passe d'Amine, mais inspecte "
-                                         'la clé de voiturier présentée (**`Access Token`**) pour vérifier '
-                                         "sa signature, sa date d'expiration (`exp`), sa cible exacte "
-                                         '(**Audience `aud`**) et la liste précise des gestes permis '
-                                         '(**`Scopes`**, ex. `inscriptions:ecrire`).\n'
+                                         'Que se produit-il à la milliseconde où cette unique requête Nord-Sud '
+                                         "franchit la passerelle pour demander l'inscription définitive d'un "
+                                         'stagiaire ? Dans une architecture distribuée moderne où chaque domaine '
+                                         'métier possède son propre service autonome, le *Service Inscriptions* ne '
+                                         'détient pas toute la vérité à lui seul. Pour honorer cette seule demande '
+                                         'cliente, il interroge latéralement le *Service Catalogue* afin de vérifier '
+                                         'les places restantes, consulte le *Service Dossiers* pour contrôler les '
+                                         'prérequis académiques, ordonne la transaction auprès du *Service '
+                                         'Paiement*, sollicite le *Service Édition* pour engendrer la convocation '
+                                         "PDF et notifie le *Service Messagerie*. Cet éclatement d'un appel entrant "
+                                         "en une gerbe d'appels latéraux entre serveurs internes se nomme l'**effet "
+                                         "d'éventail (*Fan-Out*)** ; il engendre la **communication Est-Ouest**.\n"
                                          '\n'
-                                         '**Nuance fondamentale à graver dans le marbre — Authentification '
-                                         '(`OIDC`) vs Autorisation (`OAuth 2.0`)** :\n'
-                                         '- **OpenID Connect (`OIDC`)** répond à la question **« QUI est '
-                                         "cet humain ? »** en remettant à l'application cliente une carte "
-                                         "d'identité numérique (**`ID Token`**).\n"
-                                         '- **OAuth 2.0** répond à la question **« QUELS DROITS ont été '
-                                         'délégués sur quelle API ? »** en remettant un laissez-passer '
-                                         "d'action (**`Access Token`**), protégé lors de son retrait sur "
-                                         'mobile/navigateur par une preuve mathématique anti-interception '
-                                         'appelée **PKCE (*Proof Key for Code Exchange*, RFC 7636)**.'},
-                                {'heading': '4. Opérations Authentifiées Déléguées en Est-Ouest : Le « '
-                                            'Confused Deputy » (1988) et le Token Exchange (`RFC 8693`)',
-                                 'body': 'Relions maintenant **Nord-Sud / Est-Ouest** et **OAuth 2.0** ! '
-                                         'Lorsque Amine valide son inscription (appel **Nord-Sud**), le '
-                                         "*Service Inscriptions* reçoit un jeton l'autorisant à créer le "
-                                         'dossier. Mais pour débiter les frais en appelant latéralement le '
-                                         '*Service Paiement* (**Est-Ouest**), un piège célèbre tend les '
-                                         'bras aux architectes pressés : **transférer tel quel le même '
-                                         "jeton d'un service à l'autre** (*Blind Token Passthrough*).\n"
+                                         '> [!NOTE] La réalité statistique des centres de données contemporains\n'
+                                         "> Dans les architectures cloud d'entreprise actuelles, **plus de 80 % du "
+                                         "volume total des paquets réseau circule sur l'axe horizontal Est-Ouest**, "
+                                         "jamais vu directement par l'utilisateur final. Parce qu'une seule page "
+                                         'affichée sur mobile dépend parfois de dix sauts Est-Ouest successifs, le '
+                                         "budget de latence interne se chiffre en fractions de milliseconde (d'où le "
+                                         'recours fréquent à **HTTP/2** persistant ou à **gRPC**), tandis que la '
+                                         'moindre confiance aveugle entre ces services internes transforme '
+                                         "l'ensemble du centre de calcul en château de cartes."},
+                                {'heading': "2. L'Effondrement du Modèle « Château-Fort » et l'Avènement du "
+                                            'Zero-Trust (NIST SP 800-207)',
+                                 'body': "Durant trois décennies, la sécurité informatique d'entreprise a reposé sur "
+                                         'le dogme périmétrique du **« Château-Fort et des Douves » '
+                                         '(*Castle-and-Moats*)** : on concentrait tous les contrôles sur le '
+                                         'pont-levis Nord-Sud, tout en considérant le réseau privé interne '
+                                         '(`10.0.0.0/8`) comme un sanctuaire de confiance implicite où chaque '
+                                         "machine interne pouvait appeler librement n'importe quelle autre machine "
+                                         'en HTTP clair, sans authentification ni chiffrement.\n'
                                          '\n'
-                                         "Pourquoi est-ce dangereux ? Dès **1988**, l'informaticien **Norm "
-                                         "Hardy** a théorisé le problème de l'**Adjoint Confus (*Confused "
-                                         'Deputy*)** : si tous vos services internes acceptent un même '
-                                         'jeton « passe-partout », alors si Amine utilise un petit '
-                                         "*Service d'Évaluation de Cours* compromis, ce dernier peut "
-                                         "rejouer en cachette le jeton d'Amine auprès du *Service "
-                                         'Paiement* pour vider son compte !\n'
+                                         "L'histoire récente de la cybersécurité a signé l'arrêt de mort définitif "
+                                         'de cette doctrine. La quasi-totalité des compromissions industrielles '
+                                         'majeures procède par **mouvement latéral Est-Ouest** : un attaquant '
+                                         'exploite une vulnérabilité mineure dans un composant périphérique peu '
+                                         "sensible — un outil de redimensionnement d'images ou un connecteur "
+                                         "d'enquête de satisfaction — puis, une fois installé à l'intérieur des "
+                                         'douves, découvre avec ravissement que le *Service Comptable* et le '
+                                         "*Service Paiement* exécutent aveuglément toute requête provenant d'une "
+                                         'adresse IP locale.\n'
                                          '\n'
-                                         '**La Solution Royale des Architectures Zero-Trust (`mTLS` + '
-                                         '`OAuth 2.0 Token Exchange RFC 8693`)** :\n'
-                                         '1. **Identité de la Machine (`mTLS`)** : Le canal réseau interne '
-                                         'entre *Service Inscriptions* et *Service Paiement* exige un '
-                                         "double certificat mutuel prouvant l'identité des deux machines.\n"
-                                         '2. **Échange de Jeton Délégué (*On-Behalf-Of*, `RFC 8693`)** : '
-                                         "Avant d'appeler le *Service Paiement*, le *Service Inscriptions* "
-                                         "présente le jeton d'Amine au Serveur d'Autorisation et demande "
-                                         'un **nouveau jeton sur-mesure, valable 2 minutes**, verrouillé '
-                                         'sur la seule audience **`aud: service-paiement`**, limité au '
-                                         'seul droit **`scope: paiement:frais_inscription`**, et contenant '
-                                         "une mention d'audit capitale nommée **`act` (*Actor Claim*)** "
-                                         'qui inscrit noir sur blanc :\n'
-                                         '   *« Bénéficiaire humain (`sub`) : Amine Benali — Acteur '
-                                         'intermédiaire délégué (`act`) : Service-Inscriptions »*.\n'
-                                         "*(Et lorsqu'un robot nocturne de comptabilité travaille à 3h00 "
-                                         'du matin sans aucun utilisateur humain impliqué, il utilise tout '
-                                         'simplement le flux autonome Machine-à-Machine **`Client '
-                                         'Credentials`** !)*\n'
+                                         'Formalisée en **août 2020** par le standard américain **NIST SP 800-207**, '
+                                         "l'architecture **Zero-Trust (*Confiance Zéro*)** abolit toute distinction "
+                                         "morale entre réseau externe et réseau interne autour d'une maxime "
+                                         'cardinale : **« Ne jamais faire confiance par défaut, toujours vérifier '
+                                         'explicitement » (*Never trust, always verify*)**. Appartenir au réseau '
+                                         "local de l'entreprise ne confère plus aucun privilège. Chaque requête "
+                                         'Est-Ouest, fût-elle émise par le serveur voisin situé dans la même baie '
+                                         'métallique, doit chiffrer son transport, prouver cryptographiquement '
+                                         "l'identité de la machine appelante et démontrer avec précision l'étendue "
+                                         'des droits qui lui ont été délégués.'},
+                                {'heading': "3. OAuth 2.0 (RFC 6749) face à OpenID Connect (OIDC) : L'Art de la "
+                                            'Délégation sans Mot de Passe',
+                                 'body': "Dès lors qu'aucun composant ne fait aveuglément confiance à un autre, "
+                                         'comment permettre à une application cliente ou à un service intermédiaire '
+                                         "d'agir au nom d'un être humain ? À l'enfance du Web participatif vers "
+                                         "2005, d'innombrables services commettaient l'hérésie dite du *Password "
+                                         'Anti-Pattern* : pour importer vos contacts ou publier un document en votre '
+                                         'nom, une application tierce vous demandait de saisir chez elle '
+                                         "l'identifiant et le mot de passe maître de votre messagerie. Vous lui "
+                                         'remettiez ainsi les clés intégrales, permanentes et irrévocables de votre '
+                                         'vie numérique.\n'
                                          '\n'
-                                         '---\n'
-                                         '**Cap sur la Pratique !** Dans ce **Volume I (Flask)**, vous '
-                                         'allez découvrir dès le prochain module comment cette philosophie '
-                                         'se traduit avec une clarté cristalline en Python synchrone '
-                                         '(**WSGI**) : chaque requête HTTP arrive explicitement, votre '
-                                         'fonction la valide sans magie cachée et renvoie une '
-                                         "représentation JSON maîtrisée jusqu'au moindre code de statut."}],
-              'explanation': ['**1. Synthèse Topologique** : **Nord-Sud** = franchir la frontière publique '
-                              '(WAF, TLS public, API Gateway, OIDC + PKCE) ; **Est-Ouest** = dialoguer '
-                              'latéralement entre microservices internes (80 % du trafic, latence '
-                              'critique, Zero-Trust).',
-                              "**2. Synthèse Identitaire** : **OIDC (`ID Token`)** prouve l'identité au "
-                              'Client ; **OAuth 2.0 (`Access Token`)** délègue des permissions bornées '
-                              "(`aud` + `scope`) au Serveur d'API.",
-                              '**3. Synthèse de la Délégation Est-Ouest** : Ne jamais faire circuler un '
-                              'jeton passe-partout ; combiner **mTLS** (qui est la machine appelante ?) et '
-                              '**Token Exchange `RFC 8693` (`act`)** (au nom de quel humain et par quelle '
-                              'chaîne de délégation agit-elle ?).'],
-              'mermaid_diagram': {'title': "De la Frontière Nord-Sud à l'Opération Déléguée Est-Ouest (Vue "
-                                           'Globale Sans Code)',
+                                         "Normalisé par l'IETF en octobre **2012** sous la référence **RFC 6749** "
+                                         "(et consolidé aujourd'hui par **OAuth 2.1**), le cadre **OAuth 2.0** a "
+                                         'éradiqué cette pratique en séparant rigoureusement les responsabilités '
+                                         'entre **quatre rôles distincts**. Le **Propriétaire de la Ressource '
+                                         '(*Resource Owner*)** est la personne humaine légitime, par exemple le '
+                                         'stagiaire *Amine*. Le **Client (*Client Application*)** est le logiciel — '
+                                         'portail Web ou application mobile — qui souhaite accomplir une démarche '
+                                         "pour le compte d'Amine. Le **Serveur d'Autorisation (*Authorization Server "
+                                         '/ Identity Provider*)** est le bastion de sécurité central (tel que '
+                                         '*Keycloak*, *Auth0*, *Okta* ou *Microsoft Entra*) : lui seul recueille '
+                                         "l'authentification forte d'Amine et son consentement explicite, puis forge "
+                                         'des laissez-passer temporaires signés cryptographiquement. Enfin, le '
+                                         "**Serveur de Ressources (*Resource Server*)** n'est autre que **votre API "
+                                         "métier** : elle n'aperçoit jamais le mot de passe d'Amine, mais inspecte à "
+                                         'chaque appel le laissez-passer présenté (**`Access Token`**, souvent au '
+                                         'format signé **JWT — RFC 7519**) pour vérifier sa signature mathématique, '
+                                         'sa date de péremption (`exp`), son destinataire exclusif (**Audience '
+                                         '`aud`**) et la liste limitative des permissions accordées (**`Scopes`**, '
+                                         'tels que `inscriptions:ecrire`). Sur les clients mobiles et navigateurs, '
+                                         'le retrait de ce jeton est protégé contre toute interception par le '
+                                         'mécanisme cryptographique **PKCE (*Proof Key for Code Exchange*, RFC '
+                                         '7636)**.\n'
+                                         '\n'
+                                         '> [!IMPORTANT] Authentification (`OpenID Connect`) contre Autorisation '
+                                         '(`OAuth 2.0`)\n'
+                                         '> Ces deux protocoles travaillent main dans la main mais répondent à deux '
+                                         'questions juridiques irréductibles. **OpenID Connect (`OIDC`)**, couche '
+                                         "identitaire bâtie au-dessus d'OAuth 2.0 en 2014, répond à la question **« "
+                                         "Qui est cet utilisateur ? »** en remettant à l'application cliente une "
+                                         "carte d'identité numérique signée (**`ID Token`**). **OAuth 2.0** répond à "
+                                         'la question **« Quelles opérations précises ce logiciel est-il autorisé à '
+                                         'exécuter sur quelle API ? »** en délivrant un **`Access Token`**. On '
+                                         "n'envoie jamais une carte d'identité (`ID Token`) en guise de mandat "
+                                         "d'autorisation à une API métier."},
+                                {'heading': '4. Opérations Authentifiées Déléguées en Est-Ouest : Le « Confused '
+                                            'Deputy » (1988) et RFC 8693',
+                                 'body': 'Assemblons enfin les deux pièces maîtresses du puzzle : que devient le '
+                                         "jeton OAuth 2.0 lorsqu'une requête franchit la frontière **Nord-Sud** puis "
+                                         'se ramifie en appels **Est-Ouest** entre plusieurs microservices ? '
+                                         "Supposons qu'Amine envoie sa demande d'inscription accompagnée d'un "
+                                         '`Access Token` valide au *Service Inscriptions*, et que celui-ci doive '
+                                         'aussitôt appeler latéralement le *Service Paiement* pour régler les droits '
+                                         'de concours. La tentation la plus instinctive — et la plus périlleuse — '
+                                         'consiste à pratiquer le **relais aveugle de jeton (*Blind Token '
+                                         "Passthrough*)**, c'est-à-dire à émettre un jeton unique valable partout "
+                                         "dans l'entreprise et à le faire suivre tel quel de service en service.\n"
+                                         '\n'
+                                         "Dès **1988**, l'informaticien **Norm Hardy** a démontré la faille mortelle "
+                                         "de ce schéma sous le nom célèbre du **problème de l'Adjoint Confus (*The "
+                                         'Confused Deputy Problem*)** :\n'
+                                         '\n'
+                                         '> « Un adjoint confus est un programme légitime doté de privilèges que '
+                                         "l'attaquant parvient à tromper afin qu'il exerce son autorité sur une "
+                                         "ressource au détriment de celui qu'il était censé servir. » — Norm Hardy, "
+                                         'ACM SIGOPS Operating Systems Review, octobre 1988\n'
+                                         '\n'
+                                         'Si tous vos microservices internes acceptent un même jeton global au nom '
+                                         "d'Amine, alors le jour où Amine consulte un modeste *Service de Messagerie "
+                                         "Étudiante* affecté d'une faille logicielle, ce service périphérique peut "
+                                         "capturer le jeton d'Amine en mémoire et appeler en coulisses le *Service "
+                                         'Paiement* ou le *Service Diplômes* en se faisant passer pour une démarche '
+                                         'légitime ! Le *Service Paiement*, voyant une signature valide au nom '
+                                         "d'Amine sans vérifier l'audience ni l'intermédiaire, exécute l'ordre "
+                                         'frauduleux.\n'
+                                         '\n'
+                                         '#### La double parade industrielle : `mTLS` combiné à `OAuth 2.0 Token '
+                                         'Exchange` (`RFC 8693`)\n'
+                                         '\n'
+                                         'Pour exécuter une **opération authentifiée déléguée** irréprochable sur '
+                                         "l'axe Est-Ouest, l'architecture Zero-Trust superpose deux preuves "
+                                         "indépendantes. D'abord, au niveau du transport réseau, le protocole **mTLS "
+                                         '(*Mutual TLS*)** impose une authentification par certificats '
+                                         'cryptographiques dans les deux sens : le *Service Paiement* sait avec une '
+                                         'certitude mathématique que le canal TCP est ouvert par la machine '
+                                         "officielle du *Service Inscriptions* (souvent dotée d'une identité "
+                                         'normalisée **SPIFFE**). Ensuite, au niveau applicatif, le *Service '
+                                         'Inscriptions* ne transfère jamais son propre jeton entrant : il sollicite '
+                                         "auprès du Serveur d'Autorisation un **échange de jeton délégué "
+                                         '(*On-Behalf-Of*)** conformément au standard **RFC 8693 (*OAuth 2.0 Token '
+                                         'Exchange*, janvier 2020)**. Il obtient en quelques millisecondes un second '
+                                         'jeton à durée de vie ultracourte, verrouillé sur la seule audience '
+                                         '`service-paiement`, restreint au seul scope `paiement:frais_concours`, et '
+                                         "porteur de la revendication d'audit **`act` (*Actor Claim*)** qui grave "
+                                         'dans le marbre toute la chaîne de responsabilité :\n'
+                                         '\n'
+                                         "```json — Charge utile décodée d'un jeton délégué Est-Ouest (RFC 8693 "
+                                         'Section 4.1)\n'
+                                         '{\n'
+                                         '  "iss": "https://auth.isgp.dz",\n'
+                                         '  "sub": "stagiaire:amine-benali-842",\n'
+                                         '  "aud": "https://paiement.internal.isgp.dz",\n'
+                                         '  "scope": "paiement:frais_concours",\n'
+                                         '  "exp": 1767225720,\n'
+                                         '  "act": {\n'
+                                         '    "sub": "spiffe://isgp.dz/ns/prod/sa/service-inscriptions"\n'
+                                         '  }\n'
+                                         '}\n'
+                                         '```\n'
+                                         '\n'
+                                         "Grâce à cette structure limpide, le *Service Paiement* vérifie d'un seul "
+                                         'regard que le bénéficiaire humain initial est bien Amine (`sub`), que le '
+                                         "mandat n'est valable que chez lui (`aud`), et que l'unique mandataire "
+                                         'habilité à présenter cette demande est le *Service Inscriptions* (`act`). '
+                                         "Quant aux traitements automatiques nocturnes qui s'exécutent à trois "
+                                         "heures du matin sans aucun être humain à l'origine de l'action — tels que "
+                                         "la clôture comptable ou l'archivage réglementaire —, ils emploient "
+                                         'simplement le flux autonome Machine-à-Machine **`Client Credentials`** '
+                                         "(`RFC 6749 §4.4`), où le champ `sub` désigne directement l'automate "
+                                         'appelant.\n'
+                                         '\n'
+                                         "#### Du traité architectural à l'exécution Python synchrone (Volume I — "
+                                         'Flask & WSGI)\n'
+                                         '\n'
+                                         "Ce prologue littéraire s'achève ici, et avec lui la phase purement "
+                                         'conceptuelle de votre apprentissage. Dans ce **Volume I dédié à Flask et '
+                                         'au serveur Gunicorn**, vous allez traduire chacune de ces lois '
+                                         'universelles — frontières de ressources, distinction entre `400` et `422`, '
+                                         'contrats explicites, vérification cryptographique des jetons et discipline '
+                                         'sans état — à travers le modèle synchrone **WSGI (`PEP 3333`)**. Parce que '
+                                         'Flask refuse toute magie implicite, vous verrez chaque octets de requête '
+                                         "entrer, chaque règle métier s'exécuter et chaque en-tête de sécurité "
+                                         'repartir avec une limpidité mécanique totale.'}],
+              'explanation': ['**Dualité topologique Nord-Sud et Est-Ouest.** Le flux vertical Nord-Sud franchit '
+                              "l'enceinte publique sous la garde des pare-feux, du chiffrement TLS et de la "
+                              "passerelle d'API ; le flux horizontal Est-Ouest représente plus de 80 % du trafic "
+                              "interne par effet d'éventail (*Fan-Out*) et exige une discipline Zero-Trust (`NIST SP "
+                              "800-207`) interdisant toute confiance implicite fondée sur l'adresse IP locale.",
+                              '**Complémentarité stricte entre OIDC et OAuth 2.0.** OpenID Connect établit '
+                              "l'identité de l'utilisateur auprès du client au moyen d'un `ID Token`, tandis "
+                              "qu'OAuth 2.0 (`RFC 6749` + `PKCE RFC 7636`) délègue au serveur de ressources des "
+                              'permissions bornées dans le temps, la portée (`scope`) et la destination (`aud`) via '
+                              'un `Access Token`.',
+                              '**Traçabilité de la délégation Est-Ouest contre le Confused Deputy.** Pour empêcher '
+                              "un service compromis de détourner le jeton d'un utilisateur ailleurs dans le réseau "
+                              "interne, on combine l'identité machine mutuelle (`mTLS`) avec l'échange de jeton `RFC "
+                              "8693`, qui restreint l'audience cible et inscrit l'identité de l'intermédiaire dans "
+                              'la revendication `act`.'],
+              'mermaid_diagram': {'title': "De la Frontière Nord-Sud à l'Opération Authentifiée Déléguée Est-Ouest "
+                                           '(RFC 8693)',
                                   'code': 'sequenceDiagram\n'
                                           '    participant H as Amine (Smartphone)\n'
                                           '    participant GW as Passerelle Bordure (Nord-Sud)\n'
@@ -958,68 +1338,66 @@ CHAPTER_0_LITERATURE = {'day_number': -1,
                                           '    participant S1 as Service Inscriptions\n'
                                           '    participant S2 as Service Paiement (Est-Ouest)\n'
                                           '\n'
-                                          '    H->>IdP: 1. Se connecte et consent (Flux PKCE — mot de '
-                                          "passe jamais vu par l'app)\n"
-                                          "    IdP-->>H: 2. Jeton #1 limité à aud='service-inscriptions'\n"
-                                          "    H->>GW: 3. [NORD-SUD] Demande d'inscription + Jeton #1\n"
-                                          '    GW->>S1: 4. Transmet après filtrage de bordure\n'
-                                          '    S1->>IdP: 5. [TOKEN EXCHANGE RFC 8693] Échange Jeton #1 '
-                                          'pour appeler Service Paiement\n'
-                                          "    IdP-->>S1: 6. Jeton #2 court (120s) : sub='Amine', "
+                                          '    H->>IdP: 1. Authentification + consentement (PKCE — mot de passe '
+                                          "jamais vu par l'app)\n"
+                                          "    IdP-->>H: 2. Access Token #1 limité à aud='service-inscriptions'\n"
+                                          '    H->>GW: 3. [NORD-SUD] POST /inscriptions + Access Token #1\n'
+                                          '    GW->>S1: 4. Acheminement après filtrage WAF & TLS\n'
+                                          '    S1->>IdP: 5. [TOKEN EXCHANGE RFC 8693] Demande un jeton délégué vers '
+                                          'Service Paiement\n'
+                                          "    IdP-->>S1: 6. Access Token #2 (120s) : sub='Amine', "
                                           "aud='service-paiement', act='service-inscriptions'\n"
-                                          '    S1->>S2: 7. [EST-OUEST + mTLS] Débiter frais avec Jeton #2\n'
-                                          '    S2-->>S1: 8. Paiement validé et tracé (Amine via Service '
+                                          '    S1->>S2: 7. [EST-OUEST + mTLS] Débit des frais avec Access Token #2\n'
+                                          '    S2-->>S1: 8. Règlement validé et journalisé (Amine via Service '
                                           'Inscriptions)\n'
-                                          '    S1-->>H: 9. Inscription confirmée !'},
-              'reference_table': {'title': 'Matrice de Décision des Communications et Opérations '
-                                           'Authentifiées',
-                                  'headers': ['Scénario Réseau',
-                                              'Axe Géographique',
-                                              "Qui est à l'origine ?",
-                                              'Mécanisme Standard Recommandé'],
-                                  'rows': [['**Application Web / Mobile -> API**',
+                                          '    S1-->>H: 9. 201 Created — Inscription confirmée'},
+              'reference_table': {'title': "Matrice Architecturale des Flux Réseau et des Mécanismes d'Autorisation",
+                                  'headers': ["Scénario d'Échange",
+                                              'Axe Réseau',
+                                              "Origine Juridique de l'Action",
+                                              'Standard Industriel de Référence'],
+                                  'rows': [['**Application Mobile ou SPA Web vers API**',
                                             '**Nord-Sud**',
-                                            'Utilisateur humain',
-                                            'HTTPS TLS 1.3 + **OAuth 2.1 Authorization Code + PKCE** (`RFC '
-                                            '7636`) + **OIDC**.'],
-                                           ["**Service A -> Service B (au nom d'un client)**",
+                                            'Utilisateur humain authentifié',
+                                            'HTTPS TLS 1.3 + **OAuth 2.1 Authorization Code avec PKCE** (`RFC 7636`) '
+                                            '+ **OIDC**.'],
+                                           ["**Service A vers Service B au nom d'un usager**",
                                             '**Est-Ouest (Délégué)**',
-                                            'Humain relayé par Service A',
-                                            '**mTLS** + **OAuth 2.0 Token Exchange** (`RFC 8693` avec '
-                                            '`aud` dédiée et claim `act`).'],
-                                           ['**Tâche Nocturne / Cron -> Service Comptable**',
+                                            'Humain représenté par le Service A',
+                                            '**mTLS** + **OAuth 2.0 Token Exchange** (`RFC 8693` avec `aud` dédiée '
+                                            'et claim `act`).'],
+                                           ['**Automate nocturne vers Service Comptable**',
                                             '**Est-Ouest (Autonome M2M)**',
-                                            'Machine pure (zéro humain)',
-                                            '**mTLS** + **OAuth 2.0 Client Credentials** (`sub` identifie '
-                                            'le robot appelant).'],
-                                           ['**Fournisseur Externe -> Votre Serveur**',
+                                            'Processus machine pur (aucun humain)',
+                                            '**mTLS** + **OAuth 2.0 Client Credentials** (`RFC 6749 §4.4`, `sub` = '
+                                            'identité machine).'],
+                                           ['**Partenaire externe notifiant votre serveur**',
                                             '**Nord-Sud Entrant (Webhook)**',
-                                            'Événement chez un partenaire',
-                                            'Vérification de signature cryptographique **`HMAC-SHA256`** + '
-                                            'horodatage anti-rejeu.']]},
-              'pitfalls': [{'bad': "Penser que parce qu'un microservice n'a pas d'adresse IP publique sur "
-                                   "Internet, il n'a besoin d'aucune authentification.",
-                            'good': 'Appliquer la doctrine **Zero-Trust** en Est-Ouest : chaque '
-                                    "microservice vérifie systématiquement l'identité machine (`mTLS`) et "
-                                    "l'audience (`aud`) du jeton reçu.",
-                            'why': "En cas d'intrusion sur n'importe quel composant périphérique, le "
-                                   "contrôle d'audience et le Token Exchange stoppent net la propagation "
-                                   'latérale (*Confused Deputy*).'},
-                           {'bad': "Utiliser un `ID Token` OpenID Connect comme jeton d'autorisation pour "
-                                   'appeler dix APIs métiers différentes.',
-                            'good': "Garder l'`ID Token` côté application cliente pour connaître "
-                                    "l'identité affichée, et utiliser des `Access Tokens` OAuth 2.0 scopés "
-                                    'pour appeler les APIs.',
-                            'why': "Un `ID Token` prouve qui s'est authentifié auprès du client, pas quels "
-                                   'droits limités ont été accordés sur tel ou tel serveur de '
+                                            'Événement métier chez un tiers',
+                                            'TLS 1.3 + signature cryptographique du corps **`HMAC-SHA256`** + '
+                                            'fenêtre anti-rejeu.']]},
+              'pitfalls': [{'bad': "Supposer qu'un microservice interne dépourvu d'adresse IP publique sur Internet "
+                                   "peut se dispenser de vérifier l'authentification et l'audience des requêtes "
+                                   "qu'il reçoit.",
+                            'good': 'Appliquer rigoureusement le modèle **Zero-Trust** en Est-Ouest : chaque service '
+                                    'exige une identité machine (`mTLS`) et contrôle que la revendication `aud` du '
+                                    'jeton le désigne explicitement.',
+                            'why': "Sans vérification stricte de l'audience et de l'acteur délégué, la moindre "
+                                   'brèche sur un composant périphérique permet de piloter latéralement les services '
+                                   'critiques (*Confused Deputy*).'},
+                           {'bad': "Transmettre l'`ID Token` OpenID Connect en en-tête `Authorization: Bearer` pour "
+                                   "appeler une série d'APIs métiers.",
+                            'good': "Conserver l'`ID Token` dans l'application cliente pour connaître l'identité "
+                                    'connectée, et présenter uniquement des `Access Tokens` OAuth 2.0 restreints en '
+                                    "`aud` et `scope` aux serveurs d'API.",
+                            'why': "Un `ID Token` atteste d'un événement d'authentification destiné au client ; il "
+                                   "ne porte ni délégation granulaire de droits ni ciblage d'un serveur de "
                                    'ressources.'}],
-              'practical_exercises': ["**Passage à l'expérimentation visuelle (Sans Code)** : Ouvrez "
-                                      "l'onglet **`Architecture, OAuth2 & Swagger`** juste à droite dans "
-                                      'la barre supérieure et cliquez successivement sur les 4 boutons du '
-                                      '*Laboratoire Interactif #1* pour voir de vos propres yeux un jeton '
-                                      'Nord-Sud accepté (`200`), une attaque *Confused Deputy* bloquée '
-                                      '(`403`) et un jeton délégué `RFC 8693` avec `act` (`200`).',
-                                      '**Prêt pour le Jour 0 (Python)** : Cliquez maintenant sur le bouton '
-                                      'bleu **« Chapitre suivant »** en bas à droite pour passer de la '
-                                      "littérature architecturale à l'atelier mécanique : la prise en main "
-                                      'progressive de Python !']}]}
+              'practical_exercises': ["**Simulation interactive de délégation Zero-Trust** : Basculez sur l'onglet "
+                                      '**`Architecture, OAuth2 & Swagger`** dans la barre supérieure et exécutez les '
+                                      "quatre scénarios du *Laboratoire #1* afin d'observer la structure exacte d'un "
+                                      'refus `403 Confused Deputy` face à un jeton délégué `RFC 8693` valide.',
+                                      '**Entrée dans la pratique Python (`Jour 0`)** : Maintenant que les fondations '
+                                      'théoriques, contractuelles et sécuritaires sont posées, passez au module '
+                                      'suivant pour découvrir la mécanique du langage Python appliquée aux serveurs '
+                                      "d'APIs."]}]}

@@ -28,12 +28,27 @@ DAY_1_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "L'affiche imprimée (HTML), l'acte notarié scellé (SOAP/XML) et le colis modulaire standardisé (REST/JSON)",
-                "text": "Au début du Web, les serveurs renvoyaient uniquement des pages **HTML** destinées aux yeux d'un humain. Mais dès qu'une banque, un opérateur télécom ou une application mobile a eu besoin d'interroger le serveur par programme, lire du HTML était inutilisable (si le graphiste changeait une couleur ou une balise `<div>`, le programme client plantait). C'est ainsi que sont nés les **Services Web**."
+                "text": (
+                    "Durant la première décennie du Web, les serveurs d'entreprise se comportaient comme des imprimeries : ils exécutaient une requête SQL puis fusionnaient directement les chiffres obtenus dans une page **HTML** truffée de balises graphiques destinées à la rétine humaine. "
+                    "Mais dès qu'un système bancaire partenaire, un terminal mobile natif ou un automate industriel a dû interroger ces mêmes serveurs par programme, le couplage entre fond métier et forme visuelle est devenu intenable : la moindre refonte esthétique d'une balise `<div>` brisait instantanément les intégrations clientes.\n\n"
+                    "Pour affranchir l'échange de données de toute couche de présentation, l'industrie a d'abord conçu **SOAP/XML**, comparable à un acte notarié solennel enfermé dans de lourdes enveloppes protocolaires rigides, avant de converger massivement vers **REST/JSON**, véritable conteneur intermodal léger qui exploite nativement la sémantique du protocole HTTP."
+                )
             },
             "explanation": [
-                "**1. Qu'est-ce qu'un Service Web (Web Service) au sens strict ?** Un système logiciel conçu pour permettre l'interaction machine-à-machine (M2M) à travers un réseau IP en échangeant des messages structurés indépendants du langage de programmation (un client Java ou C# peut interroger un serveur Python Tornado).",
-                "**2. Les 4 grandes architectures d'APIs et Services Web en entreprise** :\n  - **SOAP (Simple Object Access Protocol — années 2000)** : Protocole très strict basé exclusivement sur **XML** avec un contrat formel **WSDL**. Toujours présent dans les systèmes interbancaires, la monétique et les télécoms historiques, mais lourd en bande passante et complexe à analyser.\n  - **REST (Representational State Transfer — Roy Fielding, 2000)** : Style d'architecture qui exploite nativement le protocole **HTTP** (ses méthodes `GET`, `POST`, `PUT`, `DELETE`, ses codes d'état `200`, `404`, ses en-têtes) combiné au format léger **JSON**. Aujourd'hui, **plus de 85 % des APIs publiques et d'entreprise sont des APIs REST/JSON**.\n  - **GraphQL (Meta, 2015)** : Permet au client de demander exactement la liste des champs souhaités sur un point d'entrée unique (`POST /graphql`), utile pour des interfaces mobiles très complexes.\n  - **gRPC (Google, HTTP/2 + Protocol Buffers)** : Format binaire ultra-rapide utilisé pour la communication interne à très haute fréquence entre microservices.",
-                "**3. Comment Tornado gère ces 3 formats dans des classes `RequestHandler`** :\n  - `self.render('meteo.html', meteo=...)` : Compile et sert le gabarit HTML via `tornado.template`.\n  - `self.set_header('Content-Type', 'application/xml')` + `self.write(flux_xml)` : Envoie une enveloppe SOAP/XML.\n  - `self.write(DONNEES_METEO)` : Lorsqu'on passe un `dict` Python à `self.write()`, Tornado le sérialise automatiquement en JSON et injecte `Content-Type: application/json; charset=UTF-8` !"
+                (
+                    "**Interopérabilité machine-à-machine (M2M) et neutralité technologique d'un Service Web.** "
+                    "Au sens strict de l'ingénierie des systèmes distribués, un Service Web expose des capacités métier sur un réseau IP au moyen de messages structurés totalement indépendants du langage d'implémentation ou du système d'exploitation. "
+                    "Grâce à ce découplage contractuel, un progiciel comptable écrit en Java ou C#, une application mobile Kotlin/Swift et un frontal React consomment simultanément la même instance Python Tornado sans jamais connaître l'organisation interne de ses classes ni de ses tables SQL."
+                ),
+                (
+                    "**Panorama architectural des quatre paradigmes industriels (SOAP, REST, GraphQL, gRPC).** "
+                    "Alors que **SOAP** (années 2000) tunnelise des enveloppes XML verbeuses régies par des contrats WSDL/XSD sur un point d'entrée unique au prix d'une empreinte réseau et CPU élevée, l'architecture **REST** formalisée par Roy Fielding en 2000 aligne directement les opérations sur les primitives natives de HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, codes de statut et cache) couplées à la légèreté de **JSON**, propulsant aujourd'hui plus de 85 % des APIs d'entreprise. "
+                    "En complément ciblé, **GraphQL** répond aux besoins d'agrégation granulaire des interfaces mobiles complexes sur un graphe unique, tandis que **gRPC** sérialise des trames binaires *Protocol Buffers* sur HTTP/2 multiplexé pour les communications Est-Ouest à ultra-basse latence entre microservices internes."
+                ),
+                (
+                    "**Polymorphisme de représentation au sein d'un `RequestHandler` Tornado.** "
+                    "Une même donnée métier en mémoire Python peut être projetée sous trois représentations distinctes selon les méthodes invoquées sur le contrôleur Tornado : `self.render('meteo.html', meteo=...)` compile et restitue une vue HTML destinée aux navigateurs via `tornado.template`, l'association `self.set_header('Content-Type', 'application/xml; charset=UTF-8')` suivie de `self.write(flux_xml)` émet une enveloppe SOAP/XML conforme aux systèmes patrimoniaux, tandis que l'appel idiomatique `self.write(DONNEES_METEO)` sur un dictionnaire Python sérialise nativement la charge utile en JSON UTF-8 et positionne automatiquement l'en-tête `Content-Type: application/json; charset=UTF-8`."
+                )
             ],
             "code": _read("01_html_vs_json.py"),
             "line_explanations": [
@@ -68,11 +83,22 @@ DAY_1_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "L'annuaire téléphonique (DNS), le bâtiment (IP), le guichet (Port) et le couloir sécurisé (TLS)",
-                "text": "Lorsqu'un client appelle `https://api.isgp.dz:8443/api/v1/formations?ville=Alger`, quatre opérations réseau invisibles se succèdent en quelques millisecondes avant même que votre Event-Loop Tornado (`IOLoop`) ne reçoive l'événement socket."
+                "text": (
+                    "Lorsqu'une application cliente invoque `https://api.isgp.dz:8443/api/v1/formations?ville=Alger`, aucune donnée applicative ne part immédiatement sur le fil : le système d'exploitation traverse d'abord quatre couches réseau rigoureusement ordonnées en quelques millisecondes.\n\n"
+                    "Il consulte l'annuaire **DNS** pour convertir le nom lisible en adresse numérique **IP** identifiant l'immeuble serveur sur Internet, frappe au numéro de guichet **Port TCP** correspondant au processus Tornado en écoute, scelle un tunnel chiffré **TLS** contre toute écoute clandestine, puis dépose enfin la trame HTTP dans le descripteur de socket surveillé par la boucle d'événements `IOLoop`."
+                )
             },
             "explanation": [
-                "**1. Les 4 étapes réseau d'un appel d'API** :\n  1. **Résolution DNS (Domain Name System)** : Les routeurs réseau ne comprennent que les adresses IP numériques (ex. `192.168.0.101`). Le client interroge le serveur DNS pour traduire le nom de domaine `api.isgp.dz` en adresse IP. En local, `localhost` est immédiatement traduit en `127.0.0.1` (boucle locale / loopback).\n  2. **Connexion TCP sur le Port cible (`IP:Port`)** : Le client ouvre un canal fiable (Socket TCP) vers l'adresse IP et le **Port** (par défaut `80` pour HTTP, `443` pour HTTPS, `8888` pour Tornado en développement).\n  3. **Poignée de main TLS (si `https://`)** : Le client et le serveur négocient une clé de chiffrement symétrique pour que personne sur le Wi-Fi ou les routeurs intermédiaires ne puisse lire vos tokens ou vos données JSON.\n  4. **Transmission de la requête HTTP** : Une fois le tunnel ouvert, le client envoie la requête HTTP au serveur non-bloquant `tornado.httpserver.HTTPServer`.",
-                "**2. Découpage normalisé d'une URI selon le standard RFC 3986** :\n  - **`scheme` (Protocole)** : `http` (en clair, réservé au développement local) ou `https` (chiffré TLS, obligatoire en production).\n  - **`hostname` + `port` (Autorité)** : `api.isgp.dz:8443` ou `127.0.0.1:8888`.\n  - **`path` (Chemin hiérarchique de la ressource)** : `/api/v1/formations` (identifie la collection ciblée et la version `v1`).\n  - **`query` (Chaîne de requête après `?`)** : `ville=Alger&domaine=securite&page=2` (construite côté client avec `tornado.httputil.url_concat` et lue côté serveur avec `self.get_query_argument`).\n  - **`fragment` (après `#`)** : Non envoyé au serveur HTTP (utilisé uniquement côté navigateur)."
+                (
+                    "**Séquence d'établissement d'une session réseau avant notification de l'`IOLoop`.** "
+                    "Tout appel d'API débute par la résolution **DNS** traduisant un nom d'hôte tel que `api.isgp.dz` en adresse routable IPv4 ou IPv6 (tandis que `localhost` court-circuite la carte physique vers la boucle locale `127.0.0.1`), suivie de la poignée de main **TCP en trois temps** (`SYN`, `SYN-ACK`, `ACK`) vers le couple `IP:Port` cible (`80` en HTTP, `443` en HTTPS, `8888` par convention historique pour Tornado en développement). "
+                    "Lorsque le schéma est `https://`, une négociation cryptographique **TLS 1.3** authentifie le certificat X.509 du serveur et dérive les clés symétriques de session avant que le premier octet de la requête HTTP ne parvienne au démon non bloquant `tornado.httpserver.HTTPServer`."
+                ),
+                (
+                    "**Décomposition syntaxique normalisée d'une URI selon la RFC 3986.** "
+                    "Une URI se découpe en cinq segments formels exploités distinctement par Tornado : le `scheme` (`http` ou `https`, exposé dans `self.request.protocol`) fixe le protocole de transport, l'autorité `hostname:port` (`self.request.host`) désigne le point d'ancrage réseau, et le `path` hiérarchique (`/api/v1/formations`, lu via `self.request.path`) est soumis au routeur d'expressions régulières de `tornado.web.Application`. "
+                    "En aval du point d'interrogation `?`, la `query string` transporte les critères non hiérarchiques de filtrage ou de pagination (assemblés proprement côté client par `tornado.httputil.url_concat` et décodés côté serveur par `self.get_query_argument`), tandis que le `fragment` final après `#` demeure strictement confiné au navigateur client sans jamais franchir le socket TCP."
+                )
             ],
             "code": _read("03_analyseur_uri_et_reseau.py"),
             "line_explanations": [
@@ -100,11 +126,21 @@ DAY_1_DATA = {
             "duration": "60 min",
             "analogy": {
                 "title": "Ouvrir l'enveloppe réseau au microscope",
-                "text": "Beaucoup de développeurs utilisent des bibliothèques sans jamais savoir à quoi ressemble véritablement une requête HTTP sur le câble réseau. Or, le protocole HTTP/1.1 est un **protocole purement textuel** : chaque requête et chaque réponse possède exactement la même structure en 3 étages."
+                "text": (
+                    "Nombre de développeurs manipulent quotidiennement des frameworks Web de haut niveau tout en considérant le flux réseau comme une boîte noire impénétrable. "
+                    "Pourtant, le protocole **HTTP/1.1** codifié par les RFC 9110 et 9112 demeure d'une élégante lisibilité : il s'agit d'un protocole textuel structuré en lignes ASCII terminées par `\\r\\n`, où chaque message entrant ou sortant respecte invariablement la même anatomie tripartite."
+                )
             },
             "explanation": [
-                "**1. Les 3 étages d'un message HTTP brut décodé par `tornado.httpserver.HTTPServer`** :\n  - **Étage 1 — La Ligne de Départ (Start Line)** :\n    - Dans une Requête : `POST /api/v1/formations HTTP/1.1` (Méthode `self.request.method` + Chemin `self.request.path` + Version `self.request.version`).\n    - Dans une Réponse : `HTTP/1.1 201 Created` (fixé via `self.set_status(201)`).\n  - **Étage 2 — Les En-têtes HTTP (`Headers`)** : Lus via `self.request.headers.get('Nom')` et écrits via `self.set_header('Nom', 'Valeur')`.\n  - **La Ligne Vide Obligatoire (`\\r\\n\\r\\n`)** : Sépare strictement les en-têtes du corps du message.\n  - **Étage 3 — Le Corps (`Body / Payload`)** : Accessible en octets bruts dans `self.request.body`.",
-                "**2. Les 6 familles d'En-têtes HTTP qu'un concepteur d'API Tornado doit maîtriser** :\n  - **Négociation de contenu (`Content Negotiation`)** :\n    - `Content-Type: application/json` : Indique que `self.request.body` contient du JSON à décoder via `tornado.escape.json_decode(self.request.body)`.\n    - `Content-Type: application/x-www-form-urlencoded` : Indique un formulaire HTML dont les champs sont lus via `self.get_body_argument('titre')`.\n  - **Authentification & Autorisation** :\n    - `Authorization: Bearer <token>` ou `X-API-Key: <secret>`.\n  - **Contrôle de Débit (Rate Limiting)** :\n    - `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`.\n  - **Traçabilité & Corrélation** :\n    - `X-Request-ID: req-98412` : Injecté dans le hook `prepare(self)` de Tornado.\n  - **Cache & Performance** :\n    - `Cache-Control: no-store` ou `Etag` (calculé automatiquement par Tornado sur les réponses GET !).\n  - **Sécurité Navigateur (CORS)** :\n    - `Access-Control-Allow-Origin` : Configuré dans `set_default_headers(self)` du `RequestHandler`."
+                (
+                    "**Architecture tripartite d'un message HTTP/1.1 décodé par `HTTPConnection` dans Tornado.** "
+                    "Lorsque l'`IOStream` non bloquant de Tornado accumule les octets arrivant sur le socket, son analyseur syntaxique découpe d'abord la **ligne de départ** (`POST /api/v1/formations HTTP/1.1` côté requête exposant `method`, `uri` et `version` sur `self.request`, ou `HTTP/1.1 201 Created` côté réponse pilotée par `self.set_status(201)`), puis parcourt les paires d'**en-têtes HTTP** insensibles à la casse stockées dans `self.request.headers` et émises via `self.set_header()`. "
+                    "Une séquence délimitrice stricte de quatre octets **`\\r\\n\\r\\n`** (deux retours chariot / sauts de ligne consécutifs formant une ligne vide) marque la frontière physique au-delà de laquelle commence le **corps binaire (`self.request.body`)**, lu sur exactement `Content-Length` octets."
+                ),
+                (
+                    "**Six familles stratégiques d'en-têtes gouvernant le comportement d'une API Tornado.** "
+                    "Les métadonnées HTTP pilotent toute l'intelligence transversale du serveur sans polluer la charge utile métier : la **négociation de représentation** (`Content-Type: application/json` orientant vers `tornado.escape.json_decode(self.request.body)` par opposition à `application/x-www-form-urlencoded` destiné à `self.get_body_argument`), le **transport des preuves d'identité** (`Authorization: Bearer` ou `X-API-Key`), la **signalisation des quotas de débit** (`X-RateLimit-*` et `Retry-After`), la **corrélation distribuée** (`X-Request-ID` injecté dans `prepare()`), la **validation de cache** (`Cache-Control` et l'empreinte `Etag` calculée nativement par Tornado sur les réponses `GET`), ainsi que le **contrôle d'origine navigateur CORS** (`Access-Control-Allow-Origin` posé dans `set_default_headers()`)."
+                )
             ],
             "code": _read("04_trame_http_et_headers.py"),
             "line_explanations": [
@@ -131,11 +167,23 @@ DAY_1_DATA = {
             "duration": "60 min",
             "analogy": {
                 "title": "Appuyer plusieurs fois sur le bouton d'appel d'un ascenseur (Idempotent) vs Payer deux fois par carte (Non-Idempotent)",
-                "text": "Si vous appuyez 1 fois ou 10 fois sur le bouton pour appeler l'ascenseur au 3e étage, le résultat final est exactement le même : l'ascenseur vient au 3e étage. En mathématiques et en informatique, cette propriété s'appelle **l'Idempotence**. À l'inverse, si vous validez 2 fois un virement bancaire sans précaution, votre compte est débité 2 fois !"
+                "text": (
+                    "Que vous pressiez une seule fois ou dix fois nerveusement le bouton d'appel d'un ascenseur au troisième étage, l'état final du système mécanique demeure rigoureusement identique : la cabine converge vers le troisième palier. "
+                    "En informatique distribuée, cette invariance de l'état face à la répétition d'un même message porte le nom mathématique d'**idempotence**.\n\n"
+                    "À l'inverse, valider deux fois un ordre de virement dépourvu d'identifiant de déduplication débite deux fois le compte client : sur des réseaux mobiles ou interbancaires sujets aux micro-coupures d'accusés de réception TCP, distinguer les méthodes intrinsèquement idempotentes des opérations non idempotentes conditionne toute la fiabilité d'une API."
+                )
             },
             "explanation": [
-                "**1. Méthodes Sûres (`Safe`) vs Méthodes Idempotentes (`Idempotent`) — Implémentées par méthode dans `RequestHandler`** :\n  - **`def get(self):` (Lire)** : **Sûre** (ne modifie aucun état sur le serveur) ET **Idempotente**.\n  - **`def put(self, id):` (Remplacer intégralement une ressource connue)** : Non sûre, mais **Idempotente**.\n  - **`def delete(self, id):` (Supprimer une ressource connue)** : **Idempotente**.\n  - **`def post(self):` (Créer une ressource ou déclencher un traitement)** : **NI sûre, NI idempotente** ! C'est pourquoi, si la connexion réseau coupe pendant un `POST`, un client peut rejouer la requête en toute sécurité uniquement si l'API gère un en-tête `Idempotency-Key` (que nous coderons au Jour 3) !\n  - **`def patch(self, id):` (Modification partielle)** : Modifie uniquement un sous-ensemble de champs.",
-                "**2. Sérialisation JSON dans Tornado (`tornado.escape` et `self.write`)** :\n  - **`tornado.escape.json_decode(self.request.body)`** : Désérialise les octets UTF-8 reçus dans la requête en dictionnaire Python.\n  - **`self.write(dictionnaire)`** : Sérialise automatiquement le dictionnaire et positionne `Content-Type: application/json; charset=UTF-8`."
+                (
+                    "**Invariants de sûreté (*Safety*) et d'idempotence (*Idempotency*) des méthodes `RequestHandler` (RFC 9110).** "
+                    "Tornado associe chaque verbe HTTP à une méthode dédiée dont le contrat mathématique engage votre architecture : `def get(self)` est à la fois **sûre** (aucun effet de bord sur l'état persisté) et **idempotente**, tandis que `def put(self, id)` (remplacement intégral d'une ressource connue) et `def delete(self, id)` (retrait d'une ressource identifiée) modifient l'état serveur tout en demeurant **strictement idempotentes** en cas de rejeu réseau automatique. "
+                    "À l'opposé, `def post(self)` n'est **ni sûre ni idempotente** par nature (chaque exécution crée une nouvelle entité ou déclenche une transaction supplémentaire, sauf implémentation explicite d'un en-tête `Idempotency-Key`), et `def patch(self, id)` applique une mutation partielle qui reste idempotente dès lors qu'elle exprime des affectations de valeurs absolues plutôt que des incréments relatifs."
+                ),
+                (
+                    "**Pipeline de désérialisation et sérialisation JSON dans Tornado (`tornado.escape` et `self.write`).** "
+                    "À la réception d'une requête entrante, l'utilitaire `tornado.escape.json_decode(self.request.body)` décode la séquence d'octets UTF-8 du tampon réseau et reconstruit l'arbre de dictionnaires et listes en mémoire Python. "
+                    "Dans le sens retour, invoquer `self.write(enveloppe_dict)` sur un dictionnaire structurant `meta` (version, horodatage UTC ISO 8601) et `data` déclenche automatiquement l'encodage JSON UTF-8 dans le tampon d'écriture de la requête tout en positionnant l'en-tête normalisé `Content-Type: application/json; charset=UTF-8`."
+                )
             ],
             "code": _read("02_serialisation_json.py"),
             "line_explanations": [
@@ -168,12 +216,24 @@ DAY_1_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Pourquoi un navigateur Web classique (Chrome/Firefox) ne suffit plus pour tester une API ?",
-                "text": "Lorsque vous tapez une URL dans la barre d'adresse d'un navigateur, celui-ci ne sait faire qu'une seule chose : envoyer une requête **`GET`**, sans corps JSON et sans en-tête d'authentification `Authorization: Bearer` ou `X-API-Key`.\nPour tester les méthodes **`POST`**, **`PUT`**, **`PATCH`**, **`DELETE`**, injecter des en-têtes de sécurité et inspecter l'en-tête `Server: TornadoServer/6.6.1`, tout ingénieur API utilise quotidiennement **la ligne de commande (`curl` / `HTTPie`)** et **les clients graphiques (`Postman` / `Bruno` / `VS Code REST Client`)**."
+                "text": (
+                    "Saisir une adresse dans la barre d'URL d'un navigateur graphique grand public n'exécute qu'une fraction infime du protocole HTTP : le navigateur émet exclusivement une requête `GET`, dépourvue de corps JSON et incapable d'injecter à la demande vos en-têtes d'authentification `Authorization: Bearer` ou `X-API-Key`.\n\n"
+                    "Pour éprouver les méthodes de mutation (`POST`, `PUT`, `PATCH`, `DELETE`), forger des charges utiles précises et inspecter au caractère près la signature `Server: TornadoServer` ainsi que les empreintes `Etag` calculées par Tornado, l'ingénieur backend s'équipe d'instruments d'inspection dédiés : **`curl`** et **`HTTPie`** au terminal système, complétés par **`Postman`**, **`Bruno`** ou les fichiers versionnés **`.http`** sur son poste de développement."
+                )
             },
             "explanation": [
-                "**1. `curl` (*Client for URL*) — L'outil universel pour inspecter `TornadoServer`** :\n  **Les 7 options (`flags`) essentielles de `curl` à connaître par cœur** :\n  - **`-i` (`--include`)** : Affiche la ligne de statut (`HTTP/1.1 200 OK`) ET les **en-têtes HTTP de la réponse** (`Server: TornadoServer/6.6.1`, `Etag`, `Content-Type`).\n  - **`-v` (`--verbose`)** : Mode diagnostic complet (`>` requête envoyée, `<` réponse reçue).\n  - **`-s` (`--silent`)** : Masque la barre de progression.\n  - **`-X <METHODE>` (`--request`)** : Définit le verbe HTTP qui déclenchera `def get(self):`, `def post(self):`, `def put(self):` ou `def delete(self):` dans votre `RequestHandler` Tornado.\n  - **`-H \"Nom: Valeur\"` (`--header`)** : Ajoute un en-tête HTTP lu par `self.request.headers.get(...)`.\n  - **`-d '<json>'` (`--data`)** : Définit le corps (`Body / Payload`) de la requête.\n  - **`-w \"\\nHTTP: %{http_code} | Temps: %{time_total}s\\n\"`** : Affiche le code de statut exact et la latence.",
-                "**2. `Postman` (ainsi que `Bruno` et `Insomnia`) — L'atelier graphique d'équipe** :\n  - Permet d'organiser toutes les requêtes d'un projet dans une **Collection** partageable (`.json`).\n  - Gère des **Variables d'Environnement** (`{{base_url}} = http://127.0.0.1:8888`, `{{access_token}}`).",
-                "**3. `HTTPie` (`http`) & `VS Code REST Client` (`.http`)** :\n  - **`HTTPie`** : `http POST :8888/api/formations titre=\"Tornado\" duree_jours:=5`.\n  - **Fichiers `.http`** : Permettent de versionner les requêtes de test dans Git avec le code source Python."
+                (
+                    "**Instrumentation en ligne de commande par `curl` face à un démon `TornadoServer`.** "
+                    "Omniprésent sur chaque conteneur Docker et serveur Linux accessible en SSH, `curl` permet de façonner chirurgicalement la trame HTTP : `-i` inclut la ligne de statut et les en-têtes de réponse (`Server`, `Etag`, `Content-Type`), `-v` dévoile l'intégralité du dialogue TCP/TLS sortant (`>`) et entrant (`<`), `-s` supprime la jauge de progression parasite dans les tubes Unix, `-X` sélectionne le verbe routé vers la méthode correspondante du `RequestHandler`, `-H` injecte un en-tête lu par `self.request.headers`, `-d` fournit le corps brut reçu dans `self.request.body`, et `-w` mesure au millième de seconde la latence réseau complète."
+                ),
+                (
+                    "**Industrialisation collaborative des campagnes de tests avec Postman, Bruno et Insomnia.** "
+                    "Sur des APIs exposant plusieurs dizaines d'endpoints sécurisés, les clients graphiques structurent les scénarios de recette en **collections exportables** assorties de **variables d'environnement** dynamiques telles que `{{base_url}}` (`http://127.0.0.1:8888`) et `{{access_token}}`, permettant de basculer instantanément du serveur Tornado local à la pré-production tout en réinjectant automatiquement les jetons émis."
+                ),
+                (
+                    "**Ergonomie JSON native (`HTTPie`) et tests versionnés au plus près du code (`.http`).** "
+                    "Pour accélérer les essais interactifs en console, `HTTPie` offre une grammaire concise distinguant nativement les chaînes (`titre=\"Tornado\"`) des littéraux numériques JSON (`duree_jours:=5`) avec coloration syntaxique automatique, tandis que l'extension *REST Client* exécute directement des fichiers texte `.http` archivés dans le dépôt Git à côté des `RequestHandlers` Python."
+                )
             ],
             "code": _read("05_outils_curl_postman_httpie.py"),
             "line_explanations": [

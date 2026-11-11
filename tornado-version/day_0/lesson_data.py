@@ -27,12 +27,28 @@ DAY_0_DATA = {
             "duration": "40 min",
             "analogy": {
                 "title": "Les cellules nommées de la mémoire vive",
-                "text": "Lorsqu'un script Python s'exécute, l'interpréteur lit le fichier séquentiellement de haut en bas. Chaque variable créée alloue un espace en **mémoire vive (RAM)** identifié par un nom. Comprendre la nature exacte (le **type**) de ce qui est stocké dans cet espace est fondamental : dans une API Web, tout ce qui arrive par l'URL arrive sous forme de texte (`str`) et doit souvent être converti explicitement en nombre (`int` ou `float`) avant tout calcul."
+                "text": (
+                    "Lorsqu'un processus Python démarre sur un serveur Linux, le noyau du système d'exploitation lui attribue un segment isolé de **mémoire vive (RAM)** appelé le tas (*heap*). "
+                    "Contrairement aux langages compilés de bas niveau où une variable désigne directement une boîte mémoire d'une taille figée à l'avance, une variable Python agit comme une étiquette symbolique reliée par un pointeur mémoire vers un objet complet doté d'une valeur, d'un compteur de références et d'un descripteur de **type** explicite.\n\n"
+                    "Comprendre cette architecture mémoire constitue le socle de toute ingénierie d'API Web avec Tornado. "
+                    "Sur le câble réseau, une URL ou un en-tête HTTP circule exclusivement sous forme de séquences d'octets textuels décodés en chaînes `str`, tandis que la logique métier, les calculs financiers et la sérialisation JSON exigent une distinction stricte entre textes, entiers `int`, flottants `float`, booléens `bool` et marqueur d'absence `None`."
+                )
             },
             "explanation": [
-                "**1. Affectation et cycle de vie en RAM** : L'opérateur `=` évalue d'abord l'expression située à droite, puis associe le résultat au nom situé à gauche (`total_heures = duree_jours * heures_par_jour`). Dès que le processus Python s'arrête, la mémoire vive est libérée (d'où la nécessité d'une base de données au Jour 3).",
-                "**2. Les 5 types primitifs incontournables dans une API** :\n  - **`str` (Chaîne de caractères)** : Texte UTF-8 entouré de guillemets (`\"ISGP\"`). En JSON, devient `\"ISGP\"`.\n  - **`int` (Entier)** : Nombre sans décimale (`5`, `200`, `404`). Utilisé pour les identifiants (`id`), les compteurs, les codes HTTP et les montants en centimes.\n  - **`float` (Nombre à virgule flottante)** : Nombre décimal noté avec un point (`19.5`).\n  - **`bool` (Booléen)** : État binaire `True` ou `False` (avec majuscule en Python, converti en `true`/`false` en JSON).\n  - **`None` (Absence de valeur)** : Représente un champ vide ou non renseigné en Python (converti en `null` en JSON).",
-                "**3. Piège classique en développement Web : `" + '"25"' + "` vs `25`** : La chaîne `\"25\"` est du texte (`\"25\" + \"5\"` produit `\"255\"`), tandis que `25` est un entier (`25 + 5` produit `30`). On utilise `int(\"25\")` ou `float(\"19.5\")` pour convertir une entrée réseau en nombre."
+                (
+                    "**Mécanisme d'affectation par référence et volatilité de la RAM.** "
+                    "L'opérateur `=` n'exprime pas une équation algébrique mais une séquence d'allocation en deux temps : l'interpréteur CPython évalue d'abord intégralement l'expression située à droite (`duree_jours * heures_par_jour`), alloue en mémoire vive une structure `PyObject` contenant le résultat `30`, puis attache le nom symbolique `total_heures` à l'adresse de cet objet. "
+                    "Parce que toute la mémoire vive est volatile par construction électronique, l'arrêt du processus Python ou une coupure d'alimentation détruit instantanément ces structures, ce qui justifiera le recours à un moteur transactionnel sur disque au Jour 3."
+                ),
+                (
+                    "**Correspondance bijective entre les cinq types primitifs Python et la grammaire JSON (RFC 8259).** "
+                    "Tout contrat d'échange RESTful repose sur cinq types scalaires fondamentaux que `RequestHandler.write()` traduit nativement vers le standard JSON : la chaîne Unicode `str` entourée de guillemets pour les textes et horodatages ISO 8601, l'entier de précision arbitraire `int` pour les clés primaires, codes de statut HTTP et montants exprimés en centimes, le nombre binaire à virgule flottante IEEE 754 `float` pour les grandeurs continues, le booléen `bool` (`True` ou `False` avec majuscule en Python, sérialisé en `true` ou `false` en JSON), ainsi que le singleton `None` qui matérialise l'absence explicite de valeur (`null` sur le réseau)."
+                ),
+                (
+                    "**Typage dynamique fort et conversion explicite des entrées réseau.** "
+                    "Python applique un typage dynamique (aucune déclaration préalable de type sur l'identifiant) mais **strictement fort** : il refuse toute coercition implicite silencieuse entre texte et nombre afin de prévenir les corruptions de calcul. "
+                    "Dans un `RequestHandler` Tornado, un paramètre extrait de la chaîne de requête tel que `self.get_query_argument('places', '15')` est toujours restitué sous forme de chaîne `\"15\"` ; additionner `\"15\" + \"5\"` concatène les caractères en `\"155\"`, d'où l'obligation absolue de convertir explicitement l'entrée via `int(...)` ou `float(...)` avant toute opération arithmétique."
+                )
             ],
             "code": _read("01_variables_et_types.py"),
             "line_explanations": [
@@ -61,12 +77,27 @@ DAY_0_DATA = {
             "duration": "50 min",
             "analogy": {
                 "title": "Le registre tabulaire composé de fiches structurées",
-                "text": "Dans un système d'information réel, une donnée n'est jamais isolée : une formation possède un intitulé, une durée, un formateur (qui a lui-même un nom et un grade) et une liste de stagiaires inscrits. En Python comme en JSON, cette hiérarchie s'exprime en **imbriquant des Dictionnaires `{ }` et des Listes `[ ]`**."
+                "text": (
+                    "Dans un système d'information d'entreprise, une donnée métier n'existe jamais de manière atomique et isolée : un dossier de formation regroupe un identifiant unique, un intitulé, un quota de places, la fiche signalétique d'un formateur (elle-même dotée d'un nom et d'un grade) ainsi que la séquence ordonnée des stagiaires inscrits.\n\n"
+                    "Aussi bien en mémoire Python que dans le format d'échange JSON sur le fil réseau, toute cette richesse documentaire s'exprime par la composition récursive de deux structures complémentaires : le **dictionnaire (`dict`)** qui associe des attributs nommés à leurs valeurs, et la **liste (`list`)** qui ordonne des collections homogènes d'entités."
+                )
             },
             "explanation": [
-                "**1. Pourquoi le Dictionnaire `{ }` est la pierre angulaire des APIs** : Un dictionnaire fonctionne par **table de hachage** (recherche quasi instantanée par clé). Au lieu de se souvenir que le prénom est dans la colonne n°2, on écrit explicitement `stagiaire[\"prenom\"]`.",
-                "**2. Différence critique entre `d[\"cle\"]` et `d.get(\"cle\", valeur_par_defaut)`** :\n  - Si un client envoie un JSON incomplet et que vous écrivez `corps[\"salle\"]`, Python lève une erreur fatale `KeyError: 'salle'` qui interrompt la requête avec une erreur `500`.\n  - En écrivant `corps.get(\"salle\", \"Salle A\")`, Python renvoie la valeur de `\"salle\"` si elle existe, ou `\"Salle A\"` si le client ne l'a pas précisée, **sans jamais planter** !",
-                "**3. Manipulation des Listes `[ ]`** :\n  - `len(ma_liste)` retourne le nombre total d'éléments.\n  - `ma_liste.append(element)` ajoute un élément à la fin.\n  - Compréhension de liste : `[f for f in formations if f[\"places\"] >= 15]` filtre une collection en une seule ligne lisible."
+                (
+                    "**Indexation en temps constant `O(1)` par table de hachage (`dict`).** "
+                    "Contrairement à un tableau positionnel où la signification d'une donnée dépend d'un numéro de colonne fragile, un dictionnaire Python calcule l'empreinte de hachage (`hash()`) de chaque clé pour localiser sa valeur instantanément en mémoire vive, quelle que soit la taille de l'objet. "
+                    "Dans Tornado, cette structure joue un rôle architectural privilégié : transmettre un `dict` directement à `self.write(payload)` déclenche sa sérialisation automatique en JSON UTF-8 accompagnée de l'en-tête normatif `Content-Type: application/json; charset=UTF-8`."
+                ),
+                (
+                    "**Lecture défensive par `.get()` face aux charges utiles incomplètes.** "
+                    "Lorsqu'un client HTTP soumet un corps JSON partiel et que le serveur évalue l'accès direct `corps[\"salle\"]`, l'absence de la clé provoque immédiatement la levée d'une exception non interceptée `KeyError`, que Tornado traduit en panne serveur `500 Internal Server Error`. "
+                    "L'idiome défensif `corps.get(\"salle\", \"Salle A\")` interroge la table de hachage sans jamais lever d'exception : il restitue la valeur fournie par le client si la clé est présente, ou se replie gracieusement sur la valeur par défaut spécifiée."
+                ),
+                (
+                    "**Collections dynamiques (`list`), découpage et enveloppe racine dans Tornado.** "
+                    "Une liste Python maintient en mémoire un tableau contigu de références ordonnées dès l'indice `0`, supportant le comptage en temps constant via `len(collection)`, l'ajout amorti en fin de séquence via `.append(item)` et le filtrage déclaratif par compréhension `[f for f in formations if f[\"places\"] >= 15]`. "
+                    "Pour prévenir d'anciennes vulnérabilités d'interception JSON côté navigateur (*JSON Hijacking*) et favoriser l'extensibilité des contrats, `RequestHandler.write()` refuse les listes nues à la racine et impose de les encapsuler dans un dictionnaire porteur de métadonnées tel que `{\"total\": len(items), \"data\": items}`."
+                )
             ],
             "code": _read("02_listes_et_dictionnaires.py"),
             "line_explanations": [
@@ -94,12 +125,27 @@ DAY_0_DATA = {
             "duration": "45 min",
             "analogy": {
                 "title": "Le contrat d'interface d'un composant logiciel",
-                "text": "Une fonction définit un **contrat strict** : quelles données elle exige en entrée (ses paramètres) et quelle structure elle garantit en sortie (`return`). En architecture API, chaque endpoint HTTP n'est rien d'autre qu'une fonction Python exposée sur le réseau."
+                "text": (
+                    "Une fonction bien conçue matérialise une frontière contractuelle étanche à l'intérieur d'un logiciel : sa signature déclare explicitement les paramètres qu'elle exige en entrée, son corps encapsule la transformation métier à l'abri du reste du système, et son instruction `return` garantit la structure exacte de la valeur restituée.\n\n"
+                    "En architecture backend avec Tornado, cette séparation revêt une importance capitale : les calculs fiscaux, les règles d'éligibilité et la validation des données résident dans des fonctions Python pures et testables en quelques microsecondes, que les méthodes `get()` ou `post()` d'un `RequestHandler` se contentent d'orchestrer et d'exposer sur le réseau HTTP."
+                )
             },
             "explanation": [
-                "**1. Différence fondamentale entre `print()` et `return` / `self.write()`** :\n  - `print()` affiche du texte dans la console du serveur pour le développeur ; le client réseau ne le voit jamais.\n  - `return` transmet effectivement la donnée de sortie au programme appelant (ou `self.write(...)` dans un `RequestHandler` Tornado pour l'envoyer sur le réseau).",
-                "**2. Paramètres avec valeur par défaut** : `def calculer_ttc(prix_ht, taux=0.19):` permet d'appeler `calculer_ttc(1000)` (utilise 19% par défaut) ou `calculer_ttc(1000, 0.09)` (applique 9%).",
-                "**3. Portée des variables (Locale vs Globale)** : Une variable créée à l'intérieur d'une fonction (`tva`, `prix_total`) est **locale** : elle n'existe que pendant l'exécution de la fonction et n'interfère pas avec le reste du programme."
+                (
+                    "**Séparation stricte entre sortie standard (`print`) et transmission de valeur (`return` / `self.write`).** "
+                    "L'instruction `print()` écrit uniquement une chaîne de diagnostic sur le descripteur de fichier `stdout` du terminal serveur destiné à l'administrateur système ; pas un seul octet n'atteint le socket TCP du client distant. "
+                    "Seule l'instruction `return` restitue l'objet calculé à l'appelant Python, lequel est ensuite poussé dans le tampon réseau de la connexion HTTP par `self.write(facture)` au sein du `RequestHandler` Tornado."
+                ),
+                (
+                    "**Flexibilité contractuelle par paramètres à valeur par défaut.** "
+                    "Définir une signature telle que `def calculer_ttc(prix_ht, taux=0.19):` permet de stabiliser le cas nominal tout en autorisant les surcharges ponctuelles : un appel `calculer_ttc(1000)` applique automatiquement le taux légal standard de 19 %, tandis que `calculer_ttc(1000, 0.09)` substitue un taux réduit sans dupliquer la logique de calcul. "
+                    "On veillera toujours à n'utiliser que des objets immuables (`None`, `int`, `float`, `str`, `tuple`) comme valeurs par défaut afin d'éviter tout partage accidentel d'état mutable entre deux appels successifs."
+                ),
+                (
+                    "**Isolation de la portée locale (*Stack Frame*) et sûreté sur boucle événementielle.** "
+                    "Chaque invocation de fonction alloue un cadre d'exécution privé (*frame*) où résident ses variables locales telles que `tva` et `prix_total`, lesquelles sont automatiquement réclamées par le ramasse-miettes dès l'exécution de `return`. "
+                    "Sur un serveur asynchrone Tornado traitant des milliers de requêtes entrelacées sur une même `IOLoop`, confiner les calculs dans des variables locales plutôt que dans des variables globales garantit qu'aucune requête concurrente ne corrompt les montants d'un autre client."
+                )
             ],
             "code": _read("03_fonctions.py"),
             "line_explanations": [
@@ -127,11 +173,22 @@ DAY_0_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "Le disjoncteur différentiel (try/except) et le sas de contrôle (Décorateur @)",
-                "text": "Deux mécanismes Python reviennent dans 100% des APIs professionnelles :\n1. Le bloc **`try / except`** agit comme un disjoncteur : si une conversion ou une requête échoue, il intercepte l'anomalie sans faire sauter tout le serveur.\n2. Le **Décorateur `@`** agit comme un sas de sécurité placé devant une salle : toute personne voulant entrer dans la fonction doit d'abord traverser le décorateur (qui vérifie par exemple l'URL `@app.route`, le jeton `@token_requis` ou le quota `@rate_limit`)."
+                "text": (
+                    "Dans un immeuble industriel alimenté en haute tension, on ne laisse jamais un court-circuit localisé dans une prise faire fondre le transformateur général de tout le bâtiment : un **disjoncteur différentiel (`try / except`)** isole immédiatement la branche défaillante tout en maintenant le reste de l'installation sous tension.\n\n"
+                    "Parallèlement, plutôt que de poster un vigile à l'intérieur même de chaque bureau pour contrôler les badges tout en interrompant le travail des ingénieurs, l'architecte installe un **sas périphérique unifié (`@decorateur`)** devant la porte : quiconque sollicite l'exécution d'une méthode HTTP doit d'abord franchir ce sas d'inspection (authentification, vérification de rôle ou chronométrage d'audit) avant d'atteindre le cœur métier."
+                )
             },
             "explanation": [
-                "**1. Pourquoi `try / except` est vital dans un service Web** : Les clients d'une API envoient régulièrement des données imprévues (`?page=abc` au lieu de `?page=2`, JSON mal formé, fichier manquant). Sans `try / except`, Python lève une exception non gérée et le serveur renvoie une erreur brutale `500 Internal Server Error`. Avec `try / except ValueError:`, vous interceptez l'erreur et renvoyez proprement un code `400 Bad Request` explicite.",
-                "**2. Démystifier le symbole `@` (Décorateur Python) et les classes `RequestHandler`** :\n  - En Python, les fonctions sont des objets comme les autres : une fonction peut recevoir une autre fonction en paramètre et l'entourer d'un pré-traitement et d'un post-traitement.\n  - Écrire `@journaliser_execution` juste au-dessus de `def traiter_inscription(...)` demande simplement à Python d'exécuter automatiquement le code du décorateur avant et après chaque appel de `traiter_inscription`.\n  - Dans **Tornado**, les routes sont structurées en classes héritant de `tornado.web.RequestHandler` (avec les méthodes `get`, `post`, `put`, `delete`), et les décorateurs comme `@tornado.web.authenticated` ou `@exiger_role('admin')` sécurisent l'accès à chaque méthode HTTP !"
+                (
+                    "**Continuité de service de l'`IOLoop` par interception ciblée des exceptions (`try / except`).** "
+                    "Sur Internet, un démon Tornado reçoit en permanence des requêtes malformées : paramètres alphabétiques là où un entier est attendu (`?page=abc`), charges JSON tronquées ou contraintes SQL violées. "
+                    "Sans interception ciblée (`try: ... except ValueError:`), la remontée de l'exception interrompt brutalement le `RequestHandler` par un code générique `500 Internal Server Error` ; en capturant explicitement l'exception attendue, le contrôleur préserve la propreté de ses journaux et restitue un diagnostic client exact `400 Bad Request` ou `422 Unprocessable Entity`."
+                ),
+                (
+                    "**Fonctions d'ordre supérieur et mécanique interne des décorateurs (`@`) sur `RequestHandler`.** "
+                    "Parce que les fonctions et méthodes sont des objets de première classe en Python, un décorateur n'est aucune magie syntaxique : la notation `@journaliser_execution` placée au-dessus de `def traiter_inscription(...)` réassigne simplement la fonction à une enveloppe `enveloppe(*args, **kwargs)` qui exécute un pré-traitement et un post-traitement autour de l'appel original. "
+                    "Dans l'architecture orientée objet de Tornado, où chaque route est une classe héritant de `tornado.web.RequestHandler`, des décorateurs tels que `@tornado.web.authenticated` ou `@exiger_role('admin')` interceptent l'argument `self` pour inspecter `self.request.headers`, peupler `self.current_user` et court-circuiter la requête en `401` ou `403` avant même que le corps de `get()` ou `delete()` ne soit invoqué."
+                )
             ],
             "code": _read("04_exceptions_et_decorateurs.py"),
             "line_explanations": [

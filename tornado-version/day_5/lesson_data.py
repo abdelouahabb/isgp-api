@@ -28,12 +28,26 @@ DAY_5_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "Pourquoi un serveur Tornado ne doit jamais appeler requests.get() ou urlopen() dans l'IOLoop",
-                "text": "Dans un serveur événementiel comme **Tornado**, une seule boucle `IOLoop` gère des milliers de connexions simultanées. Si l'un de vos `RequestHandler` appelle `requests.get()` (synchrone) vers une API partenaire qui met 3 secondes à répondre, **toute l'IOLoop est figée pendant 3 secondes pour tous les autres utilisateurs** !\nC'est pourquoi Tornado intègre son propre client HTTP asynchrone non-bloquant : **`tornado.httpclient.AsyncHTTPClient`**, qui suspend uniquement la coroutine en cours (`await client.fetch(...)`) pendant que l'`IOLoop` continue de servir les autres clients."
+                "text": (
+                    "Au cœur d'un démon événementiel **Tornado**, une unique boucle `IOLoop` orchestre de façon coopérative des milliers de sockets TCP concurrents sur un seul fil d'exécution. "
+                    "Si un `RequestHandler` commet l'erreur d'invoquer un client synchrone tel que `requests.get()` ou `urllib.request.urlopen()` vers un service partenaire qui met trois secondes à répondre, **l'intégralité de l'`IOLoop` demeure paralysée pendant trois secondes pour tous les utilisateurs connectés**.\n\n"
+                    "Pour préserver une réactivité sub-milliseconde, Tornado embarque nativement son propre moteur client non bloquant **`tornado.httpclient.AsyncHTTPClient`**, qui cède coopérativement la main via `await client.fetch(...)` pendant l'attente réseau."
+                )
             },
             "explanation": [
-                "**Règle d'or n°1 — Toujours utiliser `AsyncHTTPClient` avec `connect_timeout` et `request_timeout`** :\n  - `connect_timeout=2.0` : Temps maximal accordé pour établir la connexion TCP/TLS.\n  - `request_timeout=5.0` : Temps maximal total pour recevoir la réponse HTTP complète.",
-                "**Règle d'or n°2 — `raise_error=False` pour inspecter proprement les statuts `4xx` et `5xx`** :\n  - Par défaut, `await client.fetch(req)` lève `tornado.httpclient.HTTPClientError` si le statut est `>= 400`. En passant `raise_error=False`, vous récupérez l'objet `HTTPResponse` (`reponse.code`, `reponse.body`, `reponse.headers`) sans exception non gérée.",
-                "**Règle d'or n°3 — *Exponential Backoff* face aux erreurs temporaires (`429`, `502`, `503`, `504`)** :\n  - En cas de `503` ou `429`, suspendre la coroutine avec `await asyncio.sleep(delai)` (et **jamais** `time.sleep()`, qui bloquerait l'`IOLoop` !)."
+                (
+                    "**Bornage temporel obligatoire par `connect_timeout` et `request_timeout` dans `AsyncHTTPClient`.** "
+                    "Chaque instance `HTTPRequest` soumise à `AsyncHTTPClient` doit fixer explicitement deux garde-fous distincts : `connect_timeout=2.0` pour plafonner la résolution DNS et la poignée de main TCP/TLS initiale, et `request_timeout=5.0` pour borner la durée totale de réception de la réponse complète afin d'éviter toute accumulation infinie de coroutines suspendues."
+                ),
+                (
+                    "**Inspection explicite des réponses d'erreur amont grâce à `raise_error=False`.** "
+                    "Par défaut, `await client.fetch(req)` lève une exception `tornado.httpclient.HTTPClientError` dès que le serveur interrogé répond par un code `>= 400`. "
+                    "Passer `raise_error=False` restitue proprement l'objet `HTTPResponse` (`reponse.code`, `reponse.headers`, `reponse.body`), permettant à votre passerelle Tornado de distinguer finement un `404` métier d'une défaillance `503` ou d'un timeout réseau `599`."
+                ),
+                (
+                    "**Recul exponentiel non bloquant (*Exponential Backoff*) via `await asyncio.sleep()`.** "
+                    "Face aux pannes transitoires (`429`, `502`, `503`, `504`), la coroutine espace ses tentatives de réessai au moyen de **`await asyncio.sleep(delai)`** (et jamais `time.sleep()`, qui gèlerait le thread de l'`IOLoop`), libérant immédiatement le processeur pour servir les autres requêtes entrantes."
+                )
             ],
             "code": _read("01_client_python_auth.py"),
             "line_explanations": [
@@ -60,12 +74,25 @@ DAY_5_DATA = {
             "duration": "75 min",
             "analogy": {
                 "title": "Pourquoi voit-on presque toujours `/api/v1` et si rarement `/api/v2` ?",
-                "text": "1. **La Loi de Postel (*Tolerant Reader*)** : Ajouter un nouveau champ JSON ou une nouvelle route est une **évolution rétrocompatible (*Non-Breaking Change*)**. Les clients existants ignorent simplement les clés qu'ils ne connaissent pas, ce qui permet de faire évoluer `v1` pendant des années.\n2. **L'Assurance-Vie Architecturale** : Si un jour vous devez modifier le **type** d'un champ existant (ex: remplacer `\"duree\": 5` par `\"duree\": {\"valeur\": 5, \"unite\": \"jours\"}`), c'est une **rupture de contrat (*Breaking Change*)**. Dans Tornado, il suffit alors de concaténer `API_V1_ROUTES + API_V2_ROUTES` dans `create_app()` pour servir simultanément les deux versions !"
+                "text": (
+                    "Dans les grandes plateformes mondiales, une branche `/api/v1` demeure active durant cinq à dix ans grâce à la **Loi de Postel (*Tolerant Reader*)** : ajouter un attribut JSON inédit ou exposer une nouvelle route constitue une évolution purement additive que les clients existants tolèrent sans broncher.\n\n"
+                    "Préfixer ses routes par `/api/v1` dès le premier jour n'en demeure pas moins une assurance-vie architecturale décisive : le jour où une refonte structurelle impose une **rupture de contrat (*Breaking Change*)** telle que le remplacement d'un entier `\"duree\": 5` par un objet `{\"valeur\": 5, \"unite\": \"jours\"}`, il suffit dans Tornado de concaténer `API_V1_ROUTES + API_V2_ROUTES` au sein de `create_app()` pour servir simultanément les deux générations de clients."
+                )
             },
             "explanation": [
-                "**1. Découpage modulaire des routes dans Tornado (`WEB_ROUTES + API_V1_ROUTES + API_V2_ROUTES + HEALTH_ROUTES`)** :\n  - Dans Tornado, une table de routage n'est qu'une simple liste Python de tuples `(regex, HandlerClass)` (ou d'objets `tornado.routing.Rule`).\n  - Chaque sous-module du projet exporte sa propre liste de routes, et la fabrique `create_app()` les assemble dans `tornado.web.Application`.",
-                "**2. Coexistence de `/api/v1` et `/api/v2` & En-têtes de Dépréciation RFC 8594** :\n  - Dans `FormationsV1Handler.set_default_headers(self)`, on injecte les en-têtes officiels **IETF RFC 8594** :\n    - `Deprecation: true`\n    - `Sunset: Thu, 31 Dec 2026 23:59:59 GMT`\n    - `Link: </api/v2/formations>; rel=\"successor-version\"`",
-                "**3. Sondes de Supervision (`/api/health/live` & `/api/health/ready`)** :\n  - `LivenessProbeHandler` (`/api/health/live`) vérifie que l'`IOLoop` Tornado répond (`200 OK`).\n  - `ReadinessProbeHandler` (`/api/health/ready`) vérifie que la base SQLite/SQL est prête avant que Nginx n'envoie du trafic."
+                (
+                    "**Composition modulaire de sous-tables de routage dans la fabrique `create_app()`.** "
+                    "Dans Tornado, le routage s'exprime comme une structure de données Python explicite — une liste de tuples `(regex, HandlerClass)` ou d'instances `tornado.routing.Rule`. "
+                    "Chaque domaine fonctionnel (`WEB_ROUTES`, `API_V1_ROUTES`, `API_V2_ROUTES`, `HEALTH_ROUTES`) exporte sa propre sous-table autonome, que la fabrique `create_app()` assemble proprement lors de l'instanciation de `tornado.web.Application`."
+                ),
+                (
+                    "**Coexistence contrôlée `/api/v1` + `/api/v2` et signalisation de fin de vie RFC 8594.** "
+                    "Pendant la fenêtre de migration, `FormationsV1Handler` et `FormationsV2Handler` partagent le même socle métier SQL tout en projetant chacun son contrat JSON respectif, tandis que `FormationsV1Handler.set_default_headers()` injecte automatiquement les en-têtes normalisés **IETF RFC 8594** (`Deprecation: true`, `Sunset: Thu, 31 Dec 2026 23:59:59 GMT` et `Link: </api/v2/formations>; rel=\"successor-version\"`)."
+                ),
+                (
+                    "**Sondes d'exploitation différenciées : *Liveness* (`/api/health/live`) et *Readiness* (`/api/health/ready`).** "
+                    "Pour piloter un répartiteur Nginx ou un orchestrateur Kubernetes sans fausses alertes, `LivenessProbeHandler` atteste uniquement que la boucle `IOLoop` du processus n'est pas bloquée (`200 OK`), tandis que `ReadinessProbeHandler` vérifie activement la joignabilité du moteur SQLite/PostgreSQL avant d'autoriser le routage du trafic client."
+                )
             ],
             "code": _read("03_architecture_blueprints.py"),
             "line_explanations": [
@@ -100,11 +127,21 @@ DAY_5_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Un serveur HTTP C10k intégré : pourquoi Tornado n'a pas besoin de Gunicorn en production",
-                "text": "Contrairement à Flask (qui est uniquement un framework WSGI et dépend de Gunicorn) ou FastAPI (qui dépend d'Uvicorn), **Tornado inclut son propre serveur HTTP industriel haute performance (`tornado.httpserver.HTTPServer`)**.\nEn production, on déploie plusieurs instances `HTTPServer(app, xheaders=True)` (une par cœur CPU sur les ports `8001..8004`, ou via `server.start(0)`) directement derrière un **Reverse Proxy Nginx** !"
+                "text": (
+                    "À la différence de Flask (simple application WSGI tributaire de Gunicorn) ou de FastAPI (application ASGI tributaire d'Uvicorn), **Tornado embarque nativement son propre serveur HTTP industriel haute concurrence (`tornado.httpserver.HTTPServer`)** forgé dès l'origine pour absorber le problème C10K.\n\n"
+                    "Pour exploiter l'ensemble des cœurs physiques d'un serveur Linux malgré le verrou global *GIL* de CPython, l'architecture de référence déploie une flotte de processus indépendants `HTTPServer(app, xheaders=True)` (un démon par cœur sur `127.0.0.1:8001..8004`) orchestrés en amont par un répartiteur **Nginx**."
+                )
             },
             "explanation": [
-                "**1. Architecture de Déploiement Tornado en Production (`Client -> Nginx -> 4 instances Tornado HTTPServer`)** :\n  - **Reverse Proxy (`Nginx`)** : Gère TLS/HTTPS, sert `/static/` directement via `sendfile` et répartit la charge (`least_conn`) vers `127.0.0.1:8001..8004`.\n  - **Paramètre critique `xheaders=True` sur `HTTPServer`** : Indique à `tornado.httpserver.HTTPServer` de lire `X-Forwarded-For` et `X-Forwarded-Proto` transmis par Nginx afin que `self.request.remote_ip` et `self.request.protocol` reflètent la véritable adresse IP et le vrai protocole du client !",
-                "**2. Tester son API automatiquement avec `tornado.testing.AsyncHTTPTestCase`** :\n  - Tornado fournit la classe **`tornado.testing.AsyncHTTPTestCase`** (basée sur `unittest.TestCase`).\n  - Il suffit de surcharger `def get_app(self): return make_app()` : chaque test dispose alors de `self.fetch('/ma-route', method='POST', body=...)` qui démarre une `IOLoop` isolée sur un port éphémère et retourne la réponse en quelques millisecondes !"
+                (
+                    "**Topologie de production `Nginx -> Cluster HTTPServer(xheaders=True)` multi-processus.** "
+                    "En frontal public, **Nginx** assure la terminaison cryptographique TLS, décharge les actifs `/static/` directement depuis le cache noyau via `sendfile on`, et distribue les requêtes dynamiques en `least_conn` vers les instances Tornado locales. "
+                    "Sur chaque nœud Python, l'activation impérative de **`xheaders=True`** ordonne à `HTTPServer` d'interpréter `X-Forwarded-For` et `X-Forwarded-Proto` afin que `self.request.remote_ip` et `self.request.protocol` restituent la véritable adresse IP cliente aux journaux d'audit et au limiteur de débit."
+                ),
+                (
+                    "**Harnais de test d'intégration isolé avec `tornado.testing.AsyncHTTPTestCase`.** "
+                    "Dérivée de `unittest.TestCase`, la classe native `AsyncHTTPTestCase` instancie automatiquement une boucle `IOLoop` dédiée et monte votre `make_app()` sur un port TCP éphémère libre à chaque test : un simple appel `self.fetch('/api/calcul-taxe', method='POST', body=...)` traverse ainsi toute la pile HTTP réelle en quelques millisecondes."
+                )
             ],
             "code": _read("04_tests_et_production.py"),
             "line_explanations": [
@@ -131,11 +168,20 @@ DAY_5_DATA = {
             "duration": "60 min",
             "analogy": {
                 "title": "Les plans d'architecte cotés (OpenAPI) et la maquette interactive 3D visitable (Swagger UI)",
-                "text": "La norme mondiale **OpenAPI 3.0** est le plan d'architecte formel (en JSON ou YAML) de votre API Tornado, et **Swagger UI** est le portail Web généré à partir de ce plan, permettant à tout développeur de cliquer sur **« Try it out »** ou **« Authorize »** directement dans son navigateur."
+                "text": (
+                    "La spécification **OpenAPI 3.0** joue pour une API Tornado le rôle exact des plans d'architecte cotés et normalisés d'un ouvrage d'art : elle décrit sans la moindre ambiguïté chaque route, chaque type de champ JSON et chaque schéma d'authentification dans un document lisible par les machines.\n\n"
+                    "Branché directement sur ce contrat vivant (`/api/openapi.json`), le portail **Swagger UI (`/api/docs`)** projette une maquette interactive navigable où les équipes frontales, mobiles et partenaires peuvent s'authentifier via **« Authorize »** et éprouver chaque endpoint en direct via **« Try it out »**."
+                )
             },
             "explanation": [
-                "**1. Différence entre `OpenAPI 3.0` et `Swagger UI` dans Tornado** :\n  - `OpenApiSpecHandler` (`/api/openapi.json`) : Retourne le dictionnaire Python conforme à la spécification **OpenAPI 3.0.3** via `self.write(construire_contrat_openapi())`.\n  - `SwaggerUiHandler` (`/api/docs`) : Rend le template `swagger_ui.html` qui charge l'interface graphique interactive pointant vers `/api/openapi.json`.",
-                "**2. Correspondance entre les routes Regex Tornado et les chemins OpenAPI 3.0** :\n  - Dans `tornado.web.Application`, la route s'écrit avec un groupe Regex : `r'/api/v1/formations/([0-9]+)'`.\n  - Dans le contrat OpenAPI `paths`, cette même route se documente avec la notation standard RFC 6570 entre accolades : `'/api/v1/formations/{id}'` (`in: 'path'`)."
+                (
+                    "**Séparation architecturale entre le contrat formel (`OpenApiSpecHandler`) et le portail visuel (`SwaggerUiHandler`).** "
+                    "Dans Tornado, `OpenApiSpecHandler` sérialise sur `/api/openapi.json` le dictionnaire conforme à la norme **OpenAPI 3.0.3** via `self.write()`, tandis que `SwaggerUiHandler` sert sur `/api/docs` une enveloppe HTML légère initialisant `SwaggerUIBundle` sur cette URL de spécification, sans aucune dépendance lourde ni introspection magique opaque."
+                ),
+                (
+                    "**Traduction normative entre groupes Regex Tornado et modèles d'URI OpenAPI (RFC 6570).** "
+                    "Alors que `tornado.web.Application` identifie et valide un paramètre dynamique au moyen d'une expression régulière Python telle que `r'/api/v1/formations/([0-9]+)'`, la section `paths` du contrat OpenAPI 3.0 doit impérativement exprimer cette même route selon la grammaire universelle à accolades `'/api/v1/formations/{id}'` couplée à un descripteur `in: 'path'`."
+                )
             ],
             "code": _read("05_swagger_openapi_ui.py"),
             "line_explanations": [
@@ -169,12 +215,25 @@ DAY_5_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "Feuilleter un annuaire par numéro de page (Offset) vs Reprendre exactement après le dernier numéro lu (Curseur)",
-                "text": "En production avec **Tornado**, toute route qui retourne une collection doit **obligatoirement** être paginée selon deux stratégies : **`Offset/Limit`** (`?page=2&per_page=20` pour les tableaux avec numéros de pages) ou **`Cursor / Keyset`** (`?after_id=1042&limit=20` pour des performances constantes $O(1)$ sur des millions de lignes sans jamais bloquer l'`IOLoop`)."
+                "text": (
+                    "Sur une API **Tornado** de production desservant des tables de plusieurs millions d'enregistrements, extraire et sérialiser des volumes non bornés bloquerait immédiatement l'`IOLoop`. "
+                    "Deux stratégies complémentaires gouvernent le découpage des collections à grande échelle.\n\n"
+                    "La pagination **`Offset/Limit`** (`?page=2&per_page=20`) permet de sauter directement vers un numéro de page précis dans une grille d'administration, tandis que la pagination par **`Curseur / Keyset`** (`?after_id=1042&limit=20`) exploite directement l'arbre B-Tree de la clé primaire pour garantir un temps de réponse constant `O(1)` même au fond d'un historique massif."
+                )
             },
             "explanation": [
-                "**1. Pagination par `Offset / Limit` (`CatalogueOffsetHandler`)** :\n  - Formule mathématique : `offset = (page - 1) * per_page` (`SELECT * FROM formations LIMIT 20 OFFSET 20`).\n  - Idéal pour afficher des numéros de pages dans un tableau d'administration.",
-                "**2. Pagination Haute Performance par `Curseur / Keyset` (`CatalogueCursorHandler`)** :\n  - Le client passe l'identifiant du dernier élément reçu (`self.get_query_argument('after_id', '0')`) : `SELECT * FROM formations WHERE id > ? ORDER BY id ASC LIMIT ?`.\n  - S'exécute en **temps constant ($O(1)$)** grâce à l'index sur la clé primaire `id`.",
-                "**3. Tri Dynamique Sécurisé par Liste Blanche (`CHAMPS_TRI_AUTORISES`)** :\n  - Validation stricte de `cle_tri` contre `CHAMPS_TRI_AUTORISES = {'id', 'duree_jours', 'tarif_dzd', 'titre'}` avant tout tri (`422` sinon)."
+                (
+                    "**Pagination par décalage `Offset / Limit` (`CatalogueOffsetHandler`) et coût linéaire `O(N)`.** "
+                    "Calculer `offset = (page - 1) * per_page` pour exécuter `SELECT * FROM formations LIMIT ? OFFSET ?` offre une ergonomie idéale pour afficher des sélecteurs de pages numérotés, mais oblige le moteur SQL à parcourir puis ignorer séquentiellement les `offset` premières lignes sur les très grands volumes."
+                ),
+                (
+                    "**Pagination par curseur `Keyset` en temps constant `O(1)` (`CatalogueCursorHandler`).** "
+                    "En transmettant le dernier identifiant observé via `self.get_query_argument('after_id', '0')`, la requête préparée `SELECT * FROM formations WHERE id > ? ORDER BY id ASC LIMIT ?` positionne instantanément sa tête de lecture dans l'index B-Tree de la clé primaire et restitue `meta.next_cursor` sans jamais subir de dérive lors d'insertions concurrentes."
+                ),
+                (
+                    "**Verrouillage du tri dynamique par liste blanche (`CHAMPS_TRI_AUTORISES`).** "
+                    "Parce qu'un marqueur paramétré `?` SQLite ne peut se substituer à un identifiant de colonne dans une clause `ORDER BY`, tout paramètre `?sort=-tarif_dzd` est dépouillé de son préfixe de signe puis validé strictement contre l'ensemble figé `CHAMPS_TRI_AUTORISES = {'id', 'duree_jours', 'tarif_dzd', 'titre'}`, rejetant tout écart par un code `422`."
+                )
             ],
             "code": _read("02_pagination_filtrage_production.py"),
             "line_explanations": [

