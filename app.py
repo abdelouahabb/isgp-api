@@ -1,4 +1,5 @@
 import hmac
+import importlib.util
 import io
 import json
 import os
@@ -395,6 +396,75 @@ def download_zero_to_hero_zip():
         buf.getvalue(),
         mimetype="application/zip",
         headers={"Content-Disposition": f"attachment; filename=isgp_{fw}_zero_to_hero.zip"},
+    )
+
+
+def _load_tornado_slides_deck() -> dict:
+    slides_mod_path = os.path.join(ROOT_DIR, "tornado-version", "data", "slides_data.py")
+    data_dir = os.path.dirname(slides_mod_path)
+    added = False
+    if data_dir not in sys.path:
+        sys.path.insert(0, data_dir)
+        added = True
+    try:
+        spec = importlib.util.spec_from_file_location("isgp_tornado_slides_data", slides_mod_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.get_tornado_slides_deck()
+    finally:
+        if added and data_dir in sys.path:
+            sys.path.remove(data_dir)
+
+
+def _build_standalone_slides_html() -> str:
+    deck = _load_tornado_slides_deck()
+    safe_json = json.dumps(deck, ensure_ascii=False).replace("</", "<\\/")
+    with open(os.path.join(ROOT_DIR, "templates", "slides_tornado.html"), encoding="utf-8") as f:
+        tpl = f.read()
+    with open(os.path.join(ROOT_DIR, "static", "slides.css"), encoding="utf-8") as cf:
+        css = cf.read()
+    with open(os.path.join(ROOT_DIR, "static", "slides.js"), encoding="utf-8") as jf:
+        js = jf.read()
+
+    html = tpl.replace("{{ slides_json | safe }}", safe_json)
+    html = re.sub(
+        r'<link rel="stylesheet" href="/static/slides\.css[^"]*"\s*/>',
+        lambda _m: f"<style>\n{css}\n</style>",
+        html,
+    )
+    html = re.sub(
+        r'<script src="/static/slides\.js[^"]*"></script>',
+        lambda _m: f"<script>\n{js}\n</script>",
+        html,
+    )
+    html = re.sub(r'\s*<link rel="manifest"[^>]*/?>', "", html)
+    html = re.sub(r'\s*<link rel="icon"[^>]*/?>', "", html)
+    html = re.sub(r'\s*<a href="/api/download/slides-tornado"[^>]*>[\s\S]*?</a>', "", html)
+    html = html.replace('href="/cours/tornado"', 'href="https://abdelouahabb.github.io/isgp-api/cours/tornado/index.html"')
+    html = html.replace('href="/"', 'href="https://abdelouahabb.github.io/isgp-api/"')
+    return html
+
+
+@app.route("/slides")
+@app.route("/slides/tornado")
+def slides_tornado_page():
+    deck = _load_tornado_slides_deck()
+    safe_json = json.dumps(deck, ensure_ascii=False).replace("</", "<\\/")
+    return render_template("slides_tornado.html", slides_json=safe_json)
+
+
+@app.route("/api/slides/tornado", methods=["GET"])
+def api_slides_tornado():
+    return jsonify(_load_tornado_slides_deck())
+
+
+@app.route("/api/download/slides-tornado", methods=["GET"])
+def download_slides_tornado():
+    standalone_html = _build_standalone_slides_html()
+    return Response(
+        standalone_html,
+        mimetype="text/html; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=isgp_slides_tornado_api.html"},
     )
 
 

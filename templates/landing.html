@@ -21,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=45">
+  <link rel="stylesheet" href="/static/styles.css?v=46">
   <script src="/static/mermaid.min.js"></script>
   <style>
     .landing-topbar {
@@ -230,6 +230,7 @@
       </div>
     </div>
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <a href="/slides/tornado" class="btn-primary btn-sm" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #ffffff; text-decoration: none;">Diapositives Tornado &amp; API</a>
       <a href="/api/docs" target="_blank" class="btn-secondary btn-sm">Swagger UI (/api/docs)</a>
       <span class="landing-server-pill">
         Serveur Unifié Actif : <code>http://{{ local_ip }}:5000</code>
@@ -340,7 +341,10 @@
             <span class="fw-stat-pill">69 Fiches &amp; 62 Quiz</span>
             <span class="fw-stat-pill">Dossier : tornado-version/</span>
           </div>
-          <a href="/cours/tornado" class="fw-btn">Ouvrir le Cours &amp; Laboratoire Tornado &rarr;</a>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <a href="/cours/tornado" class="fw-btn">Ouvrir le Cours &amp; Laboratoire Tornado &rarr;</a>
+            <a href="/slides/tornado" class="fw-btn" style="background: var(--surface-alt); color: var(--text); border: 1px solid #8b5cf6; box-shadow: none;">Projeter les Diapositives (Slides Tornado &amp; API) &rarr;</a>
+          </div>
         </div>
       </article>
 

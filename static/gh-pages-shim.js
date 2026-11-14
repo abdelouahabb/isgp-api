@@ -28,9 +28,11 @@
       const fw = href.split("/")[2]?.split("?")[0] || "flask";
       return `${SITE_ROOT}/cours/${fw}/index.html`;
     }
+    if (href === "/slides" || href === "/slides/tornado") return `${SITE_ROOT}/slides/tornado/index.html`;
     if (href === "/api/docs") return `${SITE_ROOT}/api/docs/index.html`;
     if (href === "/api/openapi.json") return `${SITE_ROOT}/api/openapi.json`;
     if (href === "/sandbox/formulaire-jinja") return `${SITE_ROOT}/sandbox/formulaire-jinja/index.html`;
+    if (href.startsWith("/api/download/slides-tornado")) return `${SITE_ROOT}/downloads/isgp_slides_tornado_api.html`;
     if (href.startsWith("/api/download/openapi-spec")) return `${SITE_ROOT}/downloads/isgp_api_bootcamp.openapi.json`;
     if (href.startsWith("/api/download/postman-collection")) return `${SITE_ROOT}/downloads/isgp_postman_collection.json`;
     if (href.startsWith("/api/download/http-requests")) return `${SITE_ROOT}/downloads/isgp_requetes.http`;
@@ -261,6 +263,9 @@
     }
     if (path === "/api/zero-to-hero") {
       return origFetch(`${SITE_ROOT}/static-data/${fw}/zero-to-hero.json`);
+    }
+    if (path === "/api/slides/tornado") {
+      return origFetch(`${SITE_ROOT}/static-data/tornado/slides.json`);
     }
 
     // 2. Contrat OpenAPI

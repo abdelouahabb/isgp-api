@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-trilogy-v45";
+const CACHE_NAME = "isgp-api-trilogy-v46";
 const IS_GH_PAGES_SW = false;
 
 const CORE_RELATIVE_ASSETS = [
@@ -6,7 +6,9 @@ const CORE_RELATIVE_ASSETS = [
   "./manifest.json",
   "./static/icon.svg",
   "./static/styles.css",
+  "./static/slides.css",
   "./static/app.js",
+  "./static/slides.js",
   "./static/mermaid.min.js"
 ];
 
@@ -14,6 +16,8 @@ const WARMUP_RELATIVE_ASSETS = IS_GH_PAGES_SW
   ? [
       "./index.html",
       "./static/gh-pages-shim.js",
+      "./slides/tornado/index.html",
+      "./static-data/tornado/slides.json",
       "./cours/flask/index.html",
       "./cours/fastapi/index.html",
       "./cours/tornado/index.html",
@@ -38,6 +42,7 @@ const WARMUP_RELATIVE_ASSETS = IS_GH_PAGES_SW
       "./api/openapi.json"
     ]
   : [
+      "./slides/tornado",
       "./cours/flask",
       "./cours/fastapi",
       "./cours/tornado",

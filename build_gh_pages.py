@@ -27,12 +27,15 @@ def rewrite_html_for_static_depth(html: str, rel_root: str) -> str:
     replacements = [
         ('href="/"', f'href="{prefix}/index.html"'),
         ('href="/manifest.json"', f'href="{prefix}/manifest.json"'),
+        ('href="/slides/tornado"', f'href="{prefix}/slides/tornado/index.html"'),
+        ('href="/slides"', f'href="{prefix}/slides/tornado/index.html"'),
         ('href="/cours/flask"', f'href="{prefix}/cours/flask/index.html"'),
         ('href="/cours/fastapi"', f'href="{prefix}/cours/fastapi/index.html"'),
         ('href="/cours/tornado"', f'href="{prefix}/cours/tornado/index.html"'),
         ('href="/api/docs"', f'href="{prefix}/api/docs/index.html"'),
         ('href="/api/openapi.json"', f'href="{prefix}/api/openapi.json"'),
         ('href="/sandbox/formulaire-jinja"', f'href="{prefix}/sandbox/formulaire-jinja/index.html"'),
+        ('href="/api/download/slides-tornado"', f'href="{prefix}/downloads/isgp_slides_tornado_api.html"'),
         ('href="/api/download/openapi-spec"', f'href="{prefix}/downloads/isgp_api_bootcamp.openapi.json"'),
         ('href="/api/download/postman-collection"', f'href="{prefix}/downloads/isgp_postman_collection.json"'),
         ('href="/api/download/http-requests"', f'href="{prefix}/downloads/isgp_requetes.http"'),
@@ -54,7 +57,7 @@ def rewrite_html_for_static_depth(html: str, rel_root: str) -> str:
     # Injection du drapeau GitHub Pages et du shim avant static/app.js (ou avant </head> si pas d'app.js)
     shim_tag = (
         f'<script>window.ISGP_GH_PAGES = true; window.ISGP_REL_ROOT = "{rel_root}";</script>\n'
-        f'  <script src="{prefix}/static/gh-pages-shim.js?v=45"></script>'
+        f'  <script src="{prefix}/static/gh-pages-shim.js?v=46"></script>'
     )
     if "/static/app.js" in html:
         html = re.sub(
@@ -144,12 +147,27 @@ document.addEventListener("DOMContentLoaded", () => {
     jinja_static = jinja_static.replace("</body>", form_intercept_js + "\n</body>", 1)
     (DIST / "sandbox" / "formulaire-jinja" / "index.html").write_text(jinja_static, encoding="utf-8")
 
-    # 5. Téléchargements statiques (OpenAPI, Collection Postman, Fichier .http)
+    # 5. Téléchargements statiques (OpenAPI, Collection Postman, Fichier .http, Slides Tornado)
     dl_dir = DIST / "downloads"
     dl_dir.mkdir(parents=True, exist_ok=True)
     (dl_dir / "isgp_api_bootcamp.openapi.json").write_bytes(openapi_bytes)
     (dl_dir / "isgp_postman_collection.json").write_bytes(client.get("/api/download/postman-collection").get_data())
     (dl_dir / "isgp_requetes.http").write_bytes(client.get("/api/download/http-requests").get_data())
+    (dl_dir / "isgp_slides_tornado_api.html").write_bytes(client.get("/api/download/slides-tornado").get_data())
+
+    # 5b. Support de Présentation Interactif Tornado (/slides/tornado)
+    slides_dir = DIST / "slides" / "tornado"
+    slides_dir.mkdir(parents=True, exist_ok=True)
+    slides_raw = client.get("/slides/tornado").get_data(as_text=True)
+    slides_static = rewrite_html_for_static_depth(slides_raw, "../../")
+    (slides_dir / "index.html").write_text(slides_static, encoding="utf-8")
+
+    tornado_data_dir = DIST / "static-data" / "tornado"
+    tornado_data_dir.mkdir(parents=True, exist_ok=True)
+    slides_json_payload = client.get("/api/slides/tornado").get_json()
+    (tornado_data_dir / "slides.json").write_text(
+        json.dumps(slides_json_payload, ensure_ascii=False), encoding="utf-8"
+    )
 
     # 6. Pages de cours, bundles JSON et fichiers Python téléchargeables pour les 3 frameworks
     for fw in ("flask", "fastapi", "tornado"):

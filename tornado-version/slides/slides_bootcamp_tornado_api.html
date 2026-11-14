@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#070b14" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>ISGP — Support de Présentation (Slides Tornado &amp; Ingénierie des APIs)</title>
+  <style>
+/* ==========================================================================
+   ISGP — Moteur de Présentation (Slides 16:9 Tornado & Ingénierie des APIs)
+   Optimisé pour vidéoprojecteur, Plein Écran Paysage, Mode Clair/Sombre & PDF
+   ========================================================================== */
+
+:root,
+[data-theme="dark"] {
+  --sl-bg: #070b14;
+  --sl-stage-bg: linear-gradient(155deg, #0d1424 0%, #111827 65%, #131629 100%);
+  --sl-surface: rgba(30, 41, 59, 0.58);
+  --sl-surface-strong: #172033;
+  --sl-border: rgba(148, 163, 184, 0.18);
+  --sl-border-strong: rgba(139, 92, 246, 0.45);
+  --sl-text: #f8fafc;
+  --sl-text-sec: #cbd5e1;
+  --sl-text-muted: #94a3b8;
+  --sl-accent: #8b5cf6;
+  --sl-accent-soft: rgba(139, 92, 246, 0.16);
+  --sl-accent-text: #c4b5fd;
+  --sl-cyan: #38bdf8;
+  --sl-cyan-soft: rgba(56, 189, 248, 0.14);
+  --sl-emerald: #34d399;
+  --sl-def-bg: rgba(139, 92, 246, 0.11);
+  --sl-code-bg: #090e1a;
+  --sl-code-text: #e2e8f0;
+  --sl-takeaway-bg: rgba(15, 23, 42, 0.85);
+  --sl-topbar-bg: rgba(10, 15, 28, 0.92);
+  --sl-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] {
+  --sl-bg: #e2e8f0;
+  --sl-stage-bg: linear-gradient(155deg, #ffffff 0%, #f8fafc 70%, #f3f0ff 100%);
+  --sl-surface: #f8fafc;
+  --sl-surface-strong: #ffffff;
+  --sl-border: #cbd5e1;
+  --sl-border-strong: #7c3aed;
+  --sl-text: #0f172a;
+  --sl-text-sec: #1e293b;
+  --sl-text-muted: #475569;
+  --sl-accent: #6d28d9;
+  --sl-accent-soft: rgba(109, 40, 217, 0.1);
+  --sl-accent-text: #5b21b6;
+  --sl-cyan: #0284c7;
+  --sl-cyan-soft: rgba(2, 132, 199, 0.1);
+  --sl-emerald: #059669;
+  --sl-def-bg: #f5f3ff;
+  --sl-code-bg: #0f172a;
+  --sl-code-text: #f1f5f9;
+  --sl-takeaway-bg: #f1f5f9;
+  --sl-topbar-bg: rgba(255, 255, 255, 0.95);
+  --sl-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--sl-bg);
+  color: var(--sl-text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.deck-screen-mode {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Barre supérieure de contrôle */
+.deck-topbar {
+  height: 52px;
+  min-height: 52px;
+  background: var(--sl-topbar-bg);
+  border-bottom: 1px solid var(--sl-border);
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 30;
+}
+
+.deck-topbar-left,
+.deck-topbar-center,
+.deck-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-brand-badge {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  padding: 4px 9px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.deck-back-link {
+  color: var(--sl-text-sec);
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sl-border);
+  background: var(--sl-surface);
+  white-space: nowrap;
+}
+
+.deck-back-link:hover {
+  border-color: var(--sl-accent);
+  color: var(--sl-text);
+}
+
+.deck-part-select,
+.deck-search-input {
+  background: var(--sl-surface-strong);
+  color: var(--sl-text);
+  border: 1px solid var(--sl-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.deck-part-select {
+  max-width: 310px;
+  font-weight: 600;
+}
+
+.deck-search-input {
+  width: 195px;
+}
+
+.deck-part-select:focus,
+.deck-search-input:focus {
+  border-color: var(--sl-accent);
+}
+
+.deck-btn {
+  background: var(--sl-surface);
+  color: var(--sl-text);
+  border: 1px solid var(--sl-border);
+  border-radius: 6px;
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.deck-btn:hover {
+  border-color: var(--sl-accent);
+}
+
+.deck-btn-primary {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* Zone centrale 16:9 */
+.deck-viewport {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 28px 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide-card {
+  width: min(1380px, 100%);
+  height: min(776px, 100%);
+  background: var(--sl-stage-bg);
+  border: 1px solid var(--sl-border);
+  border-top: 4px solid var(--sl-accent);
+  border-radius: 16px;
+  box-shadow: var(--sl-shadow);
+  padding: 32px 46px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow-y: auto;
+}
+
+/* En-tête d'une diapositive */
+.slide-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.slide-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.slide-part-pill {
+  background: var(--sl-accent-soft);
+  color: var(--sl-accent-text);
+  border: 1px solid var(--sl-border-strong);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+
+.slide-tag-pill {
+  background: var(--sl-cyan-soft);
+  color: var(--sl-cyan);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.slide-counter-pill {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sl-text-muted);
+  background: var(--sl-surface);
+  border: 1px solid var(--sl-border);
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.slide-headline h1 {
+  margin: 0 0 6px 0;
+  font-size: clamp(24px, 2.5vw, 35px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+  color: var(--sl-text);
+}
+
+.slide-subtitle {
+  margin: 0 0 16px 0;
+  font-size: clamp(14px, 1.25vw, 17.5px);
+  color: var(--sl-text-muted);
+  font-weight: 500;
+}
+
+/* Bloc Définition */
+.slide-def-box {
+  background: var(--sl-def-bg);
+  border: 1px solid var(--sl-border);
+  border-left: 5px solid var(--sl-accent);
+  border-radius: 11px;
+  padding: 15px 20px;
+  margin-bottom: 18px;
+}
+
+.slide-def-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sl-accent-text);
+  margin-bottom: 5px;
+}
+
+.slide-def-text {
+  margin: 0;
+  font-size: clamp(15.5px, 1.38vw, 19.5px);
+  line-height: 1.52;
+  color: var(--sl-text);
+  font-weight: 500;
+}
+
+/* Corps principal adaptatif */
+.slide-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  min-height: 0;
+}
+
+.slide-body.layout-split {
+  display: grid;
+  grid-template-columns: 1.02fr 1.08fr;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.slide-points-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.slide-points-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 13px;
+}
+
+.slide-point-card {
+  background: var(--sl-surface);
+  border: 1px solid var(--sl-border);
+  border-radius: 10px;
+  padding: 12px 15px;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+
+.slide-point-index {
+  min-width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--sl-accent-soft);
+  color: var(--sl-accent-text);
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.slide-point-content {
+  font-size: clamp(13.8px, 1.12vw, 16px);
+  line-height: 1.46;
+  color: var(--sl-text-sec);
+}
+
+.slide-point-content strong {
+  color: var(--sl-text);
+  font-weight: 700;
+}
+
+/* Comparaison 2 colonnes */
+.slide-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.slide-compare-col {
+  background: var(--sl-surface);
+  border: 1px solid var(--sl-border);
+  border-radius: 11px;
+  padding: 14px 18px;
+}
+
+.slide-compare-col.col-left {
+  border-top: 3px solid var(--sl-cyan);
+}
+
+.slide-compare-col.col-right {
+  border-top: 3px solid var(--sl-emerald);
+}
+
+.slide-compare-title {
+  margin: 0 0 9px 0;
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--sl-text);
+}
+
+.slide-compare-items {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.slide-compare-item {
+  font-size: 14.2px;
+  line-height: 1.44;
+  color: var(--sl-text-sec);
+  padding-left: 12px;
+  border-left: 2px solid var(--sl-border-strong);
+}
+
+/* Bloc Fragment de Code */
+.slide-code-panel {
+  background: var(--sl-code-bg);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 11px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.slide-code-header {
+  background: rgba(30, 41, 59, 0.72);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.slide-code-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.slide-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slide-code-lang {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.2);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.slide-copy-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.slide-code-pre {
+  margin: 0;
+  padding: 15px 18px;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: clamp(13px, 1.05vw, 15.2px);
+  line-height: 1.56;
+  color: var(--sl-code-text);
+  overflow-x: auto;
+  white-space: pre;
+  flex: 1;
+}
+
+.tok-kw { color: #c084fc; font-weight: 600; }
+.tok-str { color: #86efac; }
+.tok-num { color: #fcd34d; }
+.tok-cmt { color: #64748b; font-style: italic; }
+.tok-dec { color: #38bdf8; font-weight: 600; }
+
+/* Bandeau À retenir */
+.slide-takeaway-bar {
+  margin-top: 14px;
+  background: var(--sl-takeaway-bg);
+  border: 1px solid var(--sl-border);
+  border-radius: 9px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(13.2px, 1.08vw, 15.2px);
+  color: var(--sl-text-sec);
+}
+
+.slide-takeaway-tag {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--sl-emerald);
+  white-space: nowrap;
+}
+
+/* Barre inférieure de navigation */
+.deck-bottombar {
+  height: 44px;
+  min-height: 44px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--sl-topbar-bg);
+  border-top: 1px solid var(--sl-border);
+}
+
+.deck-progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--sl-surface);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.deck-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #38bdf8);
+  transition: width 0.2s ease;
+}
+
+.deck-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-hint {
+  font-size: 12px;
+  color: var(--sl-text-muted);
+}
+
+/* Vue Grille (Modale de toutes les diapositives) */
+.deck-grid-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 11, 20, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 30px;
+}
+
+.deck-grid-overlay.hidden {
+  display: none;
+}
+
+.deck-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: #f8fafc;
+}
+
+.deck-grid-cards {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+.deck-mini-card {
+  background: #111827;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  padding: 13px 15px;
+  cursor: pointer;
+  text-align: left;
+  color: #f1f5f9;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.deck-mini-card:hover,
+.deck-mini-card.active {
+  border-color: #8b5cf6;
+  transform: translateY(-2px);
+}
+
+.deck-mini-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #c4b5fd;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.deck-mini-title {
+  font-size: 13.8px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 5px;
+}
+
+.deck-mini-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+/* Conteneur d'impression PDF (masqué à l'écran) */
+#deck-print-all {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  .deck-topbar {
+    height: auto;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .slide-card {
+    padding: 20px 22px;
+    height: 100%;
+  }
+  .slide-body.layout-split,
+  .slide-points-grid,
+  .slide-compare-grid {
+    grid-template-columns: 1fr;
+  }
+  .deck-hint {
+    display: none;
+  }
+}
+
+/* Impression / Export PDF 16:9 Paysage (1 diapositive par page) */
+@media print {
+  @page {
+    size: 16in 9in;
+    margin: 0;
+  }
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .deck-topbar,
+  .deck-viewport,
+  .deck-bottombar,
+  .deck-grid-overlay {
+    display: none !important;
+  }
+  #deck-print-all {
+    display: block !important;
+  }
+  .print-slide-page {
+    width: 16in;
+    height: 9in;
+    padding: 0.52in 0.68in;
+    page-break-after: always;
+    break-after: page;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-top: 6px solid #6d28d9;
+  }
+  .print-slide-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}
+
+</style>
+</head>
+<body class="deck-screen-mode">
+
+  <header class="deck-topbar">
+    <div class="deck-topbar-left">
+      <a href="https://abdelouahabb.github.io/isgp-api/" class="deck-brand-badge">ISGP</a>
+      <a href="https://abdelouahabb.github.io/isgp-api/cours/tornado/index.html" class="deck-back-link">&larr; Cours Tornado</a>
+      <select id="deck-part-select" class="deck-part-select" aria-label="Choisir une partie"></select>
+    </div>
+
+    <div class="deck-topbar-center">
+      <input
+        id="deck-search-input"
+        type="search"
+        class="deck-search-input"
+        placeholder="Rechercher (/ : REST, 401, IOLoop...)"
+        aria-label="Rechercher une diapositive"
+      />
+      <button type="button" class="deck-btn" onclick="window.toggleDeckGrid()" title="Afficher la grille complète (Touche G)">
+        Grille (G)
+      </button>
+    </div>
+
+    <div class="deck-topbar-right">
+      <button type="button" class="deck-btn" onclick="window.printAllSlides()" title="Imprimer ou enregistrer toutes les diapositives en PDF 16:9">
+        Exporter PDF
+      </button>
+      <button type="button" id="deck-theme-btn" class="deck-btn" onclick="window.toggleDeckTheme()" title="Basculer Mode Clair / Mode Sombre (Touche T)">
+        Mode Clair
+      </button>
+      <button type="button" class="deck-btn deck-btn-primary" onclick="window.toggleDeckFullscreen()" title="Basculer en Plein Écran Paysage (Touche F)">
+        Plein Écran (F)
+      </button>
+    </div>
+  </header>
+
+  <main class="deck-viewport">
+    <article id="slide-stage" class="slide-card" aria-live="polite"></article>
+  </main>
+
+  <footer class="deck-bottombar">
+    <div class="deck-nav-controls">
+      <button type="button" class="deck-btn" onclick="window.prevSlide()">&larr; Précédente</button>
+      <button type="button" class="deck-btn deck-btn-primary" onclick="window.nextSlide()">Suivante &rarr;</button>
+      <span id="deck-pos-label" class="deck-hint"></span>
+    </div>
+    <div class="deck-progress-track">
+      <div id="deck-progress-fill" class="deck-progress-fill" style="width: 0%;"></div>
+    </div>
+    <span class="deck-hint">Clavier : &larr; / &rarr; / Espace &bull; Grille : G &bull; Recherche : / &bull; Plein Écran : F</span>
+  </footer>
+
+  <!-- Modale Grille de navigation rapide -->
+  <section id="deck-grid-overlay" class="deck-grid-overlay hidden" aria-label="Grille des diapositives">
+    <div class="deck-grid-header">
+      <div>
+        <strong style="font-size: 17px;">Vue d'ensemble des Diapositives — Python Tornado &amp; Ingénierie des APIs</strong>
+        <span id="deck-grid-count" style="margin-left: 12px; font-size: 13px; color: #94a3b8;"></span>
+      </div>
+      <button type="button" class="deck-btn" onclick="window.closeDeckGrid()">Fermer (Échap)</button>
+    </div>
+    <div id="deck-grid-cards" class="deck-grid-cards"></div>
+  </section>
+
+  <!-- Zone dédiée à l'export PDF 16:9 (1 diapositive par page) -->
+  <div id="deck-print-all"></div>
+
+  <script id="slides-deck-data" type="application/json">{"meta": {"title": "Ingénierie des APIs Web & Sites Dynamiques avec Python Tornado", "subtitle": "Support de Présentation Complet — Des Fondations HTTP & REST au Portail de Production", "institution": "Institut Supérieur de Gestion et de Planification (ISGP)", "framework": "tornado", "edition": "Volume III — Python Tornado (Event-Loop IOLoop & RequestHandler)", "total_slides": 136}, "parts": [{"part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "first_slide": 1, "last_slide": 6, "count": 6}, {"part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "first_slide": 7, "last_slide": 24, "count": 18}, {"part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "first_slide": 25, "last_slide": 36, "count": 12}, {"part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "first_slide": 37, "last_slide": 56, "count": 20}, {"part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "first_slide": 57, "last_slide": 72, "count": 16}, {"part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "first_slide": 73, "last_slide": 88, "count": 16}, {"part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "first_slide": 89, "last_slide": 108, "count": 20}, {"part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "first_slide": 109, "last_slide": 124, "count": 16}, {"part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "first_slide": 125, "last_slide": 136, "count": 12}], "slides": [{"number": 1, "part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "tag": "Ouverture Bootcamp", "title": "Ingénierie des APIs Web & Sites Dynamiques avec Python Tornado", "subtitle": "Concevoir, structurer et exposer des services web robustes de bout en bout", "definition": "Ce bootcamp forme aux fondamentaux de l'architecture d'APIs REST modernes et de sites web dynamiques propulsés par le serveur asynchrone Python Tornado.", "points": [{"label": "Vision complète", "text": "Comprendre chaque couche : réseau TCP/HTTP, format JSON, routage et persistance."}, {"label": "Pratique immédiate", "text": "Chaque notion est directement appliquée sur un serveur Tornado réel."}, {"label": "Exigence pro", "text": "Adoption des bonnes pratiques de clarté, validation, sécurité et documentation."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Une bonne API n'est pas magique : c'est un protocole clair servi par une architecture maîtrisée."}, {"number": 2, "part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "tag": "Double Compétence", "title": "Double objectif : APIs REST et Sites Web HTML associés", "subtitle": "Servir à la fois les utilisateurs humains et les applications clientes", "definition": "Un serveur web moderne sait exposer des données brutes structurées en JSON pour les programmes tout en générant des pages HTML lisibles dans le navigateur.", "points": [{"label": "Même moteur", "text": "Python Tornado gère nativement les templates HTML et les réponses JSON."}, {"label": "Source unique", "text": "Le portail web et l'API partagent la même logique métier et les mêmes données."}], "comparison": {"left_title": "Volet Site Web (HTML)", "left_items": ["Destiné aux visiteurs humains", "Rendu visuel dans le navigateur", "Templates dynamiques Tornado"], "right_title": "Volet API REST (JSON)", "right_items": ["Destiné aux logiciels et mobiles", "Données structurées normalisées", "Endpoints HTTP réutilisables"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Construire l'API et le site qui la consomme permet de visualiser concrètement toute la chaîne web."}, {"number": 3, "part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "tag": "Pédagogie Active", "title": "Stratégie Zero-to-Hero : Enrichir le même projet étape par étape", "subtitle": "Partir d'un simple Hello World pour bâtir une plateforme complète", "definition": "L'apprentissage progressif consiste à démarrer avec un serveur minimaliste de quelques lignes puis à ajouter une seule brique technique maîtrisée à chaque étape.", "points": [{"label": "Étape 1 — Socle", "text": "Premier serveur HTTP actif, premières routes et réponses JSON en mémoire."}, {"label": "Étape 2 — Métier", "text": "Opérations CRUD complètes, validation stricte des entrées et gestion des erreurs."}, {"label": "Étape 3 — Production", "text": "Base de données relationnelle, sécurité par jeton, tests et déploiement."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "On ne construit jamais un système complexe d'un bloc : on fait évoluer un socle simple qui fonctionne."}, {"number": 4, "part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "tag": "Présentation Tornado", "title": "Qu'est-ce que Python Tornado ? Framework Web & Réseau asynchrone", "subtitle": "Une bibliothèque éprouvée née pour résoudre le défi de haute concurrence C10K", "definition": "Créé chez FriendFeed puis ouvert en open source, Python Tornado est à la fois un framework web léger et un moteur réseau non-bloquant capable de maintenir des milliers de connexions simultanées.", "points": [{"label": "Problème C10K", "text": "Gérer dix mille clients connectés en parallèle sans saturer la mémoire ni les threads."}, {"label": "Autonomie totale", "text": "Inclut son propre serveur HTTP, son routeur, ses templates et son client réseau."}, {"label": "Contrôle explicite", "text": "Pas de magie cachée : chaque en-tête, code HTTP et réponse reste lisible et maîtrisé."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Tornado allie la simplicité explicite de Python à la puissance d'une boucle réseau non-bloquante."}, {"number": 5, "part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "tag": "Projet Fil Rouge", "title": "Architecture cible : Portail Web & API Catalogue Formations ISGP", "subtitle": "Un cas métier concret pour illustrer toutes les facettes de l'ingénierie d'API", "definition": "Tout au long de la formation, nous développons la plateforme numérique du catalogue de formations de l'ISGP combinant interface de consultation et API REST complète.", "points": [{"label": "Entités métier", "text": "Gestion des formations, domaines, durées, tarifs, sessions et inscriptions."}, {"label": "API versionnée", "text": "Routes normalisées sous /api/v1/formations avec filtres, pagination et statuts HTTP."}, {"label": "Portail interactif", "text": "Pages HTML dynamiques interrogeant le catalogue et soumettant des formulaires."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Un domaine métier familier permet de concentrer toute l'attention sur l'architecture technique."}, {"number": 6, "part_id": "P0", "part_title": "Partie 0 — Ouverture & Philosophie du Bootcamp", "tag": "Feuille de Route", "title": "Plan général : Des fondations du Web jusqu'à la mise en production", "subtitle": "Une progression logique en couches sans sauter aucun prérequis fondamental", "definition": "Le programme part du vocabulaire universel des architectures distribuées, consolide Python et HTTP/1.1, puis plonge au coeur de Tornado jusqu'à l'exploitation industrielle.", "points": [{"label": "Parties 1 à 3", "text": "Culture API, structures de données Python, réseau TCP/IP, protocole HTTP et REST."}, {"label": "Parties 4 à 6", "text": "Moteur Tornado, templates web, CRUD complet, validation et base SQLite/SQL."}, {"label": "Parties 7 à 9", "text": "Authentification, sécurité, tests automatisés, observabilité et déploiement."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Des fondations solides sur HTTP et Python rendent l'apprentissage de Tornado naturel et durable."}, {"number": 7, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Définition Clé", "title": "Qu'est-ce qu'une API (Application Programming Interface) ?", "subtitle": "Le connecteur standardisé qui permet à deux logiciels de dialoguer sans se connaître", "definition": "Une API est une façade logicielle clairement définie par laquelle un système expose des données ou des fonctionnalités à d'autres applications selon des règles strictes.", "points": [{"label": "Abstraction", "text": "Le client demande une action sans connaître le code interne ni la base de données."}, {"label": "Standardisation", "text": "Les entrées attendues et les sorties retournées obéissent à un format prévisible."}, {"label": "Réutilisabilité", "text": "Une même API alimente simultanément un site web, une app mobile et un partenaire."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Une API est une prise électrique logicielle : peu importe l'usine derrière, la fiche est standard."}, {"number": 8, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Distinction Majeure", "title": "Site Web (Interface Humaine) vs API Web (Interface Machine)", "subtitle": "Deux façons complémentaires d'exposer un système sur le protocole HTTP", "definition": "Un site web livre de la mise en page visuelle destinée à l'oeil humain, tandis qu'une API Web livre de la donnée pure destinée à être traitée par du code.", "points": [{"label": "Même transport", "text": "Les deux circulent exactement sur le même réseau et le même protocole HTTP/HTTPS."}, {"label": "Sensibilité au changement", "text": "Changer une couleur HTML est indolore, mais renommer un champ JSON casse les clients."}], "comparison": {"left_title": "Site Web Classique", "left_items": ["Consommateur : humain via navigateur", "Format : HTML, CSS et images", "Priorité : ergonomie et lisibilité"], "right_title": "API Web", "right_items": ["Consommateur : script ou application", "Format : JSON structuré léger", "Priorité : stabilité et précision"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Le HTML habille l'information pour l'humain ; le JSON structure l'information pour la machine."}, {"number": 9, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Architecture Logicielle", "title": "Le principe de Découplage (Séparation Front-end / Back-end)", "subtitle": "Isoler la logique métier serveur des interfaces graphiques clientes", "definition": "Le découplage consiste à séparer l'application en deux briques indépendantes : un Back-end qui détient les règles et données, et un Front-end dédié à l'affichage.", "points": [{"label": "Évolution autonome", "text": "On peut refaire tout le design web ou créer une application mobile sans toucher au serveur."}, {"label": "Frontière nette", "text": "L'API HTTP agit comme l'unique point de passage contrôlé entre les deux mondes."}], "comparison": {"left_title": "Front-end (Présentation)", "left_items": ["Interface utilisateur et navigation", "S'exécute sur l'appareil client", "Ne stocke aucun secret serveur"], "right_title": "Back-end Tornado (Métier)", "right_items": ["Règles de gestion et calculs", "Accès sécurisé à la base de données", "Garant de l'intégrité des données"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Découpler le Front-end du Back-end multiplie la longévité et l'adaptabilité du système."}, {"number": 10, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Modèle Fondamental", "title": "Modèle Client-Serveur : Rôles et responsabilités", "subtitle": "Comprendre qui initie l'échange et qui détient l'autorité sur les données", "definition": "Dans une architecture Client-Serveur, le client prend toujours l'initiative de la demande tandis que le serveur écoute en permanence, traite la requête et renvoie son verdict.", "points": [{"label": "Asymétrie", "text": "Un seul serveur Tornado répond simultanément à des centaines de clients variés."}, {"label": "Autorité centrale", "text": "Le client n'est jamais digne de confiance : le serveur revérifie chaque donnée reçue."}], "comparison": {"left_title": "Le Client (Demandeur)", "left_items": ["Navigateur, mobile, curl ou autre serveur", "Initie la connexion réseau", "Formule la requête et affiche le résultat"], "right_title": "Le Serveur (Fournisseur)", "right_items": ["Processus Python Tornado en écoute", "Valide les droits et les entrées", "Exécute le traitement et répond"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Règle d'or back-end : ne jamais faire confiance aveuglément aux données envoyées par un client."}, {"number": 11, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Mécanique d'Échange", "title": "Cycle Requête (Request) / Réponse (Response)", "subtitle": "Le battement de coeur élémentaire de toute communication HTTP", "definition": "Tout appel d'API suit une séquence synchrone côté protocole : le client émet un message de requête complet, le serveur l'analyse et renvoie un message de réponse.", "points": [{"label": "1. Émission", "text": "Le client envoie un verbe d'action, une cible URL, des en-têtes et un corps optionnel."}, {"label": "2. Traitement", "text": "Tornado route l'appel vers le bon gestionnaire, interroge les données et prépare la sortie."}, {"label": "3. Retour", "text": "Le serveur répond avec un code de statut numérique explicite, ses en-têtes et les données."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Chaque interaction API se résume à une question structurée suivie d'une réponse qualifiée."}, {"number": 12, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Vocabulaire REST", "title": "Ressource vs Endpoint (Point de terminaison)", "subtitle": "Ne pas confondre l'objet métier manipulé avec l'adresse technique qui y mène", "definition": "Une ressource représente une entité métier abstraite du système (comme une formation), alors qu'un endpoint est l'adresse précise combinant méthode HTTP et chemin URL pour agir dessus.", "points": [{"label": "Une ressource, plusieurs accès", "text": "La ressource Formation se consulte, se modifie ou se supprime via divers endpoints."}, {"label": "Noms plutôt que verbes", "text": "On nomme la ressource au pluriel (/formations) et le verbe HTTP exprime l'action."}], "comparison": {"left_title": "Ressource (Quoi)", "left_items": ["Concept métier : une Formation", "Identifiée par /api/v1/formations/42", "Représentée en JSON ou en HTML"], "right_title": "Endpoint (Comment y accéder)", "right_items": ["Couple Verbe + Route exacte", "GET /api/v1/formations/42 (lecture)", "DELETE /api/v1/formations/42 (retrait)"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "La ressource est le sujet métier ; l'endpoint est la porte technique précise pour interagir avec elle."}, {"number": 13, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Transport des Données", "title": "Payload (Charge utile) & Sérialisation des données", "subtitle": "Transformer des objets mémoire Python en flux d'octets transmissibles sur le réseau", "definition": "Le payload désigne les données métier utiles transportées dans le corps d'un message HTTP, indépendamment des en-têtes techniques d'acheminement. La sérialisation convertit les objets mémoire en texte standard.", "points": [{"label": "Sérialisation (Sortie)", "text": "Convertir un dictionnaire Python en texte JSON UTF-8 prêt à voyager sur le câble réseau."}, {"label": "Désérialisation (Entrée)", "text": "Analyser le texte JSON reçu d'un client pour reconstruire un dictionnaire Python exploitable."}, {"label": "Interopérabilité", "text": "Un client Java, JavaScript ou Go comprend le même payload JSON sans connaître Python."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Les objets Python ne voyagent pas sur Internet : seul du texte ou du binaire sérialisé traverse le réseau."}, {"number": 14, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Culture Architecturale", "title": "Panorama des styles d'APIs : RPC, SOAP, REST, GraphQL, gRPC", "subtitle": "Cinq grandes approches historiques et modernes pour faire communiquer des systèmes", "definition": "Il n'existe pas une seule manière de concevoir une API : l'industrie a développé plusieurs paradigmes adaptés chacun à des contraintes différentes de lisibilité, de souplesse ou de performance.", "points": [{"label": "RPC & SOAP", "text": "Approches historiques centrées sur l'appel de fonctions distantes et les contrats XML rigides."}, {"label": "REST (Standard Web)", "text": "Style dominant basé sur les ressources, les verbes natifs HTTP et le format léger JSON."}, {"label": "GraphQL & gRPC", "text": "Solutions spécialisées pour le requêtage flexible côté client ou la très haute vitesse interne."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "REST + JSON demeure le socle universel incontournable de toute ingénierie d'API moderne."}, {"number": 15, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Évolution Historique", "title": "SOAP / XML vs REST / JSON", "subtitle": "Pourquoi la légèreté du Web a supplanté les protocoles lourds d'entreprise", "definition": "SOAP impose un protocole d'enveloppe XML verbeux et complexe, tandis que REST exploite directement la sémantique native du protocole HTTP combinée à la concision de JSON.", "points": [{"label": "Poids réseau", "text": "Un message JSON est beaucoup plus compact et rapide à analyser qu'une enveloppe XML."}, {"label": "Présence actuelle", "text": "SOAP subsiste dans d'anciens systèmes bancaires, mais REST domine les nouvelles APIs."}], "comparison": {"left_title": "SOAP / XML", "left_items": ["Protocole strict avec enveloppe XML", "Contrats WSDL lourds à maintenir", "Ignore souvent les verbes HTTP"], "right_title": "REST / JSON", "right_items": ["Style architectural natif du Web", "Léger, lisible par l'humain et JS", "Exploite pleinement verbes et codes HTTP"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "REST a gagné grâce à sa simplicité : il utilise HTTP tel qu'il a été conçu dès l'origine."}, {"number": 16, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Alternatives Ciblées", "title": "GraphQL & gRPC : Cas d'usage spécifiques", "subtitle": "Savoir quand compléter REST par des outils spécialisés sans céder aux effets de mode", "definition": "GraphQL permet au client de choisir exactement les champs voulus en une seule requête, tandis que gRPC utilise le binaire Protocol Buffers sur HTTP/2 pour des échanges ultra-rapides entre serveurs.", "points": [{"label": "GraphQL (Front complexe)", "text": "Évite l'over-fetching sur des écrans mobiles riches agrégeant de multiples entités liées."}, {"label": "gRPC (Microservices)", "text": "Idéal pour la communication interne à très faible latence entre services back-end."}, {"label": "Règle pragmatique", "text": "Commencer par une API REST propre couvre élégamment la majorité des besoins publics et métiers."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Choisissez toujours le style d'API selon la contrainte réelle du projet, jamais par simple tendance."}, {"number": 17, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Scalabilité Serveur", "title": "Architecture Stateless (Sans état) vs Stateful (Avec état)", "subtitle": "Pourquoi une API REST ne garde aucune mémoire cachée d'un appel au suivant", "definition": "Un serveur Stateless traite chaque requête comme totalement indépendante : le client doit fournir dans chaque message tout le contexte nécessaire, notamment son jeton d'authentification.", "points": [{"label": "Montée en charge", "text": "N'importe quelle instance Tornado d'une ferme de serveurs peut répondre à n'importe quel appel."}, {"label": "Résilience", "text": "Redémarrer un processus serveur ne fait perdre aucune session mémoire critique en cours."}], "comparison": {"left_title": "Stateful (Avec état)", "left_items": ["Mémoire client gardée sur un serveur précis", "Difficile à répartir sur plusieurs machines", "Sensible aux redémarrages du processus"], "right_title": "Stateless (Sans état — REST)", "right_items": ["Chaque requête est 100% autonome", "Scalabilité horizontale immédiate", "Comportement prévisible et testable"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "L'absence d'état en mémoire serveur est le secret de la robustesse et de la scalabilité des APIs REST."}, {"number": 18, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Gouvernance d'API", "title": "Qu'est-ce qu'un Contrat d'API (API Contract) ?", "subtitle": "L'engagement formel et stable qui lie l'équipe Back-end à tous ses consommateurs", "definition": "Le contrat d'API décrit avec exactitude les routes disponibles, les paramètres attendus, la structure des objets JSON, les types de champs et tous les codes d'erreur possibles.", "points": [{"label": "Travail en parallèle", "text": "Front-end et Back-end développent simultanément dès que le contrat est validé ensemble."}, {"label": "Stabilité et versions", "text": "Toute modification cassante exige une nouvelle version explicite comme /api/v2/."}, {"label": "Confiance technique", "text": "Un contrat respecté évite les bogues d'intégration découverts à la dernière minute."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Le code interne peut être réécrit à volonté tant que le contrat public de l'API reste intact."}, {"number": 19, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Documentation Standard", "title": "OpenAPI vs Swagger : Spécification ouverte vs Outils interactifs", "subtitle": "Distinguer la norme officielle de description d'API et les logiciels qui l'exploitent", "definition": "OpenAPI est le standard international YAML ou JSON permettant de décrire formellement un contrat d'API, tandis que Swagger regroupe les outils graphiques qui lisent ce fichier.", "points": [{"label": "Fichier unique", "text": "Un document openapi.yaml décrit routes, schémas JSON, paramètres et sécurité."}, {"label": "Portail interactif", "text": "Swagger UI transforme automatiquement ce fichier en page web testable en direct."}], "comparison": {"left_title": "OpenAPI (La Spécification)", "left_items": ["Norme ouverte Linux Foundation", "Format déclaratif YAML ou JSON", "Indépendant du langage serveur"], "right_title": "Swagger (La Boîte à Outils)", "right_items": ["Swagger Editor pour rédiger le contrat", "Swagger UI pour explorer et tester", "Swagger Codegen pour générer des clients"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "On écrit un contrat selon la norme OpenAPI, puis on l'affiche aux développeurs avec Swagger UI."}, {"number": 20, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Topologie Réseau", "title": "Flux réseau Nord-Sud vs Flux Est-Ouest", "subtitle": "Deux directions de trafic aux contraintes de sécurité et de latence bien distinctes", "definition": "Le trafic Nord-Sud désigne les échanges entre l'extérieur (Internet) et votre système, alors que le trafic Est-Ouest désigne les appels internes entre vos propres serveurs.", "points": [{"label": "Exposition publique", "text": "Un flux Nord-Sud traverse Internet et exige chiffrement TLS, filtrage et limitation de débit."}, {"label": "Performance interne", "text": "Un flux Est-Ouest privilégie la faible latence et la résilience entre services internes."}], "comparison": {"left_title": "Flux Nord-Sud (Externe)", "left_items": ["Client mobile ou web vers Tornado", "Traverse le pare-feu et la Gateway", "Forte exposition aux attaques"], "right_title": "Flux Est-Ouest (Interne)", "right_items": ["Service Catalogue vers Service Paiement", "Reste dans le réseau privé datacenter", "Sensible aux pannes en cascade"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Protégez sévèrement l'entrée Nord-Sud sans jamais négliger la sécurité des échanges Est-Ouest."}, {"number": 21, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Infrastructure Web", "title": "API Gateway & Reverse Proxy : Point d'entrée unique", "subtitle": "Placer un gardien frontal devant vos processus Python Tornado", "definition": "Un Reverse Proxy (comme Nginx) ou une API Gateway reçoit tous les appels externes en première ligne, applique les contrôles transverses et relaie les requêtes saines vers Tornado.", "points": [{"label": "Terminaison TLS", "text": "Gère les certificats HTTPS en amont pour décharger le serveur applicatif Python."}, {"label": "Protection & Quotas", "text": "Applique le rate-limiting, bloque les abus et répartit la charge sur plusieurs instances."}, {"label": "Masquage interne", "text": "Les ports internes Tornado (ex. 8889) ne sont jamais exposés directement sur Internet."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "En production, Tornado travaille derrière un Reverse Proxy qui filtre, chiffre et répartit le trafic."}, {"number": 22, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Posture Sécurité", "title": "Sécurité Zero-Trust : Vérifier systématiquement chaque appel", "subtitle": "Ne jamais supposer qu'une requête est légitime sous prétexte qu'elle vient de l'interne", "definition": "Le modèle Zero-Trust remplace la confiance aveugle liée au réseau local par un principe strict : ne jamais faire confiance par défaut, toujours authentifier et autoriser chaque requête.", "points": [{"label": "Moindre privilège", "text": "Un jeton d'accès ne donne droit qu'aux seules routes et actions strictement nécessaires."}, {"label": "Validation systématique", "text": "Identité, permissions et format des données sont contrôlés à chaque appel HTTP."}], "comparison": {"left_title": "Modèle Château-Fort (Ancien)", "left_items": ["Pare-feu dur à la frontière externe", "Confiance totale une fois à l'intérieur", "Intrusion interne dévastatrice"], "right_title": "Modèle Zero-Trust (Moderne)", "right_items": ["Aucune zone réseau réputée sûre", "Preuve d'identité sur chaque requête", "Cloisonnement strict des impacts"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Chaque endpoint Tornado doit vérifier qui appelle et s'il a le droit d'agir, sans exception."}, {"number": 23, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Identité & Accès", "title": "OAuth 2.0 & OpenID Connect (OIDC) : Délégation d'accès", "subtitle": "Autoriser une application tierce via des jetons temporaires sans livrer son mot de passe", "definition": "OAuth 2.0 est le cadre standard d'autorisation par jeton (Access Token), complété par la surcouche OpenID Connect (OIDC) qui vérifie l'identité de l'utilisateur.", "points": [{"label": "OAuth 2.0 (Autorisation)", "text": "Délivre un Bearer Token à durée limitée précisant les permissions accordées (scopes)."}, {"label": "OIDC (Authentification)", "text": "Ajoute un ID Token signé (souvent JWT) prouvant qui est l'utilisateur connecté."}, {"label": "Sécurité accrue", "text": "L'API Tornado vérifie la validité du jeton sans jamais manipuler le mot de passe maître."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "OAuth 2.0 répond à la question « Que peut-il faire ? » ; OIDC répond à « Qui est-il ? »."}, {"number": 24, "part_id": "P1", "part_title": "Partie 1 — Culture Générale & Jargon des APIs", "tag": "Qualité de Service", "title": "Engagements de fiabilité : SLA, SLO, SLI et Latence (p95 / p99)", "subtitle": "Mesurer objectivement la disponibilité et la vitesse réelle d'une API en production", "definition": "La fiabilité d'une API se pilote par des mesures réelles (SLI), des objectifs internes (SLO) et des engagements contractuels (SLA), en surveillant les centiles de latence plutôt que la moyenne.", "points": [{"label": "SLI -> SLO -> SLA", "text": "Indicateur mesuré (ex. 99,95% dispo), objectif visé (99,9%) et contrat client (99,5%)."}, {"label": "Piège de la moyenne", "text": "Une moyenne de 80 ms peut cacher des clients bloqués pendant 4 secondes."}, {"label": "Latence p95 et p99", "text": "Un p95 à 120 ms garantit que 95% des requêtes répondent en moins de 120 millisecondes."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Jugez toujours la rapidité de votre API sur ses centiles p95 et p99, jamais sur une simple moyenne."}, {"number": 25, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Socle Python", "title": "Variables Python & Stockage en mémoire vive (RAM)", "subtitle": "Comprendre la volatilité des données manipulées dans un processus serveur", "definition": "En Python, une variable est une étiquette pointant vers un objet logé dans la mémoire vive (RAM) du processus Tornado : son accès est ultra-rapide mais disparaît à l'arrêt du serveur.", "points": [{"label": "Typage dynamique", "text": "Le type appartient à la valeur en mémoire, pas au nom de la variable qui la référence."}, {"label": "Volatilité RAM", "text": "Redémarrer le script Python efface instantanément toutes les variables non sauvegardées."}, {"label": "Usage en API", "text": "Idéal pour manipuler une requête en cours ou prototyper avant d'introduire une base SQL."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "La RAM sert au calcul rapide instantané ; seule une base de données assure la survie des données."}, {"number": 26, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Correspondance Types", "title": "Types primitifs Python et équivalents JSON", "subtitle": "La traduction naturelle entre les valeurs internes Python et le format d'échange Web", "definition": "Les cinq types atomiques de Python possèdent une traduction directe et sans perte vers les types standards de la norme JSON lors de l'envoi d'une réponse API.", "points": [{"label": "Texte et Nombres", "text": "Les chaînes str (UTF-8), entiers int et décimaux float passent directement en JSON."}, {"label": "Attention à la casse", "text": "True, False et None prennent une majuscule en Python mais s'écrivent en minuscule en JSON."}], "comparison": {"left_title": "Côté Code Python", "left_items": ["str : \"Management\", int : 3, float : 450.0", "Booléens : True / False", "Absence de valeur : None"], "right_title": "Côté Réponse JSON", "right_items": ["string : \"Management\", number : 3 ou 450.0", "boolean : true / false", "Valeur nulle : null"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Maîtriser le pont exact Python <-> JSON évite les erreurs de typage lors de la sérialisation."}, {"number": 27, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Collections Python", "title": "Les Listes Python [ ] : Collections ordonnées d'éléments", "subtitle": "Représenter une série d'entités comme un catalogue ou des résultats de recherche", "definition": "Une liste Python est une collection ordonnée et modifiable délimitée par des crochets [ ], traduite automatiquement en tableau JSON (Array) dans les réponses d'API.", "points": [{"label": "Indexation dès 0", "text": "Le premier élément se lit à l'indice [0] et le dernier avec l'indice négatif [-1]."}, {"label": "Opérations courantes", "text": "Ajout via .append(), taille via len() et découpage de page par slicing [debut:fin]."}], "comparison": null, "code_label": "Manipulation d'une liste Python", "code_lang": "python", "code": "domaines = [\"Management\", \"Finance\", \"Data\"]\ndomaines.append(\"RH\")\ntotal = len(domaines)        # 4\npremiers = domaines[0:2]     # [\"Management\", \"Finance\"]", "takeaway": "Dès qu'un endpoint retourne zéro, un ou plusieurs éléments, utilisez systématiquement une liste."}, {"number": 28, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Structure Reine", "title": "Les Dictionnaires Python { } : Paires clé-valeur au coeur des APIs", "subtitle": "La structure fondamentale qui modélise chaque ressource JSON dans Tornado", "definition": "Un dictionnaire Python associe des clés uniques (chaînes de caractères) à des valeurs quelconques entre accolades { } : c'est le miroir exact d'un objet JSON.", "points": [{"label": "Accès instantané", "text": "La recherche d'une valeur par sa clé est immédiate quelle que soit la taille du dictionnaire."}, {"label": "Sérialisation native", "text": "Passer un dict à self.write() dans Tornado génère directement une réponse JSON valide."}], "comparison": null, "code_label": "Représenter une formation en dictionnaire", "code_lang": "python", "code": "formation = {\n    \"id\": 101,\n    \"intitule\": \"Architecture des APIs REST\",\n    \"duree_jours\": 5,\n    \"actif\": True,\n}", "takeaway": "En Python Tornado, penser en dictionnaires revient directement à concevoir vos réponses JSON."}, {"number": 29, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Code Défensif", "title": "Lecture sécurisée : d[\"cle\"] vs d.get(\"cle\", defaut)", "subtitle": "Éviter qu'un champ optionnel absent ne provoque un crash KeyError sur le serveur", "definition": "Accéder à une clé absente avec les crochets d[\"cle\"] lève immédiatement une exception KeyError, tandis que la méthode d.get() retourne proprement None ou une valeur de repli.", "points": [{"label": "Crochets stricts", "text": "Réservés aux clés internes dont l'existence est déjà garantie à 100% par votre code."}, {"label": "Méthode .get()", "text": "Indispensable pour lire les payloads JSON envoyés par des clients externes imprévisibles."}], "comparison": null, "code_label": "Accès risqué vs lecture défensive", "code_lang": "python", "code": "payload = {\"intitule\": \"Audit Financier\"}\n# payload[\"domaine\"]  -> Lève KeyError et interrompt le traitement !\ndomaine = payload.get(\"domaine\", \"Général\")\nduree = payload.get(\"duree_jours\", 3)", "takeaway": "Sur toute donnée issue d'une requête cliente, privilégiez toujours .get() avec une valeur par défaut."}, {"number": 30, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Modélisation Métier", "title": "Structures imbriquées : Liste de dictionnaires (Catalogue)", "subtitle": "Assembler listes et dictionnaires pour représenter des collections riches", "definition": "Dans une API réelle, les structures se combinent librement : un catalogue est une liste contenant plusieurs dictionnaires, chacun pouvant lui-même inclure des sous-listes.", "points": [{"label": "Modèle tabulaire", "text": "Une liste de dictionnaires correspond exactement aux lignes d'une future table SQL."}, {"label": "Parcours simple", "text": "Une boucle for ou une compréhension de liste permet de filtrer le catalogue en une ligne."}], "comparison": null, "code_label": "Catalogue de formations en mémoire", "code_lang": "python", "code": "CATALOGUE = [\n    {\"id\": 1, \"code\": \"MGT-10\", \"domaine\": \"Management\", \"jours\": 3},\n    {\"id\": 2, \"code\": \"DAT-20\", \"domaine\": \"Data\", \"jours\": 5},\n]\ndata_only = [f for f in CATALOGUE if f[\"domaine\"] == \"Data\"]", "takeaway": "Une liste de dictionnaires constitue la structure universelle des réponses de collections REST."}, {"number": 31, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Modularité Python", "title": "Fonctions Python (def, return) : Isoler la logique métier", "subtitle": "Ne pas mélanger les calculs métier avec le code réseau HTTP des contrôleurs", "definition": "Une fonction définie avec def encapsule un traitement réutilisable qui reçoit des paramètres en entrée et renvoie un résultat précis via l'instruction return.", "points": [{"label": "Lisibilité", "text": "Les gestionnaires HTTP restent courts et délèguent les calculs à des fonctions claires."}, {"label": "Testabilité", "text": "Une fonction pure se teste instantanément sans même avoir besoin de lancer le serveur."}], "comparison": null, "code_label": "Fonction métier réutilisable", "code_lang": "python", "code": "def trouver_formation(catalogue, formation_id):\n    for item in catalogue:\n        if item[\"id\"] == formation_id:\n            return item\n    return None", "takeaway": "Une bonne fonction fait une seule chose précise, porte un verbe explicite et se teste isolément."}, {"number": 32, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Signatures Propres", "title": "Paramètres par défaut & Arguments nommés", "subtitle": "Rendre les fonctions de filtrage et de pagination souples et auto-documentées", "definition": "Python permet d'attribuer des valeurs par défaut aux paramètres optionnels dans la signature d'une fonction et de les passer par leur nom lors de l'appel.", "points": [{"label": "Valeurs de repli", "text": "Si le client ne précise ni page ni limite, page=1 et limit=10 s'appliquent automatiquement."}, {"label": "Clarté à l'appel", "text": "Écrire paginer(items, page=2, limit=20) élimine toute confusion sur l'ordre des nombres."}, {"label": "Piège classique", "text": "Ne jamais mettre une liste modifiable [] comme défaut ; utiliser None puis initialiser."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Les arguments nommés rendent les appels métier lisibles comme une phrase explicite."}, {"number": 33, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Robustesse Serveur", "title": "Gestion des erreurs avec try / except : Éviter les crashs", "subtitle": "Intercepter proprement les entrées invalides pour répondre un code HTTP maîtrisé", "definition": "Le bloc try / except capture les exceptions prévisibles (JSON malformé, entier invalide) afin que le serveur renvoie une erreur propre au client au lieu d'échouer brutalement.", "points": [{"label": "Cibler l'exception", "text": "Toujours attraper l'erreur précise (ValueError, JSONDecodeError) plutôt qu'un except nu."}, {"label": "Continuité de service", "text": "Une requête fautive d'un client ne doit jamais perturber le serveur ni les autres clients."}], "comparison": null, "code_label": "Conversion sécurisée d'un paramètre", "code_lang": "python", "code": "try:\n    duree = int(payload.get(\"duree_jours\", 0))\nexcept (TypeError, ValueError):\n    self.set_status(400)\n    return self.write({\"erreur\": \"duree_jours doit être un entier\"})", "takeaway": "Interceptez les erreurs de conversion au plus tôt pour traduire l'exception Python en erreur HTTP 400."}, {"number": 34, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Élégance Python", "title": "Les Décorateurs Python (@) : Enrichir une méthode", "subtitle": "Factoriser les contrôles transverses comme l'authentification ou la journalisation", "definition": "Un décorateur placé avec le symbole @ au-dessus d'une fonction ou d'une méthode l'enveloppe automatiquement pour exécuter une vérification avant ou après son appel.", "points": [{"label": "Zéro duplication", "text": "Évite de recopier le code de vérification du jeton d'accès dans vingt endpoints différents."}, {"label": "Usage dans Tornado", "text": "Très utilisé pour protéger les routes sensibles (ex. @require_api_key) avec élégance."}], "comparison": null, "code_label": "Protéger une méthode de RequestHandler", "code_lang": "python", "code": "class FormationAdminHandler(tornado.web.RequestHandler):\n    @verifier_jeton_admin\n    def delete(self, formation_id):\n        supprimer_formation(int(formation_id))\n        self.set_status(204)", "takeaway": "Un décorateur sépare proprement les exigences de sécurité du coeur de la logique métier."}, {"number": 35, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Programmation Objet", "title": "Classes & Héritage : Le modèle RequestHandler de Tornado", "subtitle": "Comment Tornado organise chaque route autour d'une classe spécialisée", "definition": "En Tornado, chaque contrôleur est une classe Python héritant de tornado.web.RequestHandler dont les méthodes nommées get, post, put ou delete répondent aux verbes HTTP.", "points": [{"label": "Héritage utile", "text": "Votre classe récupère immédiatement self.write(), self.render() et self.set_status()."}, {"label": "Classe de base projet", "text": "Créer un BaseHandler intermédiaire permet de partager les réponses d'erreurs communes."}], "comparison": null, "code_label": "Héritage de RequestHandler dans Tornado", "code_lang": "python", "code": "import tornado.web\n\nclass SanteHandler(tornado.web.RequestHandler):\n    def get(self):\n        self.write({\"statut\": \"operationnel\", \"service\": \"ISGP\"})", "takeaway": "Une classe RequestHandler regroupe naturellement toutes les actions HTTP permises sur une même route."}, {"number": 36, "part_id": "P2", "part_title": "Partie 2 — Fondations Python pour les APIs", "tag": "Concurrence Moderne", "title": "Programmation Asynchrone (async def / await)", "subtitle": "Libérer le coeur du serveur pendant les attentes réseau ou disque", "definition": "Déclarer une méthode avec async def et utiliser await devant une opération lente permet à Tornado de traiter d'autres clients pendant l'attente de la réponse externe.", "points": [{"label": "Attente coopérative", "text": "Durant un await, le processus ne dort pas : il bascule instantanément sur une autre requête."}, {"label": "Règle cruciale", "text": "Ne jamais appeler time.sleep() ou une requête bloquante lente dans une méthode async."}], "comparison": null, "code_label": "Méthode asynchrone non-bloquante Tornado", "code_lang": "python", "code": "import asyncio\n\nclass RapportAsyncHandler(tornado.web.RequestHandler):\n    async def get(self):\n        await asyncio.sleep(0.05)  # Simule un appel E/S non-bloquant\n        self.write({\"rapport\": \"pret\"})", "takeaway": "Avec async et await, un seul processus Tornado absorbe une forte charge sans bloquer ses clients."}, {"number": 37, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Fondations Réseau", "title": "La pile réseau d'un appel d'API : DNS, IP, TCP et TLS", "subtitle": "Ce qui se passe réellement sur le réseau avant même le premier octet HTTP", "definition": "Avant d'envoyer une requête HTTP, le client résout le nom de domaine en adresse IP (DNS), ouvre un canal fiable (TCP) et chiffre le tunnel (TLS pour HTTPS).", "points": [{"label": "1. Résolution DNS", "text": "Traduit le nom lisible api.isgp.dz en adresse numérique IP du serveur cible."}, {"label": "2. Poignée de main TCP", "text": "Établit une connexion fiable garantissant l'ordre et l'intégrité des paquets."}, {"label": "3. Chiffrement TLS", "text": "Protège les jetons et le corps JSON contre toute écoute sur le réseau public."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "HTTP voyage toujours à l'intérieur d'une connexion TCP, idéalement chiffrée par TLS (HTTPS)."}, {"number": 38, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Adressage Réseau", "title": "Adresse IP (127.0.0.1 vs 0.0.0.0) et Port TCP (80, 443, 8889)", "subtitle": "Identifier la machine hôte par son IP et le processus Tornado précis par son port", "definition": "L'adresse IP désigne l'interface réseau de la machine, tandis que le numéro de port TCP (de 1 à 65535) dirige le trafic vers le bon programme serveur en écoute.", "points": [{"label": "Ports standards Web", "text": "Port 80 pour HTTP en clair, port 443 pour HTTPS et port 8889 en développement Tornado."}, {"label": "Conflit Address in use", "text": "Un seul processus peut occuper un port donné sur une même interface à un instant T."}], "comparison": {"left_title": "Boucle Locale 127.0.0.1", "left_items": ["Accessible uniquement depuis votre PC", "Idéal pendant le développement local", "Invisible pour les machines voisines"], "right_title": "Toutes Interfaces 0.0.0.0", "right_items": ["Écoute sur toutes les cartes réseau", "Requis en conteneur Docker ou serveur", "Accessible aux clients autorisés du réseau"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "L'adresse IP est l'adresse de l'immeuble ; le port TCP est le numéro exact du guichet Tornado."}, {"number": 39, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Norme RFC 3986", "title": "Anatomie d'une URI / URL (RFC 3986)", "subtitle": "Lire et découper méthodiquement chaque segment d'une adresse Web", "definition": "Une URL (Uniform Resource Locator) localise une ressource sur le Web en combinant le protocole, l'hôte, le port, le chemin hiérarchique et d'éventuels filtres.", "points": [{"label": "Schéma & Autorité", "text": "Indiquent le protocole utilisé (http ou https), le domaine serveur et le port."}, {"label": "Chemin & Requête", "text": "Le chemin (/api/v1/...) cible la ressource et la chaîne après ? affine le filtrage."}], "comparison": null, "code_label": "Décomposition d'une URL complète", "code_lang": "http", "code": "https://catalogue.isgp.dz:8889/api/v1/formations?domaine=Data&page=1\n|---|   |--------------------||----------------||------------------|\nSchéma   Hôte + Port (Autorité)  Chemin (Path)    Query String", "takeaway": "Une URL bien dessinée se lit de gauche à droite, du général vers le particulier."}, {"number": 40, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Conception d'URL", "title": "Path Parameters (/formations/42) vs Query Parameters (?domaine=Data)", "subtitle": "Savoir quand intégrer une valeur dans le chemin ou après le point d'interrogation", "definition": "Un paramètre de chemin (Path Parameter) identifie de façon obligatoire une ressource unique, alors qu'un paramètre de requête (Query Parameter) filtre ou trie une collection.", "points": [{"label": "Règle d'absence", "text": "Un Query Parameter est optionnel : l'omettre doit toujours laisser la route fonctionnelle."}, {"label": "Hiérarchie claire", "text": "Le Path exprime l'identité (/formations/42), la Query exprime l'option (?tri=prix)."}], "comparison": {"left_title": "Path Parameter (/formations/42)", "left_items": ["Identifie une ressource précise", "Obligatoire dans le motif de route", "Retourne 404 si l'identifiant n'existe pas"], "right_title": "Query Parameter (?domaine=Data)", "right_items": ["Filtre, recherche, tri ou pagination", "Optionnel avec valeur par défaut", "Retourne [] (200 OK) si aucun résultat"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Identifiez avec le chemin (/id) ; filtrez, triez et paginez avec la Query String (?cle=valeur)."}, {"number": 41, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Protocole HTTP/1.1", "title": "Anatomie d'une Trame de Requête HTTP/1.1 brute", "subtitle": "Démystifier le message texte exact qu'un client envoie sur le socket TCP", "definition": "Une requête HTTP/1.1 est un message texte structuré en trois zones : une ligne de requête initiale, des lignes d'en-têtes, puis une ligne vide suivie du corps optionnel.", "points": [{"label": "Ligne de départ", "text": "Réunit le verbe HTTP, le chemin relatif demandé et la version du protocole (HTTP/1.1)."}, {"label": "Séparateur strict", "text": "Une ligne totalement vide sépare obligatoirement la fin des en-têtes et le début du JSON."}], "comparison": null, "code_label": "Trame brute envoyée au serveur Tornado", "code_lang": "http", "code": "POST /api/v1/formations HTTP/1.1\nHost: localhost:8889\nContent-Type: application/json\nAccept: application/json\n\n{\"intitule\": \"Pilotage Stratégique\", \"duree_jours\": 4}", "takeaway": "HTTP/1.1 est un protocole texte lisible : savoir lire une trame brute facilite tout débogage."}, {"number": 42, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Protocole HTTP/1.1", "title": "Anatomie d'une Trame de Réponse HTTP/1.1 brute", "subtitle": "Ce que Python Tornado fabrique et renvoie sur le réseau à la fin du traitement", "definition": "La réponse HTTP reprend exactement la même structure tripartite : une ligne de statut avec son code numérique, des en-têtes descriptifs, une ligne vide puis le payload.", "points": [{"label": "Ligne de statut", "text": "Annonce la version HTTP, le code à trois chiffres (ex. 201) et son libellé standard."}, {"label": "Métadonnées serveur", "text": "Précise le type MIME (application/json) et la longueur exacte en octets (Content-Length)."}], "comparison": null, "code_label": "Trame brute retournée par Tornado", "code_lang": "http", "code": "HTTP/1.1 201 Created\nContent-Type: application/json; charset=UTF-8\nLocation: /api/v1/formations/105\nContent-Length: 58\n\n{\"id\": 105, \"intitule\": \"Pilotage Stratégique\", \"actif\": true}", "takeaway": "Le client lit d'abord le code de statut sur la première ligne avant même d'analyser le corps."}, {"number": 43, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Sémantique HTTP", "title": "Les Méthodes (Verbes) HTTP : GET, POST, PUT, PATCH, DELETE", "subtitle": "Exprimer clairement l'intention métier sans polluer l'URL avec des verbes", "definition": "En REST, une même URL comme /api/v1/formations supporte plusieurs opérations distinctes grâce aux verbes standards du protocole HTTP.", "points": [{"label": "GET & POST", "text": "GET lit sans jamais modifier les données ; POST crée une nouvelle ressource ou lance un acte."}, {"label": "PUT vs PATCH", "text": "PUT remplace intégralement la ressource cible ; PATCH modifie uniquement quelques champs."}, {"label": "DELETE", "text": "Supprime la ressource identifiée dans l'URL (ex. DELETE /api/v1/formations/105)."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Interdiction d'écrire /creerFormation : écrivez POST /api/v1/formations."}, {"number": 44, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Fiabilité Réseau", "title": "Sûreté (Safe) et Idempotence des méthodes HTTP", "subtitle": "Comprendre quelles requêtes peuvent être rejouées sans danger en cas de coupure réseau", "definition": "Une méthode est sûre (Safe) si elle ne modifie aucun état serveur ; elle est idempotente si l'exécuter une ou dix fois de suite produit exactement le même état final.", "points": [{"label": "Rejeu automatique", "text": "Un client ou proxy peut relancer automatiquement un GET, PUT ou DELETE coupé en route."}, {"label": "Danger sur POST", "text": "Rejouer aveuglément un POST risque de créer des doublons de formations ou de paiements."}], "comparison": {"left_title": "Idempotentes (Rejouables)", "left_items": ["GET : lecture pure (Safe + Idempotent)", "PUT : remplacement par un état fixe", "DELETE : supprimer 2 fois laisse supprimé"], "right_title": "Non Idempotente (Attention)", "right_items": ["POST : crée une nouvelle entrée à chaque tir", "Nécessite vigilance en cas de timeout", "PATCH peut aussi dépendre du contexte"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Respecter la sûreté de GET et l'idempotence de PUT/DELETE rend l'API tolérante aux pannes réseau."}, {"number": 45, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Métadonnées HTTP", "title": "Les En-têtes HTTP (Headers) : Métadonnées de pilotage", "subtitle": "Transporter la sécurité, le format et le cache hors du corps métier JSON", "definition": "Les en-têtes HTTP sont des paires Nom: Valeur insensibles à la casse qui encadrent l'échange technique sans mélanger ces informations aux données métier du payload.", "points": [{"label": "Sécurité", "text": "Authorization: Bearer <jeton> transmet la preuve d'identité sur chaque appel protégé."}, {"label": "Format & Taille", "text": "Content-Type et Content-Length guident le décodage exact des octets reçus."}, {"label": "Traçabilité", "text": "X-Request-ID attache un identifiant unique pour suivre un appel dans tous les journaux."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Les données métier vont dans le corps JSON ; le contexte technique et l'identité vont dans les Headers."}, {"number": 46, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Types MIME", "title": "Content-Type vs Accept : Négociation de format", "subtitle": "Distinguer le format de ce que l'on envoie du format que l'on souhaite recevoir", "definition": "Content-Type décrit le type MIME réel du corps présent dans le message courant, tandis qu'Accept indique au serveur quel format le client souhaite obtenir en retour.", "points": [{"label": "Types MIME clés", "text": "application/json (API), text/html (page Web) et application/x-www-form-urlencoded (formulaire)."}, {"label": "Refus propre", "text": "Si le format envoyé est refusé, l'API peut répondre 415 Unsupported Media Type."}], "comparison": null, "code_label": "En-têtes de négociation dans un appel POST", "code_lang": "http", "code": "POST /api/v1/formations HTTP/1.1\nContent-Type: application/json; charset=utf-8\nAccept: application/json", "takeaway": "Content-Type dit « Voici ce que je t'envoie » ; Accept dit « Voici comment réponds-moi »."}, {"number": 47, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Diagnostic Rapide", "title": "Les 5 familles de Codes de Statut HTTP (1xx à 5xx)", "subtitle": "Un langage numérique universel compris par tous les outils du Web", "definition": "Le premier chiffre du code HTTP à trois chiffres suffit à catégoriser immédiatement l'issue du traitement et à désigner le responsable en cas d'échec.", "points": [{"label": "1xx & 2xx", "text": "1xx : information intermédiaire ; 2xx : succès complet de la demande cliente."}, {"label": "3xx (Redirection)", "text": "Indique au client ou au navigateur de poursuivre vers une autre adresse URL."}, {"label": "4xx vs 5xx", "text": "4xx : erreur imputable à la requête du client ; 5xx : défaillance interne côté serveur."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Ne renvoyez jamais 200 OK quand une opération échoue : utilisez le vrai code HTTP correspondant."}, {"number": 48, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Codes de Succès", "title": "Codes 2xx de Succès : 200, 201, 202, 204", "subtitle": "Nuancer précisément la nature d'une opération réussie", "definition": "Tous les succès ne se ressemblent pas : choisir le bon code 2xx informe immédiatement le client sur la présence ou non d'un corps et sur la création d'une ressource.", "points": [{"label": "200 OK", "text": "Succès standard pour une lecture GET ou une mise à jour renvoyant l'objet modifié."}, {"label": "201 Created", "text": "Création réussie après un POST, idéalement accompagnée de l'en-tête Location."}, {"label": "202 & 204", "text": "202 Accepted (tâche asynchrone lancée) ; 204 No Content (succès DELETE sans corps)."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "GET réussi -> 200 OK ; POST créateur -> 201 Created ; DELETE sans retour -> 204 No Content."}, {"number": 49, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Erreurs Clientes", "title": "Codes 4xx d'Erreur Client : 400, 401, 403, 404, 409, 422, 429", "subtitle": "Expliquer clairement au client pourquoi sa requête est rejetée", "definition": "Un code 4xx signifie que le serveur fonctionne parfaitement mais refuse la demande : le client doit corriger sa syntaxe, son identité ou ses données avant de réessayer.", "points": [{"label": "400, 404, 422", "text": "400 : syntaxe/JSON cassé ; 404 : ressource introuvable ; 422 : règle métier violée."}, {"label": "401 vs 403", "text": "401 Unauthorized : non authentifié (jeton absent/invalide) ; 403 Forbidden : accès interdit."}, {"label": "409 & 429", "text": "409 Conflict : doublon d'identifiant unique ; 429 Too Many Requests : quota dépassé."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Accompagnez toujours un code 4xx d'un message JSON précis indiquant quel champ corriger."}, {"number": 50, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Pannes Serveur", "title": "Codes 5xx d'Erreur Serveur : 500, 502, 503, 504", "subtitle": "Reconnaître une anomalie technique côté back-end ou infrastructure", "definition": "Un code 5xx signale que la requête du client était valide mais que le serveur ou un composant intermédiaire a rencontré une défaillance empêchant le traitement.", "points": [{"label": "500 Internal Error", "text": "Exception Python non gérée dans un RequestHandler : bogue serveur à corriger en priorité."}, {"label": "502 & 504 (Proxy)", "text": "502 Bad Gateway : Tornado arrêté derrière Nginx ; 504 Gateway Timeout : réponse trop lente."}, {"label": "503 Unavailable", "text": "Serveur temporairement en maintenance ou base de données saturée."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "En cas d'erreur 500, journalisez la trace complète côté serveur mais ne l'exposez jamais au public."}, {"number": 51, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Norme RFC 8259", "title": "Le format JSON (RFC 8259) : Syntaxe et règles strictes", "subtitle": "Éviter les erreurs de syntaxe classiques qui bloquent les parseurs clients", "definition": "JSON (JavaScript Object Notation) est un format texte léger indépendant de tout langage, soumis à des règles grammaticales volontairement rigides pour garantir sa fiabilité.", "points": [{"label": "Guillemets doubles", "text": "Les clés et chaînes utilisent obligatoirement des guillemets doubles \" \", jamais simples."}, {"label": "Zéro virgule finale", "text": "Aucune virgule traînante après le dernier élément ni aucun commentaire ne sont tolérés."}], "comparison": null, "code_label": "Objet JSON strictement conforme RFC 8259", "code_lang": "json", "code": "{\n  \"code\": \"FIN-204\",\n  \"intitule\": \"Contrôle de Gestion\",\n  \"duree_jours\": 4,\n  \"certifiante\": true,\n  \"prerequis\": null\n}", "takeaway": "Un seul guillemet simple ou une virgule en trop rend tout le document JSON invalide (erreur 400)."}, {"number": 52, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Module Standard", "title": "Conversion Python <-> JSON : json.dumps() et json.loads()", "subtitle": "Le module natif Python utilisé pour lire et produire du texte JSON", "definition": "La bibliothèque standard json fournit deux fonctions miroirs : json.loads() lit une chaîne JSON entrante vers un dict Python, et json.dumps() produit une chaîne JSON sortante.", "points": [{"label": "Le « s » signifie string", "text": "loads = load string (désérialiser self.request.body) ; dumps = dump string (sérialiser)."}, {"label": "Accents préservés", "text": "L'option ensure_ascii=False conserve les caractères français lisibles en UTF-8."}], "comparison": null, "code_label": "Décoder et encoder du JSON en Python", "code_lang": "python", "code": "import json\n\ndata = json.loads('{\"code\": \"RH-10\", \"jours\": 2}')\ntexte = json.dumps(data, ensure_ascii=False)\n# data[\"code\"] == \"RH-10\"", "takeaway": "En réception POST/PUT dans Tornado, on décode toujours le corps avec json.loads(self.request.body)."}, {"number": 53, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Qualité REST", "title": "Le Modèle de Maturité de Richardson (Niveaux 0 à 3)", "subtitle": "Évaluer à quel point une API exploite réellement l'architecture REST", "definition": "Proposé par Leonard Richardson, ce modèle classe les APIs Web en quatre paliers progressifs, du simple tunnel HTTP jusqu'au REST complet guidé par hypermédia.", "points": [{"label": "Niveaux 0 & 1", "text": "Niveau 0 : une seule URL fourre-tout ; Niveau 1 : URLs dédiées par ressource (/formations)."}, {"label": "Niveau 2 (Cible pro)", "text": "Combinaison propre des URLs ressources, des verbes HTTP exacts et des vrais codes de statut."}, {"label": "Niveau 3 (HATEOAS)", "text": "Les réponses incluent aussi des liens de navigation dynamiques vers les actions suivantes."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Atteindre rigoureusement le Niveau 2 de Richardson est le standard attendu en entreprise."}, {"number": 54, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Diagnostic Terminal", "title": "Tester une API en terminal avec curl (-i, -X, -H, -d)", "subtitle": "L'outil universel présent sur tout serveur Linux pour vérifier un endpoint", "definition": "La commande curl permet d'émettre n'importe quelle requête HTTP directement depuis un terminal sans navigateur, en contrôlant finement méthode, en-têtes et corps JSON.", "points": [{"label": "Options essentielles", "text": "-i affiche les en-têtes de réponse, -X choisit le verbe, -H ajoute un header, -d envoie le corps."}, {"label": "Réflexe serveur", "text": "Indispensable pour diagnostiquer un serveur distant en SSH où aucune interface graphique n'existe."}], "comparison": null, "code_label": "Tester une création POST avec curl", "code_lang": "bash", "code": "curl -i -X POST http://127.0.0.1:8889/api/v1/formations \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"intitule\": \"Leadership\", \"domaine\": \"Management\", \"duree_jours\": 3}'", "takeaway": "Utilisez toujours l'option curl -i pour inspecter simultanément le code HTTP, les headers et le JSON."}, {"number": 55, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Outillage Développeur", "title": "Outils modernes d'inspection : HTTPie, Postman et fichiers .http", "subtitle": "Gagner en confort pour tester, sauvegarder et partager vos scénarios d'appels", "definition": "Au-delà de curl, des clients dédiés colorisent les réponses JSON, organisent des collections de tests reproductibles et versionnent les exemples d'appels avec le code source.", "points": [{"label": "HTTPie (Terminal)", "text": "Syntaxe concise (http GET :8889/api/v1/formations) avec coloration automatique du JSON."}, {"label": "Clients Graphiques", "text": "Postman, Insomnia ou Bruno gèrent les environnements (local, recette, production) et jetons."}, {"label": "Fichiers .http", "text": "Stockés directement dans le dépôt du projet pour rejouer chaque route en un clic dans l'IDE."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Conservez une collection d'appels de référence dans le projet pour vérifier chaque endpoint en un instant."}, {"number": 56, "part_id": "P3", "part_title": "Partie 3 — Réseau, Protocole HTTP/1.1, REST & JSON", "tag": "Synthèse REST", "title": "Synthèse : Les 6 principes d'une architecture REST propre", "subtitle": "Les règles architecturales formulées par Roy Fielding dans sa thèse fondatrice", "definition": "Une API est véritablement RESTful lorsqu'elle respecte six contraintes complémentaires assurant son découplage, sa performance et sa capacité à passer à l'échelle.", "points": [{"label": "1-2. Client-Serveur & Stateless", "text": "Séparation stricte des responsabilités et absence totale de session client en mémoire."}, {"label": "3-4. Cache & Interface uniforme", "text": "Réponses marquées comme cachables ou non, URLs ressources claires et verbes standards."}, {"label": "5-6. Couches & Code à la demande", "text": "Compatibilité transparente avec les proxys/gateways (et envoi optionnel de scripts)."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Une interface uniforme, sans état et fidèle à HTTP reste lisible dix ans après sa création."}, {"number": 57, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Tornado Core", "title": "Comment fonctionne Tornado ? La boucle non-bloquante IOLoop", "subtitle": "Comprendre pourquoi un unique fil d'exécution peut servir des milliers de clients", "definition": "L'IOLoop de Tornado repose sur une boucle d'événements (Event Loop) qui surveille toutes les connexions ouvertes et traite chaque socket uniquement quand des octets sont prêts.", "points": [{"label": "Zéro attente passive", "text": "Au lieu d'immobiliser un thread par client lent, la boucle passe immédiatement au client suivant."}, {"label": "Intégration asyncio", "text": "Depuis Tornado 6, IOLoop s'appuie nativement sur la boucle standard asyncio de Python."}], "comparison": {"left_title": "Serveur Synchrone Classique", "left_items": ["1 requête = 1 thread dédié bloqué", "Mémoire lourde à grande échelle", "Sature vite si l'E/S externe ralentit"], "right_title": "Boucle IOLoop Tornado", "right_items": ["1 boucle événementielle légère", "Bascule coopérative avec await", "Milliers de connexions simultanées"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Règle cardinale Tornado : ne bloquez jamais l'IOLoop par un calcul lourd ou un appel synchrone lent."}, {"number": 58, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Architecture Tornado", "title": "Les 3 briques de Tornado : RequestHandler, Application, IOLoop", "subtitle": "La trilogie minimale qui compose tout serveur Web ou API Tornado", "definition": "Tout projet Tornado s'articule autour de trois objets complémentaires : les contrôleurs métiers, le registre central des routes et le moteur d'écoute réseau.", "points": [{"label": "1. RequestHandler", "text": "Classe traitant une route précise via ses méthodes get(), post(), put(), patch() ou delete()."}, {"label": "2. Application", "text": "Objet central qui relie chaque expression d'URL à son Handler et porte la configuration."}, {"label": "3. Serveur & Boucle", "text": "app.listen(port) ouvre le socket TCP et la boucle asyncio maintient le serveur en éveil."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "RequestHandler traite l'appel, Application aiguille l'URL, et la boucle événementielle anime le réseau."}, {"number": 59, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Premier Serveur", "title": "Serveur minimal Hello World avec Tornado", "subtitle": "Huit lignes explicites suffisent pour démarrer un serveur HTTP/1.1 complet", "definition": "Sans fichier caché ni configuration opaque, un script Python autonome déclare un RequestHandler, l'attache à la racine \"/\" et écoute sur un port local.", "points": [{"label": "Démarrage propre", "text": "La fonction asynchrone main() ouvre le port 8889 puis attend indéfiniment les requêtes."}, {"label": "Vérification immédiate", "text": "Accessible aussitôt dans le navigateur ou via curl -i http://127.0.0.1:8889/."}], "comparison": null, "code_label": "Serveur Tornado minimal (app.py)", "code_lang": "python", "code": "import asyncio, tornado.web\nclass AccueilHandler(tornado.web.RequestHandler):\n    def get(self):\n        self.write(\"Bonjour depuis Python Tornado !\")\nasync def main():\n    app = tornado.web.Application([(r\"/\", AccueilHandler)])\n    app.listen(8889)\n    await asyncio.Event().wait()", "takeaway": "Avec Tornado, vous voyez exactement où le port s'ouvre et quelle classe répond à quelle URL."}, {"number": 60, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Réponse API JSON", "title": "Générer du JSON automatiquement avec self.write(dict)", "subtitle": "Le raccourci natif de Tornado pour sérialiser proprement vos ressources", "definition": "Lorsqu'on passe un dictionnaire Python à self.write(), Tornado le convertit automatiquement en chaîne JSON UTF-8 et positionne l'en-tête Content-Type: application/json.", "points": [{"label": "Sécurité des listes", "text": "Par sécurité historique, Tornado refuse self.write(liste) directe : enveloppez toujours dans un dict."}, {"label": "Enveloppe propre", "text": "Retourner {\"count\": len(items), \"data\": items} est plus clair et évolutif qu'un tableau nu."}], "comparison": null, "code_label": "Retourner une ressource JSON avec Tornado", "code_lang": "python", "code": "class CatalogueApiHandler(tornado.web.RequestHandler):\n    def get(self):\n        self.set_status(200)\n        self.write({\"service\": \"ISGP\", \"total\": 2, \"data\": CATALOGUE})", "takeaway": "Enveloppez toujours vos listes dans un dictionnaire avant d'appeler self.write()."}, {"number": 61, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Rendu Web HTML", "title": "Servir une page Web HTML avec self.render(\"page.html\")", "subtitle": "Générer des pages dynamiques côté serveur à partir du même catalogue métier", "definition": "La méthode self.render() charge un gabarit HTML depuis le dossier configuré template_path, y injecte les variables Python transmises et renvoie du text/html au navigateur.", "points": [{"label": "Configuration simple", "text": "On déclare template_path=\"templates\" et static_path=\"static\" dans Application."}, {"label": "Variables nommées", "text": "Chaque argument nommé passé à self.render() devient directement utilisable dans le HTML."}], "comparison": null, "code_label": "Rendu d'un template HTML dans Tornado", "code_lang": "python", "code": "class PortailWebHandler(tornado.web.RequestHandler):\n    def get(self):\n        self.render(\"catalogue.html\", titre=\"Formations ISGP\", items=CATALOGUE)", "takeaway": "self.write(dict) parle JSON aux machines ; self.render(...) parle HTML aux visiteurs humains."}, {"number": 62, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Architecture Hybride", "title": "Exposer GET / (Site HTML) et GET /api/... (JSON) ensemble", "subtitle": "Unifier le portail visuel et l'API publique au sein d'une seule Application Tornado", "definition": "Une architecture hybride regroupe dans la même table de routage Tornado les pages HTML destinées aux navigateurs et les endpoints JSON normalisés sous le préfixe /api/v1/.", "points": [{"label": "Déploiement unifié", "text": "Un seul processus à lancer, un seul port réseau à ouvrir et zéro souci initial de CORS."}, {"label": "Socle partagé", "text": "Les deux couches appellent exactement les mêmes fonctions d'accès aux données."}], "comparison": {"left_title": "Routes Web (/, /formations)", "left_items": ["Utilisent self.render(\"...\")", "Content-Type: text/html", "Navigation visuelle pour les apprenants"], "right_title": "Routes API (/api/v1/formations)", "right_items": ["Utilisent self.write({...})", "Content-Type: application/json", "Intégration mobile, JS et partenaires"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Séparez nettement les préfixes d'URL : les pages à la racine, les données pures sous /api/v1/."}, {"number": 63, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Interactivité Client", "title": "Relier le Site Web à l'API avec fetch() en JavaScript", "subtitle": "Rafraîchir dynamiquement le catalogue dans le navigateur sans recharger toute la page", "definition": "Depuis une page HTML servie par Tornado, la fonction standard JavaScript fetch() interroge en arrière-plan l'endpoint JSON /api/v1/formations et met à jour l'écran.", "points": [{"label": "Asynchrone côté navigateur", "text": "await fetch(...) récupère la réponse HTTP puis await res.json() décode le dictionnaire."}, {"label": "Expérience fluide", "text": "Un filtre par domaine actualise instantanément la liste des formations affichées."}], "comparison": null, "code_label": "Appel JavaScript vers l'API Tornado", "code_lang": "html", "code": "<script>\nasync function chargerCatalogue(domaine) {\n  const res = await fetch(\"/api/v1/formations?domaine=\" + encodeURIComponent(domaine));\n  const payload = await res.json();\n  console.log(\"Formations reçues :\", payload.data);\n}\n<\/script>", "takeaway": "Avec fetch(), votre propre page Web devient le tout premier client concret de votre API REST."}, {"number": 64, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Routage Tornado", "title": "Table de routage Application et expressions régulières", "subtitle": "Aiguiller chaque chemin d'URL vers la bonne classe RequestHandler dans l'ordre", "definition": "L'objet tornado.web.Application reçoit une liste ordonnée de couples (motif_regex, ClasseHandler) et sélectionne la première règle qui correspond au chemin demandé.", "points": [{"label": "Ordre prioritaire", "text": "Placez toujours les routes fixes spécifiques avant les motifs génériques plus larges."}, {"label": "Chaînes brutes r\"...\"", "text": "Le préfixe Python r\"\" évite d'avoir à doubler les barres obliques des expressions régulières."}], "comparison": null, "code_label": "Déclaration propre de la table des routes", "code_lang": "python", "code": "def creer_application():\n    return tornado.web.Application([\n        (r\"/\", PortailWebHandler),\n        (r\"/api/v1/sante\", SanteHandler),\n        (r\"/api/v1/formations\", FormationsCollectionHandler),\n    ], template_path=\"templates\", debug=True)", "takeaway": "La table de routage constitue la carte routière lisible de toute votre application Tornado."}, {"number": 65, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Paramètres de Route", "title": "Capturer un identifiant dynamique : r\"/api/v1/formations/([0-9]+)\"", "subtitle": "Extraire proprement un segment d'URL pour cibler une ressource unique", "definition": "En entourant une portion du motif regex avec des parenthèses (...), Tornado extrait automatiquement la valeur capturée et la transmet en argument à get(), put() ou delete().", "points": [{"label": "Filtrage dès l'URL", "text": "Le motif ([0-9]+) accepte uniquement des chiffres : /formations/abc renvoie 404 d'office."}, {"label": "Type chaîne", "text": "L'argument reçu dans def get(self, formation_id) est une str à convertir via int()."}], "comparison": null, "code_label": "Handler d'élément unitaire avec capture d'ID", "code_lang": "python", "code": "# Route : (r\"/api/v1/formations/([0-9]+)\", FormationDetailHandler)\nclass FormationDetailHandler(tornado.web.RequestHandler):\n    def get(self, formation_id):\n        item = trouver_formation(CATALOGUE, int(formation_id))\n        if not item:\n            self.set_status(404)\n            return self.write({\"erreur\": \"Formation introuvable\"})\n        self.write(item)", "takeaway": "Chaque groupe entre parenthèses dans la route devient un paramètre de votre méthode HTTP."}, {"number": 66, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Query Arguments", "title": "Extraire les filtres d'URL avec self.get_query_argument()", "subtitle": "Lire les paramètres optionnels situés après le point d'interrogation", "definition": "La méthode self.get_query_argument(nom, default=...) récupère proprement un paramètre de la Query String en décodant les caractères spéciaux de l'URL.", "points": [{"label": "Défaut explicite", "text": "Fournir default=None ou default=\"\" évite l'erreur HTTP 400 Missing argument si le filtre est omis."}, {"label": "Valeurs multiples", "text": "self.get_query_arguments(\"tag\") au pluriel retourne une liste si la clé est répétée."}], "comparison": null, "code_label": "Lecture de filtres optionnels dans GET", "code_lang": "python", "code": "class FormationsCollectionHandler(tornado.web.RequestHandler):\n    def get(self):\n        domaine = self.get_query_argument(\"domaine\", default=None)\n        q = self.get_query_argument(\"q\", default=\"\").strip()\n        self.write({\"filtre_domaine\": domaine, \"recherche\": q})", "takeaway": "Précisez toujours default=... sur get_query_argument() pour garder vos filtres facultatifs."}, {"number": 67, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Inspection Requête", "title": "L'objet self.request : Méthode, en-têtes, IP et corps brut", "subtitle": "Accéder à toutes les métadonnées bas niveau du message HTTP entrant", "definition": "À l'intérieur de tout RequestHandler, l'attribut self.request expose l'objet HTTPServerRequest contenant l'intégralité des détails réseaux et protocolaires de l'appel.", "points": [{"label": "Headers & Auth", "text": "self.request.headers.get(\"Authorization\") lit un en-tête de façon insensible à la casse."}, {"label": "Corps brut bytes", "text": "self.request.body contient les octets reçus à passer à json.loads() lors d'un POST/PUT."}], "comparison": null, "code_label": "Inspecter le contexte d'un appel entrant", "code_lang": "python", "code": "methode = self.request.method                        # \"POST\"\nip_client = self.request.remote_ip                   # \"127.0.0.1\"\nctype = self.request.headers.get(\"Content-Type\", \"\") # \"application/json\"\npayload = json.loads(self.request.body.decode(\"utf-8\"))", "takeaway": "self.request vous donne une visibilité totale sur les en-têtes, l'origine client et les octets reçus."}, {"number": 68, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Templates Tornado", "title": "Le moteur tornado.template : {{ var }}, {% for %} et sécurité XSS", "subtitle": "Composer des pages HTML dynamiques rapides et protégées par défaut", "definition": "Intégré sans dépendance externe, tornado.template évalue les expressions entre doubles accolades {{ }} et les structures de contrôle Python entre {% %}...{% end %}.", "points": [{"label": "Fermeture explicite", "text": "En Tornado, tout bloc {% if ... %} ou {% for ... %} se ferme toujours par {% end %}."}, {"label": "Anti-XSS natif", "text": "Les caractères HTML dangereux (<script>) dans {{ var }} sont échappés automatiquement."}], "comparison": null, "code_label": "Extrait de template HTML Tornado", "code_lang": "html", "code": "<h1>{{ titre }}<\/h1>\n<ul>\n  {% for f in items %}\n    <li><strong>{{ f[\"code\"] }}<\/strong> — {{ f[\"intitule\"] }} ({{ f[\"jours\"] }} j)<\/li>\n  {% end %}\n<\/ul>", "takeaway": "L'auto-échappement natif de tornado.template protège vos pages contre les injections XSS."}, {"number": 69, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Formulaires Web", "title": "Traiter un formulaire HTML : get_body_argument() et statut 303", "subtitle": "Appliquer le patron classique Post / Redirect / Get sur le volet Site Web", "definition": "Lorsqu'un visiteur soumet un formulaire HTML <form method=\"post\">, Tornado lit les champs avec self.get_body_argument() puis redirige le navigateur en statut 303 See Other.", "points": [{"label": "Éviter le double envoi", "text": "La redirection self.redirect(\"/formations\", status=303) empêche de recréer l'entrée avec F5."}, {"label": "Différence avec JSON", "text": "Un formulaire HTML envoie du x-www-form-urlencoded ; une API reçoit du application/json."}], "comparison": null, "code_label": "Réception de formulaire Web et redirection PRG", "code_lang": "python", "code": "class FormulaireFormationHandler(tornado.web.RequestHandler):\n    def post(self):\n        intitule = self.get_body_argument(\"intitule\").strip()\n        jours = int(self.get_body_argument(\"duree_jours\", default=\"3\"))\n        ajouter_au_catalogue(intitule=intitule, jours=jours)\n        self.redirect(\"/formations\", status=303)", "takeaway": "Après un POST issu d'un formulaire HTML, redirigez toujours en 303 vers une page GET propre."}, {"number": 70, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Recherche Catalogue", "title": "Filtrage, Recherche et Tri dynamique d'un catalogue", "subtitle": "Enchaîner un pipeline de sélection propre avant de renvoyer la collection", "definition": "Un endpoint de collection professionnel combine successivement le filtrage exact, la recherche textuelle insensible à la casse et le tri contrôlé sur liste blanche.", "points": [{"label": "1. Filtrer & Chercher", "text": "Réduire d'abord la collection par domaine exact puis par mot-clé dans l'intitulé."}, {"label": "2. Trier sur liste blanche", "text": "Autoriser uniquement des clés de tri connues (jours, tarif, intitule) pour éviter toute erreur."}, {"label": "3. Paginer en dernier", "text": "La découpe en pages s'applique toujours à la toute fin, après filtrage et tri."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Ordre immuable d'une collection API : 1. Filtrer -> 2. Trier -> 3. Calculer le total -> 4. Paginer."}, {"number": 71, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Pagination REST", "title": "Pagination d'une collection : page, limit et enveloppe meta/data", "subtitle": "Protéger le réseau et le navigateur quand le catalogue contient des milliers de lignes", "definition": "La pagination découpe les résultats en tranches bornées via page (>= 1) et limit (plafonné, ex. max 100) tout en fournissant les compteurs de navigation dans meta.", "points": [{"label": "Formule d'offset", "text": "Le point de départ dans la liste ou en SQL vaut toujours offset = (page - 1) * limit."}, {"label": "Plafond de sécurité", "text": "Bornez toujours limit côté serveur (ex. min(limit, 100)) contre les requêtes abusives."}], "comparison": null, "code_label": "Enveloppe JSON standardisée d'une liste paginée", "code_lang": "json", "code": "{\n  \"meta\": {\"page\": 2, \"limit\": 10, \"total\": 47, \"pages\": 5},\n  \"data\": [\n    {\"id\": 11, \"code\": \"MGT-21\", \"intitule\": \"Gestion de Projet\"}\n  ]\n}", "takeaway": "Ne renvoyez jamais une collection non bornée : paginez dès la première version de l'API."}, {"number": 72, "part_id": "P4", "part_title": "Partie 4 — Coeur de Tornado : IOLoop, RequestHandler & Templates Web", "tag": "Cycle de Vie", "title": "Cycle de vie dans RequestHandler : prepare, verbe HTTP, on_finish", "subtitle": "Les crochets d'exécution automatiques appelés par Tornado autour de chaque requête", "definition": "Pour chaque appel entrant, Tornado instancie un RequestHandler neuf et exécute dans un ordre précis ses méthodes de cycle de vie avant et après votre méthode métier.", "points": [{"label": "set_default_headers()", "text": "Appelé dès l'initialisation pour poser les en-têtes communs (CORS, sécurité, JSON)."}, {"label": "prepare() avant le verbe", "text": "Idéal pour décoder le JSON, démarrer un chronomètre ou vérifier un jeton d'accès."}, {"label": "on_finish() en clôture", "text": "Exécuté après l'envoi de la réponse au client pour journaliser la durée ou libérer une ressource."}], "comparison": null, "code_label": "Séquence complète d'un BaseHandler Tornado", "code_lang": "python", "code": "class BaseApiHandler(tornado.web.RequestHandler):\n    def set_default_headers(self):\n        self.set_header(\"X-Content-Type-Options\", \"nosniff\")\n    def prepare(self):\n        self.t0 = time.perf_counter()\n    def on_finish(self):\n        duree_ms = (time.perf_counter() - self.t0) * 1000", "takeaway": "Factorisez vos contrôles communs dans prepare() et vos journaux de performance dans on_finish()."}, {"number": 73, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Cycle CRUD", "title": "Le cycle CRUD complet et sa correspondance HTTP", "subtitle": "Aligner chaque opération métier sur la sémantique native du protocole HTTP.", "definition": "CRUD désigne les quatre opérations fondamentales sur une ressource persistante : créer, lire, modifier et supprimer via des méthodes HTTP normalisées.", "points": [{"label": "POST (Create)", "text": "Crée une nouvelle ressource dans la collection et génère son identifiant serveur."}, {"label": "GET (Read)", "text": "Consulte une collection ou une fiche détail sans jamais altérer l'état du serveur."}, {"label": "PUT / PATCH (Update)", "text": "Remplace intégralement ou met à jour partiellement une ressource existante."}, {"label": "DELETE (Delete)", "text": "Retire la ressource ciblée de manière définitive ou par archivage logique."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Une API prévisible utilise les verbes HTTP pour l'action et les URL uniquement pour désigner la ressource."}, {"number": 74, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Parsing JSON", "title": "Décoder un corps JSON entrant avec json_decode", "subtitle": "Transformer les octets bruts de self.request.body en dictionnaire Python.", "definition": "Tornado ne décode pas automatiquement le corps JSON entrant : le handler lit les octets bruts puis appelle tornado.escape.json_decode dans un bloc protégé.", "points": [{"label": "Octets bruts", "text": "self.request.body contient une chaîne d'octets reçue sur la socket HTTP."}, {"label": "Capture d'erreur", "text": "Un JSON tronqué lève ValueError qu'il faut convertir proprement en statut 400."}, {"label": "Vérification du type", "text": "Toujours vérifier que la racine décodée est bien un objet dict et non une liste."}], "comparison": null, "code_label": "Décodage défensif dans un RequestHandler", "code_lang": "python", "code": "from tornado.escape import json_decode\n\ntry:\n    payload = json_decode(self.request.body or b\"{}\")\n    if not isinstance(payload, dict):\n        raise ValueError(\"Objet JSON attendu\")\nexcept ValueError:\n    return self.envoyer_probleme(400, \"Corps JSON mal formé\")", "takeaway": "Ne faites jamais confiance à self.request.body sans intercepter explicitement les erreurs de syntaxe JSON."}, {"number": 75, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Validation Serveur", "title": "Pourquoi valider systématiquement les entrées côté serveur ?", "subtitle": "Le navigateur est un client parmi d'autres et ses contrôles se contournent.", "definition": "La validation serveur est le contrôle obligatoire des types, formats et bornes métiers exécuté par l'API avant tout traitement ou écriture en base.", "points": [{"label": "Contournement trivial", "text": "Un appel curl ou un script Python ignore totalement les attributs HTML required."}, {"label": "Intégrité des données", "text": "Bloquer un prix négatif ou un titre vide protège durablement la base relationnelle."}, {"label": "Surface d'attaque", "text": "Borner la taille des chaînes et des tableaux évite la saturation mémoire du processus."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "La validation côté client sert le confort utilisateur ; seule la validation côté serveur garantit la sécurité."}, {"number": 76, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Codes d'Erreur", "title": "400 Bad Request vs 422 Unprocessable Entity", "subtitle": "Distinguer une erreur d'enveloppe technique d'un rejet de règle métier.", "definition": "Le code 400 signale une requête techniquement illisible par le parseur, tandis que le code 422 indique un JSON syntaxiquement valide mais contraire aux règles métier.", "points": [{"label": "Diagnostic immédiat", "text": "Le développeur client sait instantanément s'il a cassé son sérialiseur ou violé une règle."}, {"label": "Détails par champ", "text": "Une réponse 422 liste précisément chaque champ invalide pour éclairer le formulaire."}], "comparison": {"left_title": "400 Bad Request (Syntaxe)", "left_items": ["Accolade manquante ou JSON tronqué", "En-tête Content-Type incohérent", "Paramètre d'URL illisible"], "right_title": "422 Unprocessable Entity (Métier)", "right_items": ["JSON bien formé et lisible", "Prix inférieur ou égal à zéro", "Code catégorie hors nomenclature"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "400 signifie je ne peux pas lire votre message ; 422 signifie j'ai lu votre message mais ses valeurs sont invalides."}, {"number": 77, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Standard RFC 7807", "title": "Le standard RFC 7807 : Structure d'erreur normalisée", "subtitle": "Unifier toutes les erreurs d'API sous le type MIME application/problem+json.", "definition": "La RFC 7807 définit une enveloppe JSON universelle dite Problem Details permettant aux clients de traiter toutes les erreurs HTTP avec un seul modèle.", "points": [{"label": "Champs standards", "text": "type, title, status, detail et instance constituent le socle interopérable."}, {"label": "Extensions métiers", "text": "Un tableau errors peut détailler chaque champ fautif lors d'une validation 422."}, {"label": "Type MIME dédié", "text": "L'en-tête Content-Type vaut application/problem+json; charset=utf-8."}], "comparison": null, "code_label": "Réponse 422 conforme RFC 7807", "code_lang": "json", "code": "{\n  \"type\": \"https://api.isgp.dz/erreurs/validation\",\n  \"title\": \"Données métier invalides\",\n  \"status\": 422,\n  \"detail\": \"Le champ prix_dzd doit être strictement positif.\",\n  \"errors\": [{\"champ\": \"prix_dzd\", \"message\": \"Doit être > 0\"}]\n}", "takeaway": "Adopter RFC 7807 élimine les formats d'erreur disparates et simplifie l'intégration côté client."}, {"number": 78, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Création REST", "title": "Création POST : Statut 201 Created et en-tête Location", "subtitle": "Confirmer la naissance d'une ressource et indiquer son adresse canonique.", "definition": "Lorsqu'un appel POST crée effectivement une ressource, le serveur renvoie le code 201 Created accompagné de l'en-tête Location pointant vers sa fiche.", "points": [{"label": "Statut explicite", "text": "201 Created distingue une création effective d'un simple traitement 200 OK."}, {"label": "Navigation directe", "text": "L'en-tête Location donne l'URI exacte de la nouvelle ressource sans supposition."}, {"label": "Corps représentatif", "text": "Retourner l'objet créé inclut l'identifiant et les horodatages générés par le serveur."}], "comparison": null, "code_label": "Réponse POST conforme dans Tornado", "code_lang": "python", "code": "article = depot.creer_formation(donnees_validees)\nself.set_status(201)\nself.set_header(\"Location\", f\"/api/formations/{article['id']}\")\nself.write({\"donnees\": article})", "takeaway": "Un POST créateur réussi associe systématiquement 201 Created, en-tête Location et représentation JSON."}, {"number": 79, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Mise à Jour", "title": "PUT (Remplacement intégral) vs PATCH (Modification partielle)", "subtitle": "Choisir la bonne sémantique de mise à jour selon le contrat attendu.", "definition": "PUT remplace toute la représentation d'une ressource cible, tandis que PATCH applique uniquement un sous-ensemble de modifications sur les champs fournis.", "points": [{"label": "Risque d'écrasement", "text": "Un champ omis dans un PUT est réinitialisé ou rejeté, jamais ignoré silencieusement."}, {"label": "Souplesse ergonomique", "text": "PATCH convient idéalement pour changer uniquement le statut ou le tarif d'une fiche."}], "comparison": {"left_title": "PUT — Remplacement complet", "left_items": ["Exige tous les champs obligatoires", "Naturellement idempotent", "Écrase l'état précédent de la fiche"], "right_title": "PATCH — Modification partielle", "right_items": ["N'envoie que les champs modifiés", "Économise la bande passante", "Préserve les attributs non transmis"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Utilisez PUT pour synchroniser une fiche entière et PATCH pour modifier un ou deux attributs ciblés."}, {"number": 80, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Suppression REST", "title": "Suppression DELETE propre et statut 204 No Content", "subtitle": "Acquitter une suppression réussie sans charge utile superflue.", "definition": "Une suppression HTTP réussie qui ne nécessite aucun corps de réponse renvoie le statut 204 No Content et clôture immédiatement le flux avec self.finish().", "points": [{"label": "Zéro octet au corps", "text": "La norme HTTP interdit tout contenu dans le corps d'une réponse 204 No Content."}, {"label": "Ressource introuvable", "text": "Si l'identifiant n'existe pas, renvoyer un problème 404 explicite au format RFC 7807."}, {"label": "Clôture nette", "text": "Appeler self.finish() sans argument garantit l'absence d'enveloppe JSON parasite."}], "comparison": null, "code_label": "Méthode delete() idiomatique Tornado", "code_lang": "python", "code": "def delete(self, formation_id: str) -> None:\n    supprime = depot.supprimer(int(formation_id))\n    if not supprime:\n        return self.envoyer_probleme(404, \"Formation introuvable\")\n    self.set_status(204)\n    self.finish()", "takeaway": "Avec 204 No Content, n'appelez jamais self.write() : posez le statut puis appelez directement self.finish()."}, {"number": 81, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Fiabilité Réseau", "title": "Garantir l'idempotence d'un POST avec Idempotency-Key", "subtitle": "Éviter les doublons de création ou de paiement lors des coupures réseau.", "definition": "Une clé d'idempotence est un identifiant unique généré par le client dans l'en-tête Idempotency-Key permettant au serveur de rejouer la même réponse sans recréer l'objet.", "points": [{"label": "Problème du retry", "text": "Sur un timeout mobile, le client ignore si le serveur a déjà enregistré son POST."}, {"label": "Mémorisation serveur", "text": "L'API associe la clé reçue au statut et au corps JSON produits lors du premier essai."}, {"label": "Rejeu sans doublon", "text": "Tout essai ultérieur portant la même clé reçoit exactement la réponse initiale."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Toute opération critique non idempotente comme une inscription payante doit accepter un Idempotency-Key."}, {"number": 82, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Gestion d'Erreurs", "title": "Harmoniser toutes les erreurs Tornado via write_error()", "subtitle": "Bannir les pages d'erreur HTML par défaut dans un serveur d'API JSON.", "definition": "Surcharger write_error dans un RequestHandler de base intercepte toutes les exceptions HTTP et techniques pour émettre systématiquement du JSON RFC 7807.", "points": [{"label": "Classe socle BaseAPIHandler", "text": "Tous les endpoints héritent d'un handler commun qui centralise le formatage d'erreur."}, {"label": "Masquage en production", "text": "Sur une erreur 500, journaliser la trace en interne mais exposer un message neutre."}, {"label": "Cohérence garantie", "text": "Même un HTTPError(405) natif de Tornado ressort désormais en application/problem+json."}], "comparison": null, "code_label": "Surcharge de write_error dans BaseAPIHandler", "code_lang": "python", "code": "def write_error(self, status_code: int, **kwargs) -> None:\n    self.set_header(\"Content-Type\", \"application/problem+json; charset=utf-8\")\n    self.finish({\n        \"type\": \"about:blank\",\n        \"title\": self._reason,\n        \"status\": status_code,\n    })", "takeaway": "Un client JSON ne doit jamais recevoir de page HTML d'erreur, même en cas de crash interne 500."}, {"number": 83, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Routage Défensif", "title": "Intercepter les routes inconnues avec default_handler_class", "subtitle": "Capturer les URL inexistantes avant que Tornado ne réponde en HTML brut.", "definition": "Le paramètre default_handler_class de tornado.web.Application désigne le handler de repli exécuté lorsqu'aucune expression régulière de route ne correspond.", "points": [{"label": "Angle mort classique", "text": "Sans configuration, une URL inconnue contourne vos handlers métiers et renvoie du HTML."}, {"label": "Préparation dans prepare()", "text": "Lever HTTPError(404) dans prepare() déclenche immédiatement votre write_error JSON."}], "comparison": null, "code_label": "Configuration du handler 404 global", "code_lang": "python", "code": "class RouteInconnueHandler(BaseAPIHandler):\n    def prepare(self) -> None:\n        raise tornado.web.HTTPError(404, reason=\"Route introuvable\")\n\napp = tornado.web.Application(routes, default_handler_class=RouteInconnueHandler)", "takeaway": "Configurez toujours default_handler_class pour garantir un 404 JSON uniforme sur tout le serveur."}, {"number": 84, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Persistance", "title": "Stockage en mémoire vive (RAM) vs SQLite sur disque", "subtitle": "Comprendre pourquoi un dictionnaire Python ne suffit plus au-delà du prototype.", "definition": "Une liste Python en mémoire disparaît à chaque redémarrage du processus, alors que SQLite persiste les tables relationnelles dans un fichier transactionnel sur disque.", "points": [{"label": "Zéro serveur tiers", "text": "SQLite s'embarque directement via le module standard sqlite3 sans démon externe."}, {"label": "Multi-processus", "text": "Un fichier SQLite partagé survit aux déploiements et fédère plusieurs workers locaux."}], "comparison": {"left_title": "Mémoire vive (dict / list)", "left_items": ["Ultra-rapide pour maquetter", "Perte totale au redémarrage", "Isolée dans un seul processus"], "right_title": "Base SQLite sur disque", "right_items": ["Données durables après arrêt", "Contraintes SQL et index rapides", "Transactions atomiques complètes"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "La mémoire vive valide le contrat HTTP ; SQLite apporte la durabilité indispensable à une vraie application."}, {"number": 85, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Transactions SQL", "title": "Les 4 garanties ACID d'une transaction relationnelle", "subtitle": "Protéger la cohérence métier même en cas de panne électrique ou d'accès concurrent.", "definition": "ACID résume les quatre propriétés fondamentales d'une transaction fiable : Atomicité, Cohérence, Isolation et Durabilité des écritures validées.", "points": [{"label": "Atomicité (Tout ou rien)", "text": "Si une étape échoue, toute la transaction est annulée par rollback sans trace partielle."}, {"label": "Cohérence (Contraintes)", "text": "Aucune écriture ne peut violer les clés étrangères ou les règles CHECK du schéma."}, {"label": "Isolation (Concurrence)", "text": "Deux requêtes simultanées ne lisent jamais un état intermédiaire incohérent."}, {"label": "Durabilité (Disque)", "text": "Une fois le commit confirmé, la donnée survit à un arrêt brutal du serveur."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Encapsulez toujours les écritures liées dans un bloc transactionnel with conn: pour bénéficier d'ACID."}, {"number": 86, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Sécurité SQL", "title": "Injection SQL : Concaténation vs Requêtes paramétrées", "subtitle": "Séparer strictement l'arbre syntaxique SQL des valeurs fournies par l'utilisateur.", "definition": "L'injection SQL survient lorsqu'une entrée externe est concaténée dans une requête texte, permettant à un attaquant d'altérer la commande exécutée par le moteur.", "points": [{"label": "Interdiction des f-strings", "text": "Ne jamais interpoler une variable utilisateur dans une chaîne SELECT, INSERT ou WHERE."}, {"label": "Marqueurs ? sécurisés", "text": "Le pilote sqlite3 lie les paramètres sous forme de valeurs pures jamais interprétées comme du code."}], "comparison": {"left_title": "Concaténation vulnérable", "left_items": ["f\"SELECT * FROM users WHERE nom='{x}'\"", "Altérable par ' OR '1'='1", "Risque d'exfiltration ou destruction"], "right_title": "Requête paramétrée sûre", "right_items": ["cur.execute('... WHERE nom = ?', (x,))", "Plan SQL compilé séparément", "Immunité totale contre l'injection"]}, "code_label": "Requête paramétrée avec sqlite3", "code_lang": "python", "code": "curseur.execute(\n    \"SELECT id, titre, prix_dzd FROM formations WHERE categorie = ? AND prix_dzd <= ?\",\n    (categorie, budget_max),\n)", "takeaway": "Zéro f-string dans vos requêtes SQL : utilisez exclusivement les marqueurs paramétrés ? avec un tuple."}, {"number": 87, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "SQLite WAL", "title": "Optimiser SQLite pour le Web : WAL, foreign_keys et busy_timeout", "subtitle": "Trois directives PRAGMA essentielles dès l'ouverture de chaque connexion.", "definition": "Le mode Write-Ahead Logging (WAL) écrit les modifications dans un journal séquentiel séparé afin que les lectures HTTP ne soient plus bloquées par une écriture.", "points": [{"label": "journal_mode = WAL", "text": "Autorise plusieurs lecteurs simultanés pendant qu'une transaction écrit sur le disque."}, {"label": "foreign_keys = ON", "text": "Active la vérification stricte des clés étrangères, désactivée par défaut dans SQLite."}, {"label": "busy_timeout = 5000", "text": "Attend jusqu'à 5 secondes qu'un verrou se libère au lieu d'échouer immédiatement."}], "comparison": null, "code_label": "Initialisation recommandée d'une connexion SQLite", "code_lang": "sql", "code": "PRAGMA journal_mode = WAL;\nPRAGMA synchronous = NORMAL;\nPRAGMA foreign_keys = ON;\nPRAGMA busy_timeout = 5000;", "takeaway": "Sans mode WAL ni busy_timeout, SQLite lève rapidement database is locked sous trafic HTTP concurrent."}, {"number": 88, "part_id": "P5", "part_title": "Partie 5 — Ingénierie CRUD, Validation RFC 7807 & SQLite WAL", "tag": "Asynchronisme & Disque", "title": "Ne jamais bloquer l'IOLoop : SQLite via run_in_executor", "subtitle": "Déporter les appels synchrones sqlite3 vers un ThreadPoolExecutor dédié.", "definition": "Le module standard sqlite3 effectue des entrées-sorties disque synchrones : l'appeler via IOLoop.current().run_in_executor garde la boucle événementielle Tornado libre.", "points": [{"label": "Boucle mono-thread", "text": "Une requête SQL lente exécutée en direct gèle toutes les autres connexions actives."}, {"label": "Pool borné", "text": "Un ThreadPoolExecutor de 4 threads absorbe les accès disque tout en maîtrisant les verrous."}, {"label": "Syntaxe await fluide", "text": "Le handler reste écrit avec async def et attend proprement le résultat du thread."}], "comparison": null, "code_label": "Exécution non bloquante dans un handler Tornado", "code_lang": "python", "code": "from tornado.ioloop import IOLoop\n\nclass FormationsHandler(BaseAPIHandler):\n    async def get(self) -> None:\n        boucle = IOLoop.current()\n        lignes = await boucle.run_in_executor(self.pool, depot.lister_tout)\n        self.write({\"donnees\": lignes})", "takeaway": "Toute opération disque synchrone dans Tornado doit passer par run_in_executor pour préserver la réactivité."}, {"number": 89, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Fondamentaux Sécurité", "title": "Les 3 piliers : Confidentialité, Intégrité, Disponibilité", "subtitle": "Évaluer chaque mécanisme défensif d'une API selon le modèle CIA.", "definition": "La sécurité d'une API repose sur trois garanties complémentaires : protéger le secret des données, empêcher leur falsification et maintenir le service accessible.", "points": [{"label": "Confidentialité", "text": "Seuls les acteurs autorisés lisent les données sensibles grâce à TLS et au contrôle d'accès."}, {"label": "Intégrité", "text": "Aucune donnée ou signature ne peut être modifiée en transit sans détection immédiate."}, {"label": "Disponibilité", "text": "Les quotas, timeouts et limites protègent le serveur contre la saturation volontaire ou non."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Un contrôle de sécurité pertinent protège toujours explicitement la confidentialité, l'intégrité ou la disponibilité."}, {"number": 90, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Hygiène des Secrets", "title": "Gestion des secrets applicatifs avec os.environ", "subtitle": "Zéro clé secrète ni mot de passe en dur dans le dépôt de code source.", "definition": "Un secret applicatif est une valeur sensible injectée au démarrage via l'environnement du système d'exploitation plutôt qu'écrite dans les fichiers Python.", "points": [{"label": "Séparation stricte", "text": "Le même code tourne en développement et en production avec des secrets distincts."}, {"label": "Échec immédiat", "text": "Refuser de démarrer le serveur si une clé critique manque évite tout mode dégradé."}, {"label": "Rotation simple", "text": "Changer une clé compromise ne demande qu'un redémarrage sans modifier le code."}], "comparison": null, "code_label": "Lecture stricte d'un secret au démarrage", "code_lang": "python", "code": "import os\n\nCOOKIE_SECRET = os.environ.get(\"ISGP_COOKIE_SECRET\")\nif not COOKIE_SECRET or len(COOKIE_SECRET) < 32:\n    raise RuntimeError(\"Variable ISGP_COOKIE_SECRET absente ou trop courte\")", "takeaway": "Un secret commité dans l'historique du code doit être considéré comme compromis et révoqué aussitôt."}, {"number": 91, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Cryptographie", "title": "Chiffrement (Réversible) vs Hachage (Irréversible)", "subtitle": "Ne jamais confondre la protection d'un message lisible et l'empreinte d'un secret.", "definition": "Le chiffrement transforme une donnée pour pouvoir la relire avec une clé, tandis que le hachage produit une empreinte à sens unique impossible à inverser.", "points": [{"label": "Effet avalanche", "text": "Modifier un seul caractère d'entrée change radicalement toute l'empreinte hachée."}, {"label": "Usage distinct", "text": "On chiffre un numéro confidentiel à réafficher, mais on hache toujours un mot de passe."}], "comparison": {"left_title": "Chiffrement (AES, TLS)", "left_items": ["Opération bidirectionnelle", "Nécessite une clé de déchiffrement", "Adapté au transport et aux archives"], "right_title": "Hachage (SHA-256, PBKDF2)", "right_items": ["Opération strictement à sens unique", "Vérification par recalcul d'empreinte", "Obligatoire pour les mots de passe"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Si votre base est volée, un mot de passe haché avec sel reste illisible sans clé de déchiffrement."}, {"number": 92, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Mots de Passe", "title": "Protéger les mots de passe : Sel aléatoire et PBKDF2", "subtitle": "Rendre les dictionnaires précalculés et la force brute impraticables.", "definition": "PBKDF2-HMAC-SHA256 combine chaque mot de passe avec un sel aléatoire unique et répète des centaines de milliers d'itérations pour ralentir tout attaquant.", "points": [{"label": "Sel unique (Salt)", "text": "Deux utilisateurs ayant le même mot de passe obtiennent deux empreintes totalement différentes."}, {"label": "Lenteur volontaire", "text": "600 000 itérations coûtent quelques millisecondes au login mais ruinent la force brute."}, {"label": "Bibliothèque standard", "text": "hashlib.pbkdf2_hmac et secrets.token_bytes suffisent sans dépendance externe."}], "comparison": null, "code_label": "Dérivation sécurisée avec hashlib et secrets", "code_lang": "python", "code": "import hashlib, secrets\n\nsel = secrets.token_bytes(16)\nempreinte = hashlib.pbkdf2_hmac(\n    \"sha256\", mot_de_passe.encode(\"utf-8\"), sel, 600_000\n)", "takeaway": "Un simple SHA-256 rapide ne suffit pas pour un mot de passe : exigez toujours un sel unique et PBKDF2."}, {"number": 93, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Accès Machine", "title": "Authentification par Clé API (X-API-Key)", "subtitle": "Identifier simplement un script automatisé ou un serveur partenaire.", "definition": "Une clé API est un secret long à haute entropie transmis dans un en-tête dédié comme X-API-Key pour authentifier une intégration serveur à serveur.", "points": [{"label": "Génération robuste", "text": "Créer les clés avec secrets.token_urlsafe(32) garantit une entropie cryptographique."}, {"label": "Jamais dans l'URL", "text": "Passer la clé en paramètre ?api_key= l'expose en clair dans tous les journaux HTTP."}, {"label": "Stockage haché", "text": "Le serveur ne conserve en base que l'empreinte SHA-256 de la clé et son préfixe d'audit."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Réservez X-API-Key aux échanges entre serveurs ; ne l'embarquez jamais dans le JavaScript public d'un navigateur."}, {"number": 94, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Canaux Cachés", "title": "Attaque temporelle et hmac.compare_digest()", "subtitle": "Comparer deux secrets en temps constant pour ne divulguer aucun indice.", "definition": "L'opérateur Python == s'arrête dès le premier octet différent, permettant à un attaquant patient de deviner un secret caractère par caractère en mesurant le temps.", "points": [{"label": "Fuite microseconde", "text": "Plus un préfixe soumis est exact, plus la comparaison naïve met légèrement de temps."}, {"label": "Temps constant", "text": "hmac.compare_digest parcourt tous les octets quelle que soit la position de l'écart."}], "comparison": null, "code_label": "Vérification de clé ou signature en temps constant", "code_lang": "python", "code": "import hmac\n\ncle_recue = self.request.headers.get(\"X-API-Key\", \"\")\nif not hmac.compare_digest(cle_recue.encode(), CLE_ATTENDUE.encode()):\n    return self.envoyer_probleme(401, \"Clé API invalide\")", "takeaway": "Pour vérifier un jeton, un hash ou une clé API, remplacez systématiquement == par hmac.compare_digest()."}, {"number": 95, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Contrôle d'Accès", "title": "Authentification (401) vs Autorisation (403)", "subtitle": "Séparer la preuve d'identité de la vérification des droits d'action.", "definition": "L'authentification (AuthN) vérifie qui appelle l'API, tandis que l'autorisation (AuthZ) décide si cette identité reconnue a le droit d'effectuer l'action.", "points": [{"label": "Ordre d'exécution", "text": "Le handler authentifie d'abord l'appelant avant d'évaluer ses permissions métiers."}, {"label": "Clarté côté client", "text": "Un 401 invite à se reconnecter, alors qu'un 403 indique un refus définitif de privilège."}], "comparison": {"left_title": "401 Unauthorized (Identité)", "left_items": ["Qui êtes-vous ?", "Jeton absent, expiré ou falsifié", "Accompagné de WWW-Authenticate"], "right_title": "403 Forbidden (Permission)", "right_items": ["Identité valide et connue", "Rôle insuffisant pour cette route", "Se reconnecter ne changera rien"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "401 signifie je ne sais pas qui vous êtes ; 403 signifie je vous reconnais mais cet accès vous est interdit."}, {"number": 96, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Standard HTTP", "title": "L'en-tête WWW-Authenticate lors d'un rejet 401", "subtitle": "Respecter la norme HTTP en indiquant comment s'authentifier correctement.", "definition": "Toute réponse 401 Unauthorized doit comporter l'en-tête WWW-Authenticate précisant le schéma d'authentification attendu par le serveur (Bearer, ApiKey, etc.).", "points": [{"label": "Exigence RFC 9110", "text": "Sans WWW-Authenticate, un client générique ignore quel format d'identifiant fournir."}, {"label": "Diagnostic précis", "text": "L'attribut error=\"invalid_token\" distingue un jeton expiré d'un en-tête manquant."}], "comparison": null, "code_label": "Réponse HTTP 401 conforme RFC", "code_lang": "http", "code": "HTTP/1.1 401 Unauthorized\nWWW-Authenticate: Bearer realm=\"isgp-api\", error=\"invalid_token\"\nContent-Type: application/problem+json; charset=utf-8\n\n{\"title\": \"Jeton invalide ou expiré\", \"status\": 401}", "takeaway": "Posez toujours self.set_header('WWW-Authenticate', 'Bearer') avant d'émettre un statut 401."}, {"number": 97, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Jetons Bearer", "title": "Anatomie d'un Jeton Signé (JWT) : Header.Payload.Signature", "subtitle": "Transporter une identité vérifiable sans interroger une session centrale.", "definition": "Un JSON Web Token est une chaîne compacte en trois segments encodés en Base64URL séparés par des points : l'algorithme, les revendications et la signature.", "points": [{"label": "Header (En-tête)", "text": "Déclare le type du jeton et l'algorithme cryptographique utilisé comme HS256."}, {"label": "Payload (Claims)", "text": "Contient l'identifiant sujet sub, le rôle role et la date d'expiration exp."}, {"label": "Signature", "text": "Scelle mathématiquement les deux premiers blocs avec la clé secrète du serveur."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Un jeton signé permet au serveur Tornado de vérifier l'identité et l'expiration en quelques microsecondes."}, {"number": 98, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Intégrité Cryptographique", "title": "Signature HMAC-SHA256 : Base64 n'est pas du chiffrement", "subtitle": "Garantir l'authenticité du jeton sans jamais y glisser de secret lisible.", "definition": "HMAC-SHA256 prouve que le contenu du jeton n'a pas été modifié depuis son émission par le serveur, mais le Payload reste décodable par quiconque possède le jeton.", "points": [{"label": "Visibilité totale", "text": "N'importe qui peut décoder le segment Payload Base64URL en une ligne Python."}, {"label": "Falsification impossible", "text": "Changer role='etudiant' en role='admin' invalide immédiatement la signature HMAC."}, {"label": "Sobriété du Payload", "text": "Y placer uniquement sub, role, iat et exp : jamais de mot de passe ni de donnée privée."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "La signature protège contre la modification, pas contre la lecture : ne mettez rien de secret dans un JWT."}, {"number": 99, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Cycle des Jetons", "title": "Access Token (court) vs Refresh Token (long et révocable)", "subtitle": "Concilier performance sans état et capacité de révocation rapide.", "definition": "L'architecture moderne associe un jeton d'accès à durée très brève pour chaque appel API et un jeton de rafraîchissement stocké en base pour renouveler la session.", "points": [{"label": "Fenêtre de risque réduite", "text": "Un Access Token volé cesse automatiquement de fonctionner au bout de 15 minutes."}, {"label": "Déconnexion réelle", "text": "Supprimer le Refresh Token en base bloque immédiatement tout renouvellement futur."}], "comparison": {"left_title": "Access Token (15 min)", "left_items": ["Envoyé sur chaque requête API", "Vérifié en mémoire par signature", "Non stocké en base de données"], "right_title": "Refresh Token (7 à 30 jours)", "right_items": ["Envoyé uniquement sur /auth/refresh", "Enregistré et révocable en base", "Rotation à chaque renouvellement"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Des Access Tokens courts limitent l'impact d'une fuite sans sacrifier le confort grâce au Refresh Token."}, {"number": 100, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Modèle de Droits", "title": "Contrôle d'accès par rôles (RBAC) et Scopes granulaires", "subtitle": "Structurer les autorisations métiers selon le principe du moindre privilège.", "definition": "Le RBAC attribue des permissions à des rôles métiers (lecteur, formateur, admin), tandis que les scopes affinent les actions permises à un jeton précis.", "points": [{"label": "Moindre privilège", "text": "Un compte ou un jeton ne reçoit que les permissions strictement nécessaires à sa mission."}, {"label": "Rôles lisibles", "text": "Regrouper les droits par fonction métier évite de gérer des règles par individu."}, {"label": "Scopes limitatifs", "text": "Un script d'export reçoit le scope catalogue:read sans jamais pouvoir supprimer."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Refusez tout par défaut dans l'API, puis ouvrez chaque route explicitement aux rôles et scopes requis."}, {"number": 101, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Patron Tornado", "title": "Décorateur @exiger_role sur un RequestHandler Tornado", "subtitle": "Rendre la politique d'autorisation déclarative et lisible sur chaque méthode.", "definition": "Un décorateur Python enveloppe get, post ou delete pour vérifier self.current_user et son rôle avant même d'exécuter une seule ligne de logique métier.", "points": [{"label": "get_current_user()", "text": "Méthode native de Tornado extrayant l'utilisateur courant depuis le jeton ou le cookie."}, {"label": "Double barrière", "text": "Renvoie 401 si aucun utilisateur n'est identifié, puis 403 si le rôle est insuffisant."}], "comparison": null, "code_label": "Décorateur RBAC idiomatique pour Tornado", "code_lang": "python", "code": "def exiger_role(*roles: str):\n    def deco(fn):\n        def wrap(self, *args, **kw):\n            if not self.current_user or self.current_user[\"role\"] not in roles:\n                return self.envoyer_probleme(403 if self.current_user else 401, \"Accès refusé\")\n            return fn(self, *args, **kw)\n        return wrap\n    return deco", "takeaway": "Un décorateur @exiger_role('admin') rend la règle de sécurité immédiatement visible lors d'une revue de code."}, {"number": 102, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "OWASP API #1", "title": "Faille critique OWASP API #1 : BOLA", "subtitle": "Être authentifié ne donne pas le droit de lire le dossier du voisin.", "definition": "Broken Object Level Authorization (BOLA) survient quand une API vérifie que l'appelant est connecté mais oublie de vérifier qu'il est propriétaire de l'ID demandé.", "points": [{"label": "Attaque par énumération", "text": "Changer /api/inscriptions/42 en /api/inscriptions/43 expose le dossier d'un tiers."}, {"label": "Filtrage propriétaire", "text": "Toujours inclure AND user_id = ? directement dans la clause WHERE de la requête SQL."}], "comparison": {"left_title": "Code vulnérable à BOLA", "left_items": ["Vérifie seulement le jeton valide", "SELECT * FROM dossiers WHERE id = ?", "N'importe quel inscrit lit tout"], "right_title": "Code protégé au niveau objet", "right_items": ["Extrait user_id du jeton vérifié", "WHERE id = ? AND user_id = ?", "Renvoie 404 ou 403 aux tiers"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Chaque route contenant un identifiant d'objet doit vérifier l'appartenance de cet objet à self.current_user."}, {"number": 103, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Sessions Tornado", "title": "Cookies signés natifs dans Tornado : set_secure_cookie", "subtitle": "Exploiter le mécanisme cryptographique intégré à tornado.web.Application.", "definition": "Tornado fournit nativement des cookies signés par HMAC-SHA256 avec horodatage anti-rejeu dès lors que le paramètre cookie_secret est défini sur l'application.", "points": [{"label": "Écriture signée", "text": "set_secure_cookie encode la valeur, l'horodate et appose une signature cryptographique."}, {"label": "Lecture vérifiée", "text": "get_secure_cookie renvoie None automatiquement si le cookie a été altéré ou a expiré."}], "comparison": null, "code_label": "Émission et lecture d'un cookie signé Tornado", "code_lang": "python", "code": "# Écriture après authentification réussie\nself.set_secure_cookie(\"session_isgp\", user_id, httponly=True, samesite=\"Lax\")\n\n# Lecture sûre dans get_current_user()\nvaleur = self.get_secure_cookie(\"session_isgp\", max_age_days=1)", "takeaway": "N'utilisez jamais get_cookie pour l'identité : exigez toujours get_secure_cookie adossé à cookie_secret."}, {"number": 104, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Sécurité Navigateur", "title": "Les 3 drapeaux d'un Cookie : HttpOnly, Secure, SameSite", "subtitle": "Verrouiller le stockage navigateur contre le vol XSS et l'envoi inter-sites.", "definition": "Trois attributs standardisés instruisent le navigateur sur la manière stricte d'isoler, transporter et restreindre automatiquement un cookie de session.", "points": [{"label": "HttpOnly", "text": "Rend le cookie invisible à document.cookie, bloquant son vol par un script XSS."}, {"label": "Secure", "text": "Interdit au navigateur de transmettre le cookie sur une connexion HTTP non chiffrée."}, {"label": "SameSite=Lax ou Strict", "text": "Empêche l'envoi automatique du cookie lors de requêtes forgées depuis un site tiers."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Tout cookie d'authentification en production cumule obligatoirement HttpOnly, Secure et SameSite=Lax."}, {"number": 105, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Protection CSRF", "title": "Attaque CSRF et protection xsrf_cookies=True dans Tornado", "subtitle": "Empêcher un site malveillant de déclencher une action avec vos cookies.", "definition": "Le Cross-Site Request Forgery force le navigateur d'un utilisateur connecté à envoyer une requête mutative involontaire en exploitant l'envoi automatique des cookies.", "points": [{"label": "Mécanisme natif", "text": "Activer xsrf_cookies=True exige un jeton aléatoire _xsrf sur chaque POST, PUT ou DELETE."}, {"label": "En-tête X-XSRFToken", "text": "Un script fetch() lit le cookie _xsrf et le renvoie dans l'en-tête X-XSRFToken."}, {"label": "Exception Bearer", "text": "Une route authentifiée exclusivement par en-tête Authorization Bearer n'est pas sujette au CSRF."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Si votre API s'appuie sur des cookies de session, activez xsrf_cookies=True pour bloquer toute forge CSRF."}, {"number": 106, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Disponibilité API", "title": "Rate Limiting : 429 Too Many Requests et Retry-After", "subtitle": "Imposer un quota d'appels par fenêtre glissante pour préserver le serveur.", "definition": "Le Rate Limiting comptabilise la fréquence des requêtes par IP ou par clé API afin de bloquer les abus et la force brute avant l'épuisement des ressources.", "points": [{"label": "Quotas différenciés", "text": "Appliquer un seuil strict sur /auth/login (ex. 5/min) et plus large sur le catalogue."}, {"label": "Guidage du client", "text": "L'en-tête Retry-After indique en secondes quand le client peut légitimement réessayer."}], "comparison": null, "code_label": "Réponse HTTP 429 normalisée", "code_lang": "http", "code": "HTTP/1.1 429 Too Many Requests\nRetry-After: 30\nX-RateLimit-Remaining: 0\nContent-Type: application/problem+json; charset=utf-8\n\n{\"title\": \"Quota d'appels dépassé\", \"status\": 429}", "takeaway": "Sans Rate Limiting sur l'authentification et les recherches lourdes, un seul script peut saturer l'API."}, {"number": 107, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Politique CORS", "title": "Politique CORS : set_default_headers() et options()", "subtitle": "Autoriser proprement un front-end hébergé sur un autre domaine.", "definition": "Cross-Origin Resource Sharing est un protocole d'en-têtes HTTP par lequel l'API déclare explicitement au navigateur quelles origines externes peuvent lire ses réponses.", "points": [{"label": "Origine explicite", "text": "Préférer l'origine exacte https://portail.isgp.dz plutôt que le joker permissif *."}, {"label": "Pré-vérification OPTIONS", "text": "Avant un POST JSON ou un en-tête Authorization, le navigateur envoie une requête OPTIONS."}], "comparison": null, "code_label": "Gestion CORS propre dans BaseAPIHandler", "code_lang": "python", "code": "def set_default_headers(self) -> None:\n    self.set_header(\"Access-Control-Allow-Origin\", \"https://portail.isgp.dz\")\n    self.set_header(\"Access-Control-Allow-Headers\", \"Content-Type, Authorization\")\n    self.set_header(\"Access-Control-Allow-Methods\", \"GET, POST, PATCH, DELETE, OPTIONS\")\n\ndef options(self, *args) -> None:\n    self.set_status(204)\n    self.finish()", "takeaway": "CORS n'est pas un pare-feu serveur : c'est une consigne de sécurité destinée aux navigateurs Web."}, {"number": 108, "part_id": "P6", "part_title": "Partie 6 — Sécurité, Cryptographie, Authentification & Résilience", "tag": "Événements Entrants", "title": "Webhooks sécurisés : Vérifier la signature HMAC entrante", "subtitle": "S'assurer qu'une notification de paiement provient réellement du partenaire.", "definition": "Un webhook est une requête POST envoyée par un service tiers vers votre API ; son authenticité se vérifie en recalculant le HMAC-SHA256 sur les octets bruts reçus.", "points": [{"label": "Octets intacts", "text": "Calculer la signature sur self.request.body exact avant tout reformatage JSON."}, {"label": "Anti-rejeu horodaté", "text": "Rejeter toute notification dont l'horodatage s'écarte de plus de cinq minutes."}], "comparison": null, "code_label": "Validation cryptographique d'un webhook entrant", "code_lang": "python", "code": "import hashlib, hmac\n\nsig_recue = self.request.headers.get(\"X-Webhook-Signature\", \"\")\nsig_calculee = hmac.new(SECRET_WEBHOOK, self.request.body, hashlib.sha256).hexdigest()\nif not hmac.compare_digest(sig_recue, sig_calculee):\n    return self.envoyer_probleme(401, \"Signature webhook invalide\")", "takeaway": "Un endpoint webhook public sans vérification HMAC permet à n'importe qui de simuler un paiement validé."}, {"number": 109, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Client HTTP Async", "title": "Appeler une API externe avec AsyncHTTPClient", "subtitle": "Interroger un service distant sans figer la boucle événementielle Tornado.", "definition": "tornado.httpclient.AsyncHTTPClient exécute des requêtes HTTP sortantes non bloquantes afin que le serveur continue à servir des centaines d'autres clients pendant l'attente.", "points": [{"label": "Piège classique", "text": "Utiliser urllib.request ou un client synchrone bloque tout le processus Tornado."}, {"label": "Parallélisme natif", "text": "Plusieurs appels AsyncHTTPClient peuvent s'exécuter en parallèle avec asyncio.gather."}], "comparison": null, "code_label": "Appel sortant non bloquant dans un handler", "code_lang": "python", "code": "from tornado.httpclient import AsyncHTTPClient\n\nclass TauxChangeHandler(BaseAPIHandler):\n    async def get(self) -> None:\n        client = AsyncHTTPClient()\n        rep = await client.fetch(\"https://api.partenaire.dz/taux\")\n        self.write(rep.body)", "takeaway": "Dans un serveur Tornado, tout appel HTTP sortant s'effectue obligatoirement avec AsyncHTTPClient."}, {"number": 110, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Résilience Réseau", "title": "Imposer connect_timeout et request_timeout systématiques", "subtitle": "Empêcher la lenteur d'un partenaire externe de faire tomber votre API.", "definition": "Un timeout borne la durée maximale d'établissement TCP et de réponse complète afin de libérer rapidement les sockets et de renvoyer un statut 504 maîtrisé.", "points": [{"label": "connect_timeout", "text": "Temps maximal accordé pour établir la connexion TCP initiale (souvent 2 secondes)."}, {"label": "request_timeout", "text": "Durée totale maximale de l'échange HTTP de bout en bout (souvent 5 secondes)."}, {"label": "Dégradation gracieuse", "text": "Intercepter HTTPClientError pour servir un cache de secours ou un code 502 / 504 clair."}], "comparison": null, "code_label": "Requête externe bornée dans le temps", "code_lang": "python", "code": "from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPClientError\n\nreq = HTTPRequest(url, connect_timeout=2.0, request_timeout=5.0)\ntry:\n    rep = await AsyncHTTPClient().fetch(req)\nexcept HTTPClientError:\n    return self.envoyer_probleme(504, \"Service partenaire indisponible\")", "takeaway": "Un appel réseau sans timeout explicite est une panne en cascade qui attend de se produire."}, {"number": 111, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Architecture Code", "title": "Architecture modulaire : Organiser routes et handlers", "subtitle": "Découper une application Tornado grandissante en couches lisibles et testables.", "definition": "Une architecture modulaire sépare les RequestHandlers HTTP, la validation métier et l'accès aux données SQLite dans des modules dédiés par domaine fonctionnel.", "points": [{"label": "handlers/ (Couche HTTP)", "text": "Lit la requête, appelle le service métier et formate le statut et le JSON de sortie."}, {"label": "services/ (Règles métier)", "text": "Concentre les calculs, quotas et validations indépendamment du protocole Web."}, {"label": "repositories/ (SQLite)", "text": "Encapsule toutes les requêtes SQL paramétrées sans fuite dans les handlers."}, {"label": "routes.py (Registre)", "text": "Assemble proprement les tuples URLSpec de chaque domaine dans Application."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Un RequestHandler svelte ne contient aucune requête SQL brute : il orchestre l'entrée HTTP et la réponse."}, {"number": 112, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Évolution API", "title": "Versioning (/api/v1 vs /api/v2) et en-têtes Sunset", "subtitle": "Faire évoluer le contrat JSON sans jamais casser les clients déjà déployés.", "definition": "Le versioning d'URI isole les changements incompatibles sous un nouveau préfixe tandis que les en-têtes Deprecation et Sunset (RFC 8594) annoncent la fin d'une ancienne version.", "points": [{"label": "Changement rétrocompatible", "text": "Ajouter un champ optionnel en réponse ne casse rien et reste dans /api/v1."}, {"label": "Rupture de contrat", "text": "Renommer un champ ou modifier son type impose d'ouvrir une branche /api/v2."}, {"label": "Retrait planifié", "text": "L'en-tête Sunset communique la date exacte d'extinction aux équipes clientes."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "On n'écrase jamais en place un contrat consommé en production : on étend v1 ou on publie v2."}, {"number": 113, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Observabilité", "title": "Sondes GET /health et corrélation par X-Request-ID", "subtitle": "Permettre aux équilibreurs de charge et aux équipes d'exploitation de diagnostiquer l'API.", "definition": "La route /health expose l'état vital du service et de sa base SQLite, tandis que l'identifiant X-Request-ID relie la réponse client à la ligne exacte des logs serveur.", "points": [{"label": "Traçabilité instantanée", "text": "Générer un UUID dans prepare() et le renvoyer dans l'en-tête X-Request-ID."}, {"label": "Vérification réelle", "text": "Une sonde Readiness exécute SELECT 1 sur SQLite et renvoie 503 en cas d'échec."}], "comparison": {"left_title": "Sonde Liveness (/health/live)", "left_items": ["Vérifie que l'IOLoop répond", "Aucun appel base de données", "Déclenche un redémarrage si figé"], "right_title": "Sonde Readiness (/health/ready)", "right_items": ["Teste SQLite et les dépendances", "Renvoie 200 ou 503 Unavailable", "Coupe le trafic entrant si dégradé"]}, "code_label": "Réponse JSON d'une sonde de santé", "code_lang": "json", "code": "{\n  \"statut\": \"operationnel\",\n  \"sqlite_wal\": \"ok\",\n  \"version\": \"1.4.0\",\n  \"request_id\": \"req-9f3a21c8\"\n}", "takeaway": "Un bon X-Request-ID transforme une heure de recherche dans les logs en cinq secondes de diagnostic."}, {"number": 114, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Performance SQL", "title": "Pagination : Offset / Limit vs Pagination par Curseur", "subtitle": "Garder des temps de réponse constants même sur des millions d'enregistrements.", "definition": "La pagination découpe une grande collection en tranches bornées, soit par décalage numérique (OFFSET), soit à partir du dernier identifiant trié observé (Keyset).", "points": [{"label": "Coût caché d'OFFSET", "text": "OFFSET 100000 oblige SQLite à balayer puis jeter cent mille lignes avant de répondre."}, {"label": "Stabilité du curseur", "text": "Filtrer avec WHERE id > ? LIMIT 20 exploite directement l'index de clé primaire."}], "comparison": {"left_title": "Offset / Limit (?page=3&limit=20)", "left_items": ["Accès direct au numéro de page", "Ralentit sur les pages profondes", "Décalages possibles lors d'ajouts"], "right_title": "Curseur Keyset (?after_id=840)", "right_items": ["Temps constant O(1) via l'index", "Aucun doublon ni saut en flux vif", "Idéal pour défilement infini et API"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Utilisez Offset/Limit pour les petits catalogues back-office et un curseur indexé pour les gros volumes."}, {"number": 115, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Qualité Logicielle", "title": "Tests automatisés avec AsyncHTTPTestCase", "subtitle": "Vérifier chaque statut, en-tête et corps JSON en quelques millisecondes.", "definition": "tornado.testing.AsyncHTTPTestCase démarre votre Application sur un port éphémère isolé en mémoire et fournit self.fetch() pour tester vos routes de bout en bout.", "points": [{"label": "Zéro serveur manuel", "text": "Chaque test monte et démonte proprement sa propre boucle IOLoop et sa base temporaire."}, {"label": "Couverture complète", "text": "Tester systématiquement le cas nominal (200/201) et les rejets (400, 401, 404, 422)."}], "comparison": null, "code_label": "Test d'intégration natif avec AsyncHTTPTestCase", "code_lang": "python", "code": "from tornado.testing import AsyncHTTPTestCase\n\nclass CatalogueTest(AsyncHTTPTestCase):\n    def get_app(self):\n        return creer_application(db_path=\":memory:\")\n\n    def test_liste_formations_200(self):\n        rep = self.fetch(\"/api/formations\")\n        self.assertEqual(rep.code, 200)", "takeaway": "Un test AsyncHTTPTestCase valide le vrai routage HTTP, la sérialisation JSON et les codes d'état."}, {"number": 116, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Documentation Vivante", "title": "Exposer OpenAPI 3.0 (/api/openapi.json) et Swagger UI", "subtitle": "Fournir un contrat lisible par les machines et testable dans le navigateur.", "definition": "OpenAPI 3.0 décrit formellement en JSON l'ensemble des routes, paramètres, schémas et codes de retour d'une API afin d'alimenter automatiquement Swagger UI.", "points": [{"label": "Contrat explicite", "text": "Dans Tornado, un dictionnaire Python structuré sert directement /api/openapi.json."}, {"label": "Bac à sable /api/docs", "text": "Une simple page HTML chargeant Swagger UI permet d'essayer chaque route en direct."}, {"label": "Génération de clients", "text": "Les équipes mobiles et partenaires génèrent leurs SDK à partir de ce fichier unique."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Une API sans contrat OpenAPI à jour oblige chaque intégrateur à lire le code serveur ou à deviner."}, {"number": 117, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Cache HTTP", "title": "Cache conditionnel : ETag, If-None-Match et 304", "subtitle": "Économiser la bande passante lorsque la ressource n'a pas changé.", "definition": "Un ETag est l'empreinte de version d'une réponse ; si le client la renvoie dans If-None-Match et qu'elle est toujours valide, le serveur répond 304 Not Modified sans corps.", "points": [{"label": "Support natif Tornado", "text": "RequestHandler calcule automatiquement un ETag SHA1 sur le tampon d'écriture des GET."}, {"label": "Gain réseau majeur", "text": "Un catalogue de 80 Ko inchangé ne transfère plus que quelques octets d'en-têtes."}], "comparison": null, "code_label": "Échange conditionnel avec ETag", "code_lang": "http", "code": "GET /api/formations HTTP/1.1\nIf-None-Match: \"a94a8fe5ccb19ba6\"\n\nHTTP/1.1 304 Not Modified\nETag: \"a94a8fe5ccb19ba6\"", "takeaway": "Tornado gère nativement compute_etag() sur vos réponses GET : exploitez-le pour alléger le réseau."}, {"number": 118, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Tâches Longues", "title": "Traitements longs asynchrones et statut 202 Accepted", "subtitle": "Ne jamais garder une requête HTTP ouverte pendant trente secondes de calcul.", "definition": "Lorsqu'un traitement dépasse quelques centaines de millisecondes (génération PDF, export massif), l'API enregistre la demande et répond immédiatement 202 Accepted.", "points": [{"label": "Réponse immédiate", "text": "Le corps 202 retourne un identifiant job_id et une URL de suivi /api/taches/{id}."}, {"label": "Exécution en arrière-plan", "text": "Un worker dédié traite la file sans risquer de timeout proxy 504 côté client."}, {"label": "Consultation d'état", "text": "Le client interroge l'état (en_attente, en_cours, termine) jusqu'à disponibilité."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Au-delà d'une seconde de traitement prévisible, préférez le patron 202 Accepted + ressource de suivi."}, {"number": 119, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Flux Temps Réel", "title": "Temps réel serveur vers client : Server-Sent Events (SSE)", "subtitle": "Pousser des notifications en continu sur une simple connexion HTTP standard.", "definition": "Server-Sent Events maintient une réponse HTTP ouverte de type text/event-stream sur laquelle Tornado pousse des événements texte via self.write() et await self.flush().", "points": [{"label": "Simplicité native", "text": "L'API navigateur EventSource gère nativement la reconnexion automatique en cas de coupure."}, {"label": "Idéal pour les tableaux de bord", "text": "Suivi de progression, alertes métier ou métriques en direct sans surcharge de polling."}], "comparison": null, "code_label": "Flux SSE asynchrone dans un handler Tornado", "code_lang": "python", "code": "class FluxAlertesHandler(tornado.web.RequestHandler):\n    async def get(self) -> None:\n        self.set_header(\"Content-Type\", \"text/event-stream; charset=utf-8\")\n        self.set_header(\"Cache-Control\", \"no-cache\")\n        self.write(\"data: {\\\"statut\\\": \\\"connecte\\\"}\\n\\n\")\n        await self.flush()", "takeaway": "Quand seul le serveur a besoin de pousser des mises à jour vers le navigateur, SSE est plus simple que WebSocket."}, {"number": 120, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "WebSockets Tornado", "title": "Temps réel bidirectionnel : WebSocketHandler", "subtitle": "Une force historique de Tornado pour le dialogue instantané full-duplex.", "definition": "tornado.websocket.WebSocketHandler promeut une connexion HTTP en canal TCP persistant bidirectionnel permettant au client et au serveur d'échanger à tout instant.", "points": [{"label": "Cycle d'événements", "text": "Trois méthodes structurent le handler : open(), on_message(msg) et on_close()."}, {"label": "Sécurité d'origine", "text": "Toujours surcharger check_origin(origin) pour bloquer les connexions inter-sites non voulues."}], "comparison": {"left_title": "SSE (text/event-stream)", "left_items": ["Unidirectionnel serveur vers client", "HTTP classique, reconnexion auto", "Parfait pour notifications et flux"], "right_title": "WebSocket (ws:// / wss://)", "right_items": ["Bidirectionnel temps réel complet", "Protocole dédié faible latence", "Idéal pour chat et édition collaborative"]}, "code_label": "Squelette d'un WebSocketHandler Tornado", "code_lang": "python", "code": "from tornado.websocket import WebSocketHandler\n\nclass SalonDirectHandler(WebSocketHandler):\n    def open(self) -> None:\n        self.write_message({\"evenement\": \"bienvenue\"})\n\n    def on_message(self, message: str) -> None:\n        self.write_message({\"echo\": message})", "takeaway": "Tornado excelle sur des milliers de WebSockets simultanés grâce à son architecture asynchrone native."}, {"number": 121, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Déploiement Prod", "title": "Topologie de production : Nginx + Cluster Tornado", "subtitle": "Exploiter tous les cœurs CPU derrière un reverse proxy frontal.", "definition": "En production, Nginx termine le chiffrement TLS sur le port 443 et répartit le trafic HTTP vers plusieurs processus Tornado autonomes (un par cœur CPU).", "points": [{"label": "Rôle de Nginx", "text": "Gère les certificats HTTPS, la compression gzip, les fichiers statiques et le filtrage lent."}, {"label": "Contournement du GIL", "text": "Lancer 4 processus Tornado sur les ports 8001 à 8004 exploite pleinement 4 cœurs CPU."}, {"label": "Supervision systemd", "text": "Chaque instance Tornado redémarre automatiquement en moins d'une seconde en cas d'arrêt."}], "comparison": null, "code_label": "Bloc upstream Nginx vers 2 workers Tornado", "code_lang": "nginx", "code": "upstream tornado_isgp {\n    server 127.0.0.1:8001;\n    server 127.0.0.1:8002;\n}\nlocation /api/ {\n    proxy_pass http://tornado_isgp;\n    proxy_set_header X-Real-IP $remote_addr;\n}", "takeaway": "Ne placez jamais un processus Python directement sur le port 443 public sans reverse proxy frontal."}, {"number": 122, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Réseau Proxy", "title": "Récupérer la vraie IP cliente : HTTPServer(app, xheaders=True)", "subtitle": "Éviter que tous les appels n'apparaissent sous l'adresse locale 127.0.0.1.", "definition": "Lorsque Tornado tourne derrière Nginx, activer xheaders=True dans HTTPServer instruit Tornado de lire X-Real-IP et X-Forwarded-Proto pour peupler request.remote_ip.", "points": [{"label": "Impact sur le Rate-Limit", "text": "Sans xheaders=True, votre limiteur bloque 127.0.0.1 et coupe tous les utilisateurs d'un coup."}, {"label": "Condition de confiance", "text": "N'activez xheaders=True que si le port Tornado est inaccessible en direct depuis Internet."}], "comparison": null, "code_label": "Démarrage du serveur Tornado derrière un proxy de confiance", "code_lang": "python", "code": "from tornado.httpserver import HTTPServer\nfrom tornado.ioloop import IOLoop\n\nserveur = HTTPServer(app, xheaders=True)\nserveur.listen(8001, address=\"127.0.0.1\")\nIOLoop.current().start()", "takeaway": "Écoutez sur 127.0.0.1 et activez xheaders=True pour un Rate Limiting et des logs d'audit exacts."}, {"number": 123, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Journaux d'Audit", "title": "Journalisation structurée avec log_function", "subtitle": "Produire une ligne JSON exploitable à la fin de chaque requête HTTP.", "definition": "Le paramètre log_function de tornado.web.Application remplace le journal texte par défaut par une fonction personnalisée émettant des événements d'audit structurés.", "points": [{"label": "Métriques clés", "text": "Enregistrer méthode, URI, code HTTP, durée en ms (request.request_time()), IP et utilisateur."}, {"label": "Hygiène RGPD & Secrets", "text": "Ne jamais journaliser les en-têtes Authorization, les cookies ni les mots de passe reçus."}], "comparison": null, "code_label": "Fonction d'audit branchée sur Application", "code_lang": "python", "code": "def journaliser_requete(handler) -> None:\n    duree_ms = round(handler.request.request_time() * 1000, 2)\n    entree = {\"status\": handler.get_status(), \"path\": handler.request.path, \"ms\": duree_ms}\n    logger_audit.info(json.dumps(entree))\n\napp = tornado.web.Application(routes, log_function=journaliser_requete)", "takeaway": "Des logs JSON structurés sans secrets permettent d'auditer latences et tentatives d'intrusion en temps réel."}, {"number": 124, "part_id": "P7", "part_title": "Partie 7 — Production, Client Async, OpenAPI, Cache & Temps Réel", "tag": "Go-Live Prod", "title": "Checklist de mise en production d'une API Tornado", "subtitle": "Les vérifications incontournables avant d'ouvrir le trafic aux utilisateurs.", "definition": "La mise en production valide que les réglages de confort du développement sont désactivés au profit de la sécurité, de la résilience et de l'observabilité.", "points": [{"label": "debug=False obligatoire", "text": "Désactive le rechargement automatique et empêche toute fuite de trace Python vers le client."}, {"label": "Secrets & TLS", "text": "Secrets lus via os.environ, HTTPS forcé sur Nginx et cookies HttpOnly + Secure + SameSite."}, {"label": "Base & Timeouts", "text": "SQLite en mode WAL via run_in_executor et timeouts stricts sur tout AsyncHTTPClient."}, {"label": "Contrat & Sondes", "text": "Erreurs unifiées RFC 7807, Rate Limiting actif, /health opérationnel et tests au vert."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "La qualité industrielle naît de la discipline : pas de déploiement sans validation complète de la checklist."}, {"number": 125, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Zero-to-Hero", "title": "Vue d'ensemble du parcours pratique en 6 étapes", "subtitle": "Faire grandir le même portail de formations ISGP d'un script minimal à l'architecture Hero.", "definition": "Le fil rouge Zero-to-Hero construit étape par étape un serveur Tornado servant à la fois une interface Web HTML et une API REST JSON professionnelle.", "points": [{"label": "Progression cumulative", "text": "Chaque étape conserve les acquis de la précédente et résout une limite réelle d'ingénierie."}, {"label": "Étapes 1 à 3 (Fondations)", "text": "Premier serveur, routage filtré du catalogue, puis CRUD complet validé en RFC 7807."}, {"label": "Étapes 4 à 6 (Production)", "text": "Persistance SQLite WAL, sécurité cryptographique complète, puis OpenAPI et observabilité."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "On maîtrise vraiment une architecture quand on sait la bâtir brique par brique sur un cas concret."}, {"number": 126, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 1 / 6", "title": "Étape 1 — Hello World : GET / et GET /api/bonjour", "subtitle": "Démarrer un serveur Tornado minimal servant à la fois une page et du JSON.", "definition": "La première étape illustre la dualité fondamentale du Web moderne : une route racine affiche l'interface HTML tandis qu'une route /api/ expose des données pures.", "points": [{"label": "AccueilHandler (GET /)", "text": "Utilise self.render('index.html') pour livrer l'interface visuelle au navigateur."}, {"label": "BonjourAPIHandler", "text": "Passe un dict Python à self.write() pour émettre automatiquement application/json."}], "comparison": null, "code_label": "Cœur de l'Étape 1 dans Tornado", "code_lang": "python", "code": "class BonjourAPIHandler(tornado.web.RequestHandler):\n    def get(self) -> None:\n        self.write({\"message\": \"Bienvenue sur l'API ISGP\", \"etape\": 1})\n\napp = tornado.web.Application([(\"/\", AccueilHandler), (\"/api/bonjour\", BonjourAPIHandler)])", "takeaway": "En dix lignes de Tornado, le même processus sert déjà une page HTML humaine et un contrat JSON machine."}, {"number": 127, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 1 — Client", "title": "Étape 1 — Consommer /api/bonjour avec fetch() en HTML", "subtitle": "Relier dynamiquement le bouton de la page Web à l'endpoint JSON Tornado.", "definition": "L'API standard JavaScript fetch() interroge /api/bonjour en arrière-plan sans recharger la page et met à jour le DOM dès réception du JSON.", "points": [{"label": "Asynchronisme navigateur", "text": "await fetch('/api/bonjour') n'immobilise jamais le défilement ni l'interface utilisateur."}, {"label": "Découplage immédiat", "text": "Le même endpoint /api/bonjour répond aussi bien à la page HTML qu'à la commande curl."}], "comparison": null, "code_label": "Appel asynchrone dans le template HTML", "code_lang": "html", "code": "<button id=\"btn-test\">Interroger l'API<\/button>\n<pre id=\"sortie\"><\/pre>\n<script>\ndocument.getElementById(\"btn-test\").onclick = async () => {\n  const rep = await fetch(\"/api/bonjour\");\n  document.getElementById(\"sortie\").textContent = JSON.stringify(await rep.json(), null, 2);\n};\n<\/script>", "takeaway": "L'interface Web devient le premier client officiel de votre propre API REST."}, {"number": 128, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 2 / 6", "title": "Étape 2 — Routes & Catalogue : Filtres, pagination et détail", "subtitle": "Structurer la consultation d'une collection de formations avec paramètres d'URL.", "definition": "L'étape 2 enrichit la lecture REST avec une route de collection filtrable par query string et une route paramétrée par identifiant pour consulter une fiche précise.", "points": [{"label": "Filtres & Recherche", "text": "get_query_argument('categorie', None) et 'q' filtrent proprement les résultats."}, {"label": "Enveloppe paginée", "text": "La réponse structure les résultats sous donnees et les compteurs sous meta."}, {"label": "Fiche détail /api/formations/([0-9]+)", "text": "Capture l'identifiant numérique et renvoie 404 JSON si la formation n'existe pas."}], "comparison": null, "code_label": "Lecture des filtres de requête dans l'Étape 2", "code_lang": "python", "code": "categorie = self.get_query_argument(\"categorie\", default=\"\")\nrecherche = self.get_query_argument(\"q\", default=\"\").strip().lower()\npage = max(1, int(self.get_query_argument(\"page\", default=\"1\")))\nlimite = min(50, max(1, int(self.get_query_argument(\"limite\", default=\"10\"))))", "takeaway": "Bornez toujours le paramètre limite côté serveur pour empêcher un client d'aspirer toute la base d'un coup."}, {"number": 129, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 3 / 6", "title": "Étape 3 — CRUD Complet & Validation RFC 7807", "subtitle": "Ouvrir l'écriture tout en rejetant rigoureusement les entrées invalides.", "definition": "L'étape 3 ajoute la création POST (201 + Location), la modification PATCH (200) et la suppression DELETE (204), protégées par un validateur métier strict.", "points": [{"label": "Validation centralisée", "text": "Titre non vide, catégorie autorisée, durée positive et tarif en dinars cohérent."}, {"label": "Erreurs normalisées", "text": "JSON cassé rejeté en 400 et règle métier violée détaillée champ par champ en 422."}, {"label": "BaseAPIHandler", "text": "write_error() et default_handler_class garantissent 100 % de réponses d'erreur JSON."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "À la fin de l'Étape 3, le contrat HTTP est complet, mais les données résident encore en mémoire vive."}, {"number": 130, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 4 / 6", "title": "Étape 4 — Persistance SQLite WAL non bloquante", "subtitle": "Remplacer le dictionnaire en mémoire par un dépôt relationnel durable.", "definition": "L'étape 4 introduit une base SQLite configurée en mode WAL avec requêtes paramétrées exécutées via run_in_executor sans changer une virgule au contrat HTTP.", "points": [{"label": "Transparence du contrat", "text": "Le front-end et les clients API fonctionnent à l'identique grâce au découplage."}, {"label": "Amorçage idempotent", "text": "CREATE TABLE IF NOT EXISTS et jeu de données initial chargés proprement au démarrage."}], "comparison": {"left_title": "Avant (Étape 3 en RAM)", "left_items": ["Liste Python réinitialisée au stop", "Aucun verrouillage disque", "Validation rapide du contrat"], "right_title": "Après (Étape 4 SQLite WAL)", "right_items": ["Fichier .db persistant et ACID", "PRAGMA WAL + requêtes ? sûres", "Exécuté dans ThreadPoolExecutor"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Bien séparer handler HTTP et dépôt de données permet de changer le moteur de stockage sans casser l'API."}, {"number": 131, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 5 / 6", "title": "Étape 5 — Sécurité Complète : Auth, RBAC et Rate-Limit", "subtitle": "Verrouiller les écritures et protéger le serveur contre les abus.", "definition": "L'étape 5 sécurise le portail et l'API avec hachage PBKDF2, cookies signés pour le Web, jetons Bearer HMAC pour les clients API, contrôle RBAC et quota 429.", "points": [{"label": "Double authentification", "text": "get_current_user() reconnaît aussi bien le cookie signé navigateur que l'en-tête Bearer."}, {"label": "Autorisation RBAC", "text": "Lecture ouverte à tous, création réservée aux formateurs/admins, suppression aux admins."}, {"label": "Bouclier actif", "text": "Comparaison constante compare_digest(), en-têtes sécurisés et limiteur 429 + Retry-After."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "La sécurité n'est pas un vernis cosmétique : elle combine cryptographie saine, RBAC et limitation de débit."}, {"number": 132, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Étape 6 / 6", "title": "Étape 6 — Architecture Hero : OpenAPI, /health et Audit", "subtitle": "Couronner l'application avec les standards d'observabilité et de documentation.", "definition": "L'ultime étape transforme l'API sécurisée en produit prêt pour la production grâce à la spécification OpenAPI 3.0 interactive, aux sondes de santé et aux logs d'audit.", "points": [{"label": "Documentation interactive", "text": "/api/openapi.json décrit tout le contrat et /api/docs ouvre l'explorateur Swagger UI."}, {"label": "Sonde /health complète", "text": "Vérifie la réactivité de SQLite WAL, expose la version et retourne X-Request-ID."}, {"label": "Traçabilité d'exploitation", "text": "log_function produit un journal JSON structuré mesurant chaque appel en millisecondes."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Une API Hero est auto-documentée, observable en temps réel, testée automatiquement et prête à opérer."}, {"number": 133, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Vue Synthétique", "title": "Matrice des 6 étapes : Site Web et API main dans la main", "subtitle": "Observer comment l'interface utilisateur et le back-end progressent ensemble.", "definition": "Du début à la fin du parcours, chaque brique ajoutée côté API Tornado enrichit immédiatement l'expérience du portail Web sans dupliquer la logique métier.", "points": [{"label": "Étapes 1 & 2", "text": "Page d'accueil connectée à /api/bonjour, puis catalogue filtrable et paginé en direct."}, {"label": "Étapes 3 & 4", "text": "Formulaires de gestion avec retours d'erreur 422 clairs et sauvegarde durable SQLite WAL."}, {"label": "Étapes 5 & 6", "text": "Connexion par rôle, console d'administration protégée, Swagger UI et tableau /health."}], "comparison": {"left_title": "Côté Portail Web (Navigateur)", "left_items": ["Templates HTML légers et fetch()", "Cookies signés HttpOnly + SameSite", "Affichage lisible des erreurs 422"], "right_title": "Côté API REST (Tornado)", "right_items": ["Handlers JSON découplés et testables", "Jetons Bearer HMAC + RBAC + 429", "SQLite WAL, OpenAPI 3.0 et /health"]}, "code_label": "", "code_lang": "", "code": "", "takeaway": "Concevoir API-First permet de servir simultanément votre site Web, vos partenaires et vos futurs mobiles."}, {"number": 134, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Prise en Main", "title": "Lancer et expérimenter les 6 étapes en direct", "subtitle": "Exécuter chaque jalon depuis votre terminal ou via le laboratoire interactif.", "definition": "Chaque étape du parcours Zero-to-Hero est autonome, lisible d'un seul tenant et exécutable immédiatement avec l'environnement virtuel Python du bootcamp.", "points": [{"label": "Inspection progressive", "text": "Comparer côte à côte le code de deux étapes consécutives révèle exactement le delta ajouté."}, {"label": "Double validation", "text": "Tester chaque étape à la fois dans le navigateur Web et en ligne de commande avec curl."}], "comparison": null, "code_label": "Lancer une étape et interroger son API avec curl", "code_lang": "bash", "code": "# Démarrer le serveur Tornado de l'étape choisie\n.venv/bin/python tornado-version/zero_to_hero/etape_06_hero.py\n\n# Vérifier la sonde de santé et les en-têtes HTTP\ncurl -i http://127.0.0.1:8888/health", "takeaway": "Ouvrez le code, modifiez une règle de validation, relancez et observez l'impact réel sur la réponse HTTP."}, {"number": 135, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Règles d'Or", "title": "Les 10 Règles d'Or de l'Ingénierie d'API avec Tornado", "subtitle": "Le mémento opérationnel à garder sous les yeux sur chaque projet.", "definition": "Ces dix principes synthétisent l'ensemble des bonnes pratiques architecturales, sécuritaires et opérationnelles étudiées tout au long du bootcamp.", "points": [{"label": "1–3 Contrat & Validation", "text": "Respecter les verbes/statuts HTTP, valider tout côté serveur et normaliser les erreurs en RFC 7807."}, {"label": "4–5 Asynchronisme & SQL", "text": "Ne jamais bloquer l'IOLoop (AsyncHTTPClient, run_in_executor) et bannir toute concaténation SQL."}, {"label": "6–8 Sécurité en profondeur", "text": "Zéro secret en code, PBKDF2 + compare_digest, RBAC + anti-BOLA et Rate Limiting 429."}, {"label": "9–10 Production & Qualité", "text": "Documenter en OpenAPI 3.0, exposer /health + X-Request-ID et automatiser AsyncHTTPTestCase."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "La rigueur sur les fondamentaux distingue un prototype fragile d'une API robuste qui dure dix ans."}, {"number": 136, "part_id": "P8", "part_title": "Partie 8 — Parcours Zero-to-Hero en 6 Étapes & Synthèse", "tag": "Conclusion", "title": "Conclusion & Passage à la Pratique — Place au Code !", "subtitle": "Vous disposez de toutes les briques pour bâtir des API Tornado de niveau production.", "definition": "De la compréhension intime du protocole HTTP et de la boucle IOLoop jusqu'à SQLite WAL, la cryptographie et OpenAPI, vous maîtrisez toute la chaîne sans magie cachée.", "points": [{"label": "Maîtrise de bout en bout", "text": "Vous savez exactement comment chaque octet HTTP est lu, validé, persisté, signé et journalisé."}, {"label": "Prochaine action immédiate", "text": "Parcourir le laboratoire Zero-to-Hero, éprouver chaque endpoint et construire votre propre service."}, {"label": "Esprit d'ingénieur", "text": "Privilégier toujours la clarté du contrat, la défense en profondeur et les tests automatisés."}], "comparison": null, "code_label": "", "code_lang": "", "code": "", "takeaway": "Un excellent ingénieur API écrit du code simple, prévisible, sécurisé et mesurable — à vous de jouer !"}]}</script>
+  <script>
+/* ==========================================================================
+   ISGP — Contrôleur Interactif du Support de Présentation (Slides Tornado)
+   Navigation clavier/tactile, Vue Grille, Recherche, Plein Écran Paysage & PDF
+   ========================================================================== */
+
+(function () {
+  "use strict";
+
+  let DECK = { meta: {}, parts: [], slides: [] };
+  let currentIdx = 0;
+  let touchStartX = null;
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function formatInlineCode(str) {
+    return escapeHtml(str).replace(/`([^`]+)`/g, "<code>$1</code>");
+  }
+
+  function highlightFragment(code, lang) {
+    const lines = String(code || "").split("\n");
+    return lines
+      .map((rawLine) => {
+        const trimmed = rawLine.trim();
+        if (trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("--")) {
+          return '<span class="tok-cmt">' + escapeHtml(rawLine) + "</span>";
+        }
+        let html = escapeHtml(rawLine);
+        html = html.replace(/(&quot;[^&]*?&quot;|'[^']*?')/g, '<span class="tok-str">$1</span>');
+        if (lang === "python" || !lang) {
+          html = html.replace(
+            /\b(class|def|async|await|return|import|from|if|elif|else|for|in|try|except|finally|with|as|raise|None|True|False|and|or|not)\b/g,
+            '<span class="tok-kw">$1</span>'
+          );
+          html = html.replace(/(^|\s)(@[A-Za-z0-9_.]+)/g, '$1<span class="tok-dec">$2</span>');
+        } else if (lang === "http") {
+          html = html.replace(
+            /\b(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|HTTP\/1\.1)\b/g,
+            '<span class="tok-kw">$1</span>'
+          );
+        } else if (lang === "sql") {
+          html = html.replace(
+            /\b(SELECT|INSERT|INTO|VALUES|UPDATE|SET|DELETE|FROM|WHERE|CREATE|TABLE|IF|NOT|EXISTS|PRIMARY|KEY|PRAGMA|BEGIN|COMMIT|ORDER|BY|LIMIT|OFFSET)\b/gi,
+            '<span class="tok-kw">$1</span>'
+          );
+        }
+        return html;
+      })
+      .join("\n");
+  }
+
+  function pad3(n) {
+    return String(n).padStart(3, "0");
+  }
+
+  function buildSlideInnerHtml(slide, total, forPrint) {
+    const hasCode = Boolean(slide.code && slide.code.trim());
+    const hasCompare = Boolean(slide.comparison && slide.comparison.left_title);
+    const points = Array.isArray(slide.points) ? slide.points : [];
+
+    const pointsHtml = points
+      .map(
+        (pt, idx) =>
+          '<div class="slide-point-card">' +
+          '<span class="slide-point-index">' +
+          (idx + 1) +
+          "</span>" +
+          '<div class="slide-point-content">' +
+          (pt.label ? "<strong>" + formatInlineCode(pt.label) + " :</strong> " : "") +
+          formatInlineCode(pt.text || "") +
+          "</div></div>"
+      )
+      .join("");
+
+    let compareHtml = "";
+    if (hasCompare) {
+      const c = slide.comparison;
+      const leftItems = (c.left_items || [])
+        .map((it) => '<div class="slide-compare-item">' + formatInlineCode(it) + "</div>")
+        .join("");
+      const rightItems = (c.right_items || [])
+        .map((it) => '<div class="slide-compare-item">' + formatInlineCode(it) + "</div>")
+        .join("");
+      compareHtml =
+        '<div class="slide-compare-grid">' +
+        '<div class="slide-compare-col col-left">' +
+        '<h3 class="slide-compare-title">' +
+        formatInlineCode(c.left_title) +
+        "</h3>" +
+        '<div class="slide-compare-items">' +
+        leftItems +
+        "</div></div>" +
+        '<div class="slide-compare-col col-right">' +
+        '<h3 class="slide-compare-title">' +
+        formatInlineCode(c.right_title) +
+        "</h3>" +
+        '<div class="slide-compare-items">' +
+        rightItems +
+        "</div></div></div>";
+    }
+
+    let codeHtml = "";
+    if (hasCode) {
+      const copyBtn = forPrint
+        ? ""
+        : '<button type="button" class="slide-copy-btn" onclick="window.copyCurrentSlideCode(this)">Copier</button>';
+      codeHtml =
+        '<div class="slide-code-panel">' +
+        '<div class="slide-code-header">' +
+        '<span class="slide-code-label">' +
+        escapeHtml(slide.code_label || "Fragment de référence") +
+        "</span>" +
+        '<div class="slide-code-actions">' +
+        '<span class="slide-code-lang">' +
+        escapeHtml(slide.code_lang || "code") +
+        "</span>" +
+        copyBtn +
+        "</div></div>" +
+        '<pre class="slide-code-pre"><code>' +
+        highlightFragment(slide.code, slide.code_lang) +
+        "</code></pre></div>";
+    }
+
+    let bodyHtml = "";
+    if (hasCode) {
+      bodyHtml =
+        '<div class="slide-body layout-split">' +
+        '<div class="slide-points-list">' +
+        (hasCompare ? compareHtml : "") +
+        pointsHtml +
+        "</div>" +
+        codeHtml +
+        "</div>";
+    } else if (hasCompare) {
+      bodyHtml =
+        '<div class="slide-body">' +
+        compareHtml +
+        (points.length ? '<div class="slide-points-grid">' + pointsHtml + "</div>" : "") +
+        "</div>";
+    } else {
+      bodyHtml =
+        '<div class="slide-body"><div class="slide-points-grid">' + pointsHtml + "</div></div>";
+    }
+
+    return (
+      '<div>' +
+      '<div class="slide-meta-row">' +
+      '<div class="slide-badges">' +
+      '<span class="slide-part-pill">' +
+      escapeHtml(slide.part_title) +
+      "</span>" +
+      '<span class="slide-tag-pill">' +
+      escapeHtml(slide.tag) +
+      "</span></div>" +
+      '<span class="slide-counter-pill">' +
+      pad3(slide.number) +
+      " / " +
+      pad3(total) +
+      "</span></div>" +
+      '<div class="slide-headline">' +
+      "<h1>" +
+      formatInlineCode(slide.title) +
+      "</h1>" +
+      '<p class="slide-subtitle">' +
+      formatInlineCode(slide.subtitle) +
+      "</p></div>" +
+      '<div class="slide-def-box">' +
+      '<span class="slide-def-kicker">Définition</span>' +
+      '<p class="slide-def-text">' +
+      formatInlineCode(slide.definition) +
+      "</p></div></div>" +
+      bodyHtml +
+      (slide.takeaway
+        ? '<div class="slide-takeaway-bar"><span class="slide-takeaway-tag">À retenir</span><span>' +
+          formatInlineCode(slide.takeaway) +
+          "</span></div>"
+        : "")
+    );
+  }
+
+  function renderCurrentSlide() {
+    const slides = DECK.slides || [];
+    if (!slides.length) return;
+    if (currentIdx < 0) currentIdx = 0;
+    if (currentIdx >= slides.length) currentIdx = slides.length - 1;
+
+    const slide = slides[currentIdx];
+    const stage = document.getElementById("slide-stage");
+    if (stage) {
+      stage.innerHTML = buildSlideInnerHtml(slide, slides.length, false);
+      stage.scrollTop = 0;
+    }
+
+    const pct = ((currentIdx + 1) / slides.length) * 100;
+    const fill = document.getElementById("deck-progress-fill");
+    if (fill) fill.style.width = pct.toFixed(2) + "%";
+
+    const sel = document.getElementById("deck-part-select");
+    if (sel && sel.value !== slide.part_id) {
+      sel.value = slide.part_id;
+    }
+
+    const posLabel = document.getElementById("deck-pos-label");
+    if (posLabel) {
+      posLabel.textContent = "Diapositive " + (currentIdx + 1) + " sur " + slides.length;
+    }
+
+    try {
+      history.replaceState(null, "", "#slide-" + (currentIdx + 1));
+      localStorage.setItem("isgp-tornado-slide-idx", String(currentIdx));
+    } catch (e) {}
+  }
+
+  function populatePartsDropdown() {
+    const sel = document.getElementById("deck-part-select");
+    if (!sel) return;
+    sel.innerHTML = (DECK.parts || [])
+      .map(
+        (p) =>
+          '<option value="' +
+          escapeHtml(p.part_id) +
+          '">' +
+          escapeHtml(p.part_title) +
+          " (" +
+          p.first_slide +
+          "–" +
+          p.last_slide +
+          ")</option>"
+      )
+      .join("");
+    sel.addEventListener("change", () => {
+      const part = (DECK.parts || []).find((x) => x.part_id === sel.value);
+      if (part) {
+        currentIdx = part.first_slide - 1;
+        renderCurrentSlide();
+      }
+    });
+  }
+
+  function renderGridCards(query) {
+    const container = document.getElementById("deck-grid-cards");
+    const countSpan = document.getElementById("deck-grid-count");
+    if (!container) return;
+    const q = String(query || "").trim().toLowerCase();
+    const matches = (DECK.slides || []).filter((s) => {
+      if (!q) return true;
+      const hay = [
+        s.title,
+        s.subtitle,
+        s.definition,
+        s.tag,
+        s.part_title,
+        s.code,
+        s.takeaway,
+        ...(s.points || []).map((p) => (p.label || "") + " " + (p.text || "")),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+    if (countSpan) {
+      countSpan.textContent = matches.length + " / " + (DECK.slides || []).length + " diapositives";
+    }
+    container.innerHTML = matches
+      .map(
+        (s) =>
+          '<button type="button" class="deck-mini-card ' +
+          (s.number - 1 === currentIdx ? "active" : "") +
+          '" onclick="window.jumpToSlideNumber(' +
+          s.number +
+          ')">' +
+          '<div class="deck-mini-top"><span>#' +
+          pad3(s.number) +
+          " • " +
+          escapeHtml(s.part_id) +
+          "</span><span>" +
+          escapeHtml(s.tag) +
+          "</span></div>" +
+          '<div class="deck-mini-title">' +
+          escapeHtml(s.title) +
+          "</div>" +
+          '<div class="deck-mini-sub">' +
+          escapeHtml(s.subtitle) +
+          "</div></button>"
+      )
+      .join("");
+  }
+
+  window.prevSlide = function () {
+    if (currentIdx > 0) {
+      currentIdx -= 1;
+      renderCurrentSlide();
+    }
+  };
+
+  window.nextSlide = function () {
+    if (currentIdx < (DECK.slides || []).length - 1) {
+      currentIdx += 1;
+      renderCurrentSlide();
+    }
+  };
+
+  window.jumpToSlideNumber = function (num) {
+    currentIdx = Math.max(0, Math.min((DECK.slides || []).length - 1, Number(num) - 1));
+    window.closeDeckGrid();
+    renderCurrentSlide();
+  };
+
+  window.toggleDeckGrid = function () {
+    const overlay = document.getElementById("deck-grid-overlay");
+    if (!overlay) return;
+    const opening = overlay.classList.contains("hidden");
+    overlay.classList.toggle("hidden", !opening);
+    if (opening) {
+      const topSearch = document.getElementById("deck-search-input");
+      renderGridCards(topSearch ? topSearch.value : "");
+    }
+  };
+
+  window.closeDeckGrid = function () {
+    const overlay = document.getElementById("deck-grid-overlay");
+    if (overlay) overlay.classList.add("hidden");
+  };
+
+  window.toggleDeckTheme = function () {
+    const cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+    const next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("isgp-slides-theme", next);
+    } catch (e) {}
+    const btn = document.getElementById("deck-theme-btn");
+    if (btn) btn.textContent = next === "dark" ? "Mode Clair" : "Mode Sombre";
+  };
+
+  window.toggleDeckFullscreen = async function () {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        if (screen.orientation && screen.orientation.lock) {
+          try {
+            await screen.orientation.lock("landscape");
+          } catch (e) {}
+        }
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {}
+  };
+
+  window.copyCurrentSlideCode = function (btnEl) {
+    const s = (DECK.slides || [])[currentIdx];
+    if (!s || !s.code || !navigator.clipboard) return;
+    navigator.clipboard.writeText(s.code).then(() => {
+      if (btnEl) {
+        const prev = btnEl.textContent;
+        btnEl.textContent = "Copié";
+        setTimeout(() => {
+          btnEl.textContent = prev;
+        }, 1200);
+      }
+    });
+  };
+
+  window.printAllSlides = function () {
+    const printRoot = document.getElementById("deck-print-all");
+    const slides = DECK.slides || [];
+    if (printRoot && !printRoot.hasChildNodes()) {
+      printRoot.innerHTML = slides
+        .map(
+          (s) =>
+            '<section class="print-slide-page">' +
+            buildSlideInnerHtml(s, slides.length, true) +
+            "</section>"
+        )
+        .join("");
+    }
+    window.print();
+  };
+
+  function bindEvents() {
+    const searchInput = document.getElementById("deck-search-input");
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        const overlay = document.getElementById("deck-grid-overlay");
+        if (overlay && overlay.classList.contains("hidden") && searchInput.value.trim().length > 0) {
+          overlay.classList.remove("hidden");
+        }
+        renderGridCards(searchInput.value);
+      });
+    }
+
+    document.addEventListener("keydown", (ev) => {
+      const tag = (ev.target && ev.target.tagName) || "";
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+        if (ev.key === "Escape") {
+          ev.target.blur();
+          window.closeDeckGrid();
+        }
+        return;
+      }
+      if (ev.key === "ArrowRight" || ev.key === "PageDown" || ev.key === " ") {
+        ev.preventDefault();
+        window.nextSlide();
+      } else if (ev.key === "ArrowLeft" || ev.key === "PageUp") {
+        ev.preventDefault();
+        window.prevSlide();
+      } else if (ev.key === "Home") {
+        ev.preventDefault();
+        currentIdx = 0;
+        renderCurrentSlide();
+      } else if (ev.key === "End") {
+        ev.preventDefault();
+        currentIdx = Math.max(0, (DECK.slides || []).length - 1);
+        renderCurrentSlide();
+      } else if (ev.key === "g" || ev.key === "G") {
+        ev.preventDefault();
+        window.toggleDeckGrid();
+      } else if (ev.key === "f" || ev.key === "F") {
+        ev.preventDefault();
+        window.toggleDeckFullscreen();
+      } else if (ev.key === "t" || ev.key === "T") {
+        ev.preventDefault();
+        window.toggleDeckTheme();
+      } else if (ev.key === "/") {
+        ev.preventDefault();
+        if (searchInput) searchInput.focus();
+      } else if (ev.key === "Escape") {
+        window.closeDeckGrid();
+      }
+    });
+
+    const viewport = document.querySelector(".deck-viewport");
+    if (viewport) {
+      viewport.addEventListener("touchstart", (ev) => {
+        if (ev.changedTouches && ev.changedTouches[0]) {
+          touchStartX = ev.changedTouches[0].clientX;
+        }
+      });
+      viewport.addEventListener("touchend", (ev) => {
+        if (touchStartX === null || !ev.changedTouches || !ev.changedTouches[0]) return;
+        const dx = ev.changedTouches[0].clientX - touchStartX;
+        touchStartX = null;
+        if (Math.abs(dx) > 55) {
+          if (dx < 0) window.nextSlide();
+          else window.prevSlide();
+        }
+      });
+    }
+  }
+
+  async function initDeck() {
+    try {
+      const savedTheme = localStorage.getItem("isgp-slides-theme");
+      const theme = savedTheme === "light" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", theme);
+      const btn = document.getElementById("deck-theme-btn");
+      if (btn) btn.textContent = theme === "dark" ? "Mode Clair" : "Mode Sombre";
+    } catch (e) {}
+
+    const inlineEl = document.getElementById("slides-deck-data");
+    if (inlineEl && inlineEl.textContent.trim()) {
+      DECK = JSON.parse(inlineEl.textContent);
+    } else {
+      const res = await fetch("/api/slides/tornado");
+      DECK = await res.json();
+    }
+
+    populatePartsDropdown();
+    bindEvents();
+
+    const m = (window.location.hash || "").match(/^#slide-(\d+)$/);
+    if (m) {
+      currentIdx = Math.max(0, parseInt(m[1], 10) - 1);
+    } else {
+      try {
+        const savedIdx = parseInt(localStorage.getItem("isgp-tornado-slide-idx") || "0", 10);
+        if (!isNaN(savedIdx) && savedIdx >= 0) currentIdx = savedIdx;
+      } catch (e) {}
+    }
+    renderCurrentSlide();
+  }
+
+  document.addEventListener("DOMContentLoaded", initDeck);
+})();
+
+</script>
+</body>
+</html>

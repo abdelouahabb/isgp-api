@@ -21,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=45" />
+  <link rel="stylesheet" href="/static/styles.css?v=46" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -67,6 +67,9 @@
       <button class="tab-btn" data-tab="quiz" onclick="switchTab('quiz')">
         Évaluations
       </button>
+      <a href="/slides/tornado" class="tab-btn" style="text-decoration: none; border-color: rgba(139, 92, 246, 0.55); color: #c4b5fd; font-weight: 700;">
+        Diapositives
+      </a>
       <button id="fullscreen-toggle-btn" class="fullscreen-toggle-btn" onclick="toggleFullscreenLandscape()" title="Basculer en Plein Écran &amp; Mode Paysage">
         Plein Écran Paysage
       </button>
@@ -4098,6 +4101,6 @@ class FormationCatalogueHandler(tornado.web.RequestHandler):
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=45"></script>
+  <script src="/static/app.js?v=46"></script>
 </body>
 </html>
