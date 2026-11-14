@@ -7,11 +7,14 @@ import os
 import sys
 import uvicorn
 from fastapi import FastAPI, Query, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Gestionnaires d'Exceptions Globaux (@app.exception_handler)", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 
 # 1. INTERCEPTEUR HTTP (404 Not Found, 405 Method Not Allowed, etc.)
@@ -55,9 +58,19 @@ async def calculer_division(a: float = Query(default=100.0), b: float = Query(de
     return {"resultat": a / b}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_erreurs(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_04_erreurs.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     # raise_server_exceptions=False permet à TestClient de retourner la réponse 500 JSON générée par l'exception_handler
     client = TestClient(app, raise_server_exceptions=False)
+    assert client.get("/").status_code == 200
     print("1. Test 404 JSON :", client.get("/route-inconnue").status_code, client.get("/route-inconnue").json())
     print("2. Test 405 JSON :", client.delete("/api/v1/division").status_code, client.delete("/api/v1/division").json())
     print("3. Test 500 JSON :", client.get("/api/v1/division?a=100&b=0").status_code, client.get("/api/v1/division?a=100&b=0").json())

@@ -87,11 +87,21 @@ class FormationItemHandler(tornado.web.RequestHandler):
         self.write({"methode": "PATCH (mise à jour partielle)", "formation": actuelle})
 
 
+class PortailIdempotenceHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d3_03.html")
+
+
 def make_app():
-    return tornado.web.Application([
-        (r"/api/v1/formations", FormationsIdempotentHandler),
-        (r"/api/v1/formations/([0-9]+)", FormationItemHandler),
-    ])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailIdempotenceHandler),
+            (r"/api/v1/formations", FormationsIdempotentHandler),
+            (r"/api/v1/formations/([0-9]+)", FormationItemHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

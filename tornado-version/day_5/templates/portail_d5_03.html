@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 5.3 — Architecture Modulaire, Versioning v1/v2 (RFC 8594) &amp; Sondes Health</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 980px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 9px 14px; font-weight: 600; cursor: pointer; margin: 4px 6px 8px 0; }
+    button.sec { background: #475569; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 5.3 — Architecture Modulaire Tornado : API v1 (Sunset RFC 8594) vs API v2 &amp; Sondes</h1></header>
+  <main>
+    <div class="card">
+      <p>Comparez les en-tetes et les schemas JSON de <code>/api/v1/formations</code> et <code>/api/v2/formations</code> (<a href="/portail" target="_blank">Voir aussi /portail</a>) :</p>
+      <button type="button" onclick="inspecter('/api/v1/formations')">1. API v1 (Deprecation + Sunset)</button>
+      <button type="button" onclick="inspecter('/api/v2/formations')">2. API v2 (Nouveau Contrat)</button>
+      <button type="button" class="sec" onclick="inspecter('/api/health/live')">3. Sonde /api/health/live</button>
+      <button type="button" class="sec" onclick="inspecter('/api/health/ready')">4. Sonde /api/health/ready</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function inspecter(url) {
+      const rep = await fetch(url);
+      const resume = {
+        url,
+        status: rep.status,
+        headers_versioning: {
+          "X-API-Version": rep.headers.get("X-API-Version"),
+          "Deprecation": rep.headers.get("Deprecation"),
+          "Sunset": rep.headers.get("Sunset"),
+          "Link": rep.headers.get("Link")
+        },
+        body: await rep.json()
+      };
+      document.getElementById("sortie").textContent = JSON.stringify(resume, null, 2);
+    }
+    inspecter("/api/v1/formations");
+  </script>
+</body>
+</html>

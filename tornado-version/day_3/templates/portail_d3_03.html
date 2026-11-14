@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 3.3 — PUT vs PATCH &amp; En-tete Idempotency-Key</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 980px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 8px; font-size: 0.86rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; margin-right: 6px; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 3.3 — Idempotency-Key sur POST &amp; Distinction PUT vs PATCH</h1></header>
+  <main>
+    <div class="card">
+      <h2>1. POST Protege contre les Doublons</h2>
+      <input id="idem-key" type="text" value="cle-client-isgp-001" style="width:92%;" />
+      <input id="titre" type="text" value="Resilience Reseau & Idempotence" style="width:92%;" /><br />
+      <button type="button" onclick="envoyerPost()">Envoyer POST avec Idempotency-Key</button>
+    </div>
+    <div class="card">
+      <h2>2. PUT (Complet) vs PATCH (Partiel) sur #1</h2>
+      <button type="button" onclick="envoyerPatch()">PATCH /api/v1/formations/1 (salle seule)</button>
+      <button type="button" onclick="envoyerPut()">PUT /api/v1/formations/1 (remplacement complet)</button>
+    </div>
+    <pre id="sortie">Cliquez deux fois sur POST avec la meme Idempotency-Key pour observer rejoue_sans_doublon: true !</pre>
+  </main>
+  <script>
+    async function envoyerPost() {
+      const cle = document.getElementById("idem-key").value;
+      const rep = await fetch("/api/v1/formations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": cle },
+        body: JSON.stringify({ titre: document.getElementById("titre").value, duree_jours: 3, salle: "Salle B" })
+      });
+      document.getElementById("sortie").textContent = `POST (Idempotency-Key: ${cle}) -> HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function envoyerPatch() {
+      const rep = await fetch("/api/v1/formations/1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salle: "Amphi Alger" })
+      });
+      document.getElementById("sortie").textContent = `PATCH /api/v1/formations/1 -> HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function envoyerPut() {
+      const rep = await fetch("/api/v1/formations/1", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titre: "Architecture REST Tornado v2", duree_jours: 5, salle: "Salle Principale" })
+      });
+      document.getElementById("sortie").textContent = `PUT /api/v1/formations/1 -> HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

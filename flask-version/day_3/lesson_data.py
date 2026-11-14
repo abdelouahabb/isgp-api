@@ -36,9 +36,9 @@ DAY_3_DATA = {
             ],
             "code": _read("01_api_crud_memoire.py"),
             "line_explanations": [
-                {"lines": "13-29", "text": "Fonction dédiée `valider_payload_formation(corps)` qui accumule toutes les anomalies par nom de champ dans le dictionnaire `erreurs`."},
-                {"lines": "37-46", "text": "Si au moins une anomalie est détectée, retourne immédiatement un objet conforme à la RFC 7807 (`type`, `title`, `status`, `champs_en_erreur`) avec le statut `422`."},
-                {"lines": "48-56", "text": "Si la validation réussit, nettoie les chaînes (`.strip()`), insère l'entité et renvoie `201 Created`."}
+                {"lines": "17-34", "text": "Fonction dédiée `valider_payload_formation(corps)` qui accumule toutes les anomalies par nom de champ dans le dictionnaire `erreurs`."},
+                {"lines": "42-51", "text": "Si au moins une anomalie est détectée, retourne immédiatement un objet conforme à la RFC 7807 (`type`, `title`, `status`, `champs_en_erreur`) avec le statut `422`."},
+                {"lines": "53-61", "text": "Si la validation réussit, nettoie les chaînes (`.strip()`), insère l'entité et renvoie `201 Created`."}
             ],
             "sandbox_preset": {
                 "label": "Tester la création : POST /api/sandbox/formations",
@@ -70,9 +70,9 @@ DAY_3_DATA = {
             ],
             "code": _read("03_put_patch_et_idempotence.py"),
             "line_explanations": [
-                {"lines": "17-22", "text": "Contrôle de l'en-tête `Idempotency-Key` sur `POST` : si la clé a déjà été traitée, renvoie immédiatement l'objet précédemment créé (`rejoue_sans_doublon: True`) sans réinsérer."},
-                {"lines": "41-55", "text": "Implémentation stricte de `PUT` : exige la présence de tous les attributs (`titre`, `duree_jours`, `salle`) et remplace l'enregistrement complet."},
-                {"lines": "59-68", "text": "Implémentation de `PATCH` : met à jour uniquement les clés présentes dans le JSON envoyé."}
+                {"lines": "20-26", "text": "Contrôle de l'en-tête `Idempotency-Key` sur `POST` : si la clé a déjà été traitée, renvoie immédiatement l'objet précédemment créé (`rejoue_sans_doublon: True`) sans réinsérer."},
+                {"lines": "46-60", "text": "Implémentation stricte de `PUT` : exige la présence de tous les attributs (`titre`, `duree_jours`, `salle`) et remplace l'enregistrement complet."},
+                {"lines": "64-73", "text": "Implémentation de `PATCH` : met à jour uniquement les clés présentes dans le JSON envoyé."}
             ],
             "python_runner": {
                 "prompt": "Simulez un client qui envoie 2 fois le même POST avec la même Idempotency-Key suite à une coupure réseau :",
@@ -120,9 +120,9 @@ print("Total commandes en base :", len(base_commandes))'''
             ],
             "code": _read("04_gestion_erreurs_globale.py"),
             "line_explanations": [
-                {"lines": "11-17", "text": "Intercepte toute erreur `404` sur le serveur et retourne un objet JSON indiquant le chemin et la méthode appelés."},
-                {"lines": "20-24", "text": "Intercepte toute erreur `405 Method Not Allowed` en JSON."},
-                {"lines": "27-36", "text": "Filet de sécurité global : journalise l'exception côté serveur et renvoie un JSON `500` générique et sécurisé au client."}
+                {"lines": "15-21", "text": "Intercepte toute erreur `404` sur le serveur et retourne un objet JSON indiquant le chemin et la méthode appelés."},
+                {"lines": "24-28", "text": "Intercepte toute erreur `405 Method Not Allowed` en JSON."},
+                {"lines": "31-40", "text": "Filet de sécurité global : journalise l'exception côté serveur et renvoie un JSON `500` générique et sécurisé au client."}
             ],
             "vscode_instructions": {
                 "filename": "day_3/04_gestion_erreurs_globale.py",

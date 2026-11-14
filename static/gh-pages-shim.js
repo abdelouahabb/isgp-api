@@ -34,6 +34,12 @@
     if (href.startsWith("/api/download/openapi-spec")) return `${SITE_ROOT}/downloads/isgp_api_bootcamp.openapi.json`;
     if (href.startsWith("/api/download/postman-collection")) return `${SITE_ROOT}/downloads/isgp_postman_collection.json`;
     if (href.startsWith("/api/download/http-requests")) return `${SITE_ROOT}/downloads/isgp_requetes.http`;
+    if (href.startsWith("/api/download/zero-to-hero")) {
+      const qIdx = href.indexOf("?");
+      const params = new URLSearchParams(qIdx >= 0 ? href.slice(qIdx + 1) : "");
+      const fw = params.get("framework") || window.ACTIVE_FRAMEWORK || "flask";
+      return `${SITE_ROOT}/downloads/isgp_${fw}_zero_to_hero.zip`;
+    }
     const mDay = href.match(/^\/api\/day-file\/(\d+)\/([^?]+)(?:\?(.*))?$/);
     if (mDay) {
       const params = new URLSearchParams(mDay[3] || "");
@@ -88,6 +94,11 @@
   let sandboxNextId = 5;
   let rateLimitRemaining = 5;
   let issuedTokens = {};
+  let sandboxCookieJar = {};
+  let sandboxWallMessages = [
+    { id: 1, auteur: "Formateur ISGP", message: "Bienvenue sur le mur partagé du séminaire API Python.", horodatage: "09:00:00" }
+  ];
+  let sandboxWallNextId = 2;
 
   let sqliteRows = defaultFormations();
   let sqliteNextId = 5;
@@ -139,6 +150,7 @@
       422: "Unprocessable Entity",
       428: "Precondition Required",
       429: "Too Many Requests",
+      500: "Internal Server Error",
       502: "Bad Gateway"
     };
     const headers = new Headers({
@@ -243,9 +255,12 @@
       }
     }
 
-    // 1. Données complètes du cours (30 leçons, 57 fiches glossaire, 53 questions quiz)
+    // 1. Données complètes du cours (34 chapitres, 69 fiches glossaire, 62 questions quiz)
     if (path === "/api/course-data") {
       return origFetch(`${SITE_ROOT}/static-data/${fw}/course-data.json`);
+    }
+    if (path === "/api/zero-to-hero") {
+      return origFetch(`${SITE_ROOT}/static-data/${fw}/zero-to-hero.json`);
     }
 
     // 2. Contrat OpenAPI
@@ -670,6 +685,182 @@
         200,
         '@app.get("/api/sandbox/bonjour")\ndef bonjour():\n    return {"message": "Bienvenue sur l\'API ISGP"}',
         ["1. Routage GET /api/sandbox/bonjour", "2. Sérialisation JSON UTF-8", "3. Envoi 200 OK"]
+      );
+    }
+    if (path === "/api/sandbox/meteo") {
+      const ville = parsed.searchParams.get("ville") || "Alger";
+      const relevs = {
+        alger: { temp: 24, ciel: "Ensoleillé", humidite: 55 },
+        oran: { temp: 26, ciel: "Dégagé", humidite: 60 },
+        constantine: { temp: 19, ciel: "Nuageux", humidite: 48 },
+        annaba: { temp: 25, ciel: "Brise marine", humidite: 65 }
+      };
+      const info = relevs[ville.toLowerCase()] || { temp: 22, ciel: "Variable", humidite: 50 };
+      return tracedResponse(
+        {
+          ville,
+          temperature_celsius: info.temp,
+          condition: info.ciel,
+          humidite_pourcent: info.humidite,
+          unite: "Celsius"
+        },
+        200,
+        `# Lecture du paramètre de requête ?ville=${ville}\nreturn {"ville": "${ville}", "temperature_celsius": ${info.temp}}`,
+        [`1. Réception GET /api/sandbox/meteo?ville=${ville}`, "2. Extraction du paramètre de query-string", "3. Sérialisation JSON (200 OK)"]
+      );
+    }
+    if (path === "/api/sandbox/calcul-tva") {
+      const htRaw = parsed.searchParams.get("ht") ?? "1000";
+      const tauxRaw = parsed.searchParams.get("taux") ?? "19";
+      const ht = Number(htRaw);
+      const taux = Number(tauxRaw);
+      if (Number.isNaN(ht) || Number.isNaN(taux) || htRaw.trim() === "" || tauxRaw.trim() === "") {
+        return tracedResponse(
+          { erreur: "Les paramètres 'ht' et 'taux' doivent être des valeurs numériques." },
+          400,
+          '# Erreur de conversion numérique sur ?ht= ou ?taux= -> 400 Bad Request',
+          ["1. Paramètre non numérique détecté dans la query-string", "2. Rejet immédiat HTTP 400 Bad Request"]
+        );
+      }
+      const tva = Math.round(ht * (taux / 100) * 100) / 100;
+      const ttc = Math.round((ht + tva) * 100) / 100;
+      return tracedResponse(
+        { prix_ht: ht, taux_tva_pourcent: taux, montant_tva: tva, prix_ttc: ttc, devise: "DZD" },
+        200,
+        "tva = round(ht * (taux / 100), 2)\nreturn {'prix_ht': ht, 'montant_tva': tva, 'prix_ttc': ht + tva}",
+        [`1. Extraction ht=${ht}, taux=${taux}`, `2. Calcul TVA=${tva} et TTC=${ttc}`, "3. Réponse JSON (200 OK)"]
+      );
+    }
+    const mStatus = path.match(/^\/api\/sandbox\/status-demo\/(\d+)$/);
+    if (mStatus) {
+      const code = Number(mStatus[1]);
+      const defs = {
+        200: ["200 OK", "Succès standard : la requête a été traitée normalement."],
+        201: ["201 Created", "Création réussie : une nouvelle ressource a été enregistrée."],
+        400: ["400 Bad Request", "Requête invalide : champ obligatoire manquant ou JSON mal formé."],
+        401: ["401 Unauthorized", "Non authentifié : Bearer Token ou Clé API manquant, expiré ou invalide."],
+        403: ["403 Forbidden", "Accès interdit : droits insuffisants pour cette ressource."],
+        404: ["404 Not Found", "Ressource introuvable : cette route ou cet identifiant n'existe pas."],
+        422: ["422 Unprocessable Content", "Syntaxe JSON valide mais violation d'une contrainte métier."],
+        429: ["429 Too Many Requests", "Quota dépassé (Rate Limiting) : ralentissez la cadence d'appel."],
+        500: ["500 Internal Server Error", "Erreur interne du serveur côté application."]
+      };
+      const pair = defs[code] || [`${code} Custom`, "Code de statut HTTP démonstratif."];
+      return tracedResponse(
+        { code_http: code, nom_officiel: pair[0], explication: pair[1] },
+        defs[code] ? code : 200,
+        `# Fixation explicite du code de statut HTTP ${code}\nreturn {"code_http": ${code}, "nom_officiel": "${pair[0]}"}, ${code}`,
+        [`1. Capture du paramètre de chemin code=${code}`, `2. Émission de la réponse avec le statut HTTP ${code}`]
+      );
+    }
+    if (path === "/api/sandbox/cookies/login" && method === "POST") {
+      const identifiant = String(bodyObj.identifiant || "stagiaire_isgp").trim() || "stagiaire_isgp";
+      const theme = String(bodyObj.theme || "institutionnel").trim() || "institutionnel";
+      const tok = `signed.${btoa(JSON.stringify({ sub: identifiant, mode: "httponly_cookie" })).replace(/=+$/, "")}.${simpleHashHex(identifiant)}`;
+      sandboxCookieJar = {
+        isgp_auth_token: tok,
+        isgp_theme: theme,
+        decoded: { sub: identifiant, mode: "httponly_cookie" },
+        session: { utilisateur: identifiant, role: "auditeur_api" }
+      };
+      return tracedResponse(
+        {
+          statut: "Cookies sécurisés émis avec succès",
+          utilisateur: identifiant,
+          cookies_emis: [
+            { nom: "isgp_auth_token", flags: "HttpOnly; SameSite=Strict; Max-Age=3600", usage: "Jeton d'authentification protégé contre le vol XSS" },
+            { nom: "isgp_session", flags: "HttpOnly; SameSite=Lax (Signé HMAC)", usage: "Session signée cryptographiquement (HMAC-SHA256)" },
+            { nom: "isgp_theme", flags: "SameSite=Lax (Non-HttpOnly)", usage: "Préférence d'affichage lisible par le front" }
+          ]
+        },
+        200,
+        'resp.set_cookie("isgp_auth_token", token, httponly=True, samesite="Strict", max_age=3600)',
+        [`1. Authentification de '${identifiant}'`, "2. Émission Set-Cookie HttpOnly + SameSite=Strict", "3. Réponse 200 OK"],
+        { "Set-Cookie": `isgp_auth_token=${tok}; HttpOnly; SameSite=Strict; Max-Age=3600; Path=/` }
+      );
+    }
+    if (path === "/api/sandbox/cookies/inspect") {
+      const hasCookie = Boolean(sandboxCookieJar.isgp_auth_token);
+      return tracedResponse(
+        {
+          cookies_recus: hasCookie ? { isgp_auth_token: sandboxCookieJar.isgp_auth_token, isgp_theme: sandboxCookieJar.isgp_theme } : {},
+          session_signee_hmac: hasCookie ? sandboxCookieJar.session : {},
+          isgp_auth_token_decode: hasCookie ? sandboxCookieJar.decoded : null,
+          en_tete_http_cookie: hasCookie ? `isgp_auth_token=${sandboxCookieJar.isgp_auth_token}; isgp_theme=${sandboxCookieJar.isgp_theme}` : "(Aucun en-tête Cookie reçu)"
+        },
+        200,
+        'raw_token = request.cookies.get("isgp_auth_token")\nreturn jsonify(dict(request.cookies)), 200',
+        ["1. Lecture de l'en-tête HTTP Cookie", "2. Vérification de la signature HMAC du cookie HttpOnly", "3. Retour de l'état des cookies (200 OK)"]
+      );
+    }
+    if (path === "/api/sandbox/cookies/logout" && method === "POST") {
+      sandboxCookieJar = {};
+      return tracedResponse(
+        { statut: "Session purgée et cookies révoqués (Set-Cookie avec Max-Age=0)" },
+        200,
+        'resp.delete_cookie("isgp_auth_token", path="/")',
+        ["1. Purge de la session serveur", "2. Émission Set-Cookie Max-Age=0 (révocation immédiate)"],
+        { "Set-Cookie": "isgp_auth_token=; Max-Age=0; Path=/" }
+      );
+    }
+    if (path === "/api/sandbox/wall") {
+      if (method === "GET") {
+        return tracedResponse(
+          { total: sandboxWallMessages.length, messages: sandboxWallMessages },
+          200,
+          'rows = conn.execute("SELECT * FROM wall_messages ORDER BY id DESC").fetchall()',
+          ["1. Lecture des entrées du mur partagé", `2. ${sandboxWallMessages.length} message(s) renvoyé(s) (200 OK)`]
+        );
+      }
+      if (method === "POST") {
+        const auteur = String(bodyObj.auteur || "").trim();
+        const message = String(bodyObj.message || "").trim();
+        if (!auteur || !message) {
+          return tracedResponse(
+            { erreur: "Les champs 'auteur' et 'message' sont obligatoires.", exemple: { auteur: "Amine", message: "Requête POST validée." } },
+            400,
+            'if not auteur or not message:\n    return {"erreur": "Champs requis"}, 400',
+            ["1. Inspection du payload JSON", "2. Champ requis manquant -> 400 Bad Request"]
+          );
+        }
+        const entry = {
+          id: sandboxWallNextId++,
+          auteur: auteur.slice(0, 40),
+          message: message.slice(0, 280),
+          horodatage: new Date().toTimeString().split(" ")[0]
+        };
+        sandboxWallMessages.unshift(entry);
+        return tracedResponse(
+          { statut: "Enregistré dans le journal partagé", entree: entry },
+          201,
+          'cur.execute("INSERT INTO wall_messages (auteur, message, horodatage) VALUES (?, ?, ?)", ...)',
+          [`1. Message de '${entry.auteur}' validé`, "2. Insertion et retour HTTP 201 Created"]
+        );
+      }
+    }
+    if (path === "/api/sandbox/formulaire-formation" && method === "POST") {
+      const titre = String(bodyObj.titre || "").trim();
+      const formateur = String(bodyObj.formateur || "Intervenant ISGP").trim() || "Intervenant ISGP";
+      const salle = String(bodyObj.salle || "Salle A").trim() || "Salle A";
+      const duree = Number(bodyObj.duree_jours ?? 5) || 5;
+      if (titre.length < 3) {
+        return tracedResponse(
+          {
+            erreur: "Champ de formulaire 'titre' manquant ou trop court (< 3 caractères).",
+            champs_recus_dans_request_form: bodyObj
+          },
+          422,
+          'if len(titre) < 3:\n    return {"erreur": "Titre trop court"}, 422',
+          ["1. Décodage application/x-www-form-urlencoded", "2. Titre < 3 caractères -> Rejet HTTP 422"]
+        );
+      }
+      const created = { id: sandboxNextId++, titre, formateur, duree_jours: duree, salle };
+      sandboxFormations.push(created);
+      return tracedResponse(
+        { statut: "Formation créée depuis le formulaire HTML", formation: created },
+        201,
+        'cur.execute("INSERT INTO formations ...", (titre, formateur, duree_jours, salle))',
+        ["1. Lecture des champs de formulaire", `2. Création #${created.id} -> HTTP 201 Created`]
       );
     }
     if (path === "/api/sandbox/auth/token" && method === "POST") {

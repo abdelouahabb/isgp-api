@@ -104,12 +104,22 @@ class AuditAdminHandler(tornado.web.RequestHandler):
         self.write({"acces": "Autorisé (Admin Tornado)", "operateur": self.current_user["sub"]})
 
 
+class PortailRefreshRbacHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d4_04.html")
+
+
 def make_app():
-    return tornado.web.Application([
-        (r"/api/auth/login", LoginHandler),
-        (r"/api/auth/refresh", RefreshHandler),
-        (r"/api/admin/audit", AuditAdminHandler),
-    ])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailRefreshRbacHandler),
+            (r"/api/auth/login", LoginHandler),
+            (r"/api/auth/refresh", RefreshHandler),
+            (r"/api/admin/audit", AuditAdminHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

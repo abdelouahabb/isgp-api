@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 4.6 — AuthN (401) vs AuthZ (403 RBAC, Scopes OAuth2 &amp; BOLA)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 980px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 8px 12px; font-weight: 600; cursor: pointer; margin: 4px 6px 8px 0; font-size: 0.85rem; }
+    button.warn { background: #b45309; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 4.6 — Authentification (401) vs Autorisation (403 RBAC, Scopes &amp; Anti-BOLA)</h1></header>
+  <main>
+    <div class="card">
+      <p>Rejouez les 5 scenarios normatifs en direct sur le controleur Tornado :</p>
+      <button type="button" class="err" onclick="scenario('sans_jeton')">1. Sans jeton (401 AuthN)</button>
+      <button type="button" class="warn" onclick="scenario('echec_scope')">2. Amine sans scope write (403 Scope)</button>
+      <button type="button" class="warn" onclick="scenario('echec_bola')">3. Amine lit dossier Sara (403 BOLA)</button>
+      <button type="button" onclick="scenario('amine_ok')">4. Amine lit son dossier (200 OK)</button>
+      <button type="button" onclick="scenario('directeur_ok')">5. Directeur Audit Admin (200 OK)</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function scenario(cas) {
+      const rep = await fetch("/api/verifier-acces?cas=" + encodeURIComponent(cas));
+      document.getElementById("sortie").textContent =
+        `GET /api/verifier-acces?cas=${cas} -> HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    scenario("amine_ok");
+  </script>
+</body>
+</html>

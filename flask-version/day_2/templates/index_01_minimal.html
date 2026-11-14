@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 2.1 : Serveur Minimal Flask (HTML &amp; JSON)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+    button, a.btn { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+    button.sec { background: #0f766e; }
+    a.btn { background: #475569; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 2.1 : Serveur Minimal Flask (Jinja2 &amp; API JSON)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Tester les routes JSON et HTML en direct</h2>
+      <div class="actions">
+        <button onclick="appeler('/api/bonjour')">GET /api/bonjour</button>
+        <button class="sec" onclick="appeler('/api/v1/modules')">GET /api/v1/modules</button>
+        <a class="btn" href="/accueil" target="_blank">Ouvrir GET /accueil (Jinja2)</a>
+      </div>
+      <div id="statut" style="font-weight:600; margin-bottom:6px;">Pret.</div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function appeler(url) {
+      const r = await fetch(url);
+      const data = await r.json();
+      document.getElementById("statut").textContent = `GET ${url} -> HTTP ${r.status} (${r.headers.get("Content-Type")})`;
+      document.getElementById("sortie").textContent = JSON.stringify(data, null, 2);
+    }
+    appeler("/api/bonjour");
+  </script>
+</body>
+</html>

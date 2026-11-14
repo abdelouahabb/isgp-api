@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 1 - Comparateur HTML vs SOAP/XML vs REST/JSON</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.4rem; }
+    .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.55rem 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.84rem; min-height: 120px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 1.1 — Comparateur en Direct : HTML vs SOAP/XML vs REST/JSON ({{ meteo.ville }})</h1>
+    <p>Interrogez en direct les trois representations de la meme donnee metier servies par FastAPI :</p>
+    <div class="actions">
+      <button type="button" onclick="tester('/meteo/html')">1. GET /meteo/html (Jinja2)</button>
+      <button type="button" onclick="tester('/meteo/soap')">2. GET /meteo/soap (SOAP XML)</button>
+      <button type="button" onclick="tester('/api/v1/meteo')">3. GET /api/v1/meteo (REST JSON)</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Cliquez sur un format ci-dessus pour inspecter son Content-Type, sa taille en octets et son corps brut...</pre>
+  </main>
+  <script>
+    async function tester(url) {
+      const rep = await fetch(url);
+      const texte = await rep.text();
+      const octets = new TextEncoder().encode(texte).length;
+      document.getElementById("sortie").textContent =
+        `URL : ${url}\nStatut : HTTP ${rep.status}\nContent-Type : ${rep.headers.get("content-type")}\nTaille : ${octets} octets\n\n${texte}`;
+    }
+    tester("/api/v1/meteo");
+  </script>
+</body>
+</html>

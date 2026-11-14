@@ -51,8 +51,20 @@ class CatalogueRateLimitHandler(tornado.web.RequestHandler):
         self.write({"message": "Requête acceptée par Tornado", "quota_restant": restant})
 
 
+class PortailRateLimitHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d4_03.html")
+
+
 def make_app():
-    return tornado.web.Application([(r"/api/catalogue-protege", CatalogueRateLimitHandler)])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailRateLimitHandler),
+            (r"/api/catalogue-protege", CatalogueRateLimitHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():
@@ -80,6 +92,7 @@ async def _demo():
     if "--once" in sys.argv:
         server.stop()
     else:
+        historique_ip.clear()
         print("\n" + "=" * 76)
         print(f"[BOUCLE IOLOOP TORNADO ACTIVE] Serveur en écoute sur http://127.0.0.1:{port}")
         print("  -> La boucle d'événements IOLoop reste ouverte en mode interactif !")

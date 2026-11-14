@@ -8,11 +8,14 @@ import sys
 import uvicorn
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, field_validator
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Validation Stricte Pydantic v2 & RFC 7807", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 formations = [
     {"id": 1, "titre": "Architecture des APIs REST & FastAPI", "duree_jours": 5, "salle": "Salle A"},
@@ -73,8 +76,18 @@ async def creer_formation(payload: FormationCreation):
     return {"message": "Formation créée", "formation": nouvelle}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_validation(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_01_validation.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. TEST CRÉATION VALIDE (201 Created) ===")
     rep_ok = client.post("/api/v1/formations", json={"titre": "Sécurité OAuth2 & JWT", "duree_jours": 4, "salle": "Labo 1"})
     print("Statut :", rep_ok.status_code, "| Réponse :", rep_ok.json())

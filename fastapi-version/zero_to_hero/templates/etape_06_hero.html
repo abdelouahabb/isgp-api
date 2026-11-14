@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre_page }}</title>
+  <style>
+    :root { --bleu: #0f2b46; --accent: #1d6fa5; --vert: #15803d; --danger: #b91c1c; --fond: #f1f5f9; --carte: #ffffff; --bord: #cbd5e1; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--fond); color: #1e293b; margin: 0; padding: 1.4rem; }
+    .conteneur { max-width: 1140px; margin: 0 auto; }
+    .hero { background: linear-gradient(135deg, #0f2b46, #1d6fa5); color: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+    .hero h1 { margin: 0.35rem 0; font-size: 1.55rem; }
+    .liens-oas { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
+    .liens-oas a { background: rgba(255,255,255,0.16); color: #fff; text-decoration: none; padding: 0.45rem 0.85rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.28); }
+    .grille { display: grid; grid-template-columns: 1fr 1.35fr; gap: 1rem; }
+    .panneau { background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; }
+    .champ { display: flex; flex-direction: column; margin-bottom: 0.5rem; }
+    label { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.18rem; }
+    input, select, button { padding: 0.5rem 0.68rem; border: 1px solid var(--bord); border-radius: 6px; font-size: 0.88rem; }
+    button { background: var(--bleu); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    .btn-sec { background: var(--accent); }
+    .btn-del { background: var(--danger); }
+    .item { border-bottom: 1px solid #e2e8f0; padding: 0.55rem 0; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.85rem; border-radius: 8px; overflow-x: auto; font-size: 0.78rem; max-height: 220px; }
+    @media (max-width: 860px) { .grille { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="conteneur">
+    <header class="hero">
+      <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Etape 06 - Architecture Hero Complete (APIRouter, Lifespan, SQLite WAL, RBAC, OpenAPI 3.1)</div>
+      <h1>{{ titre_page }}</h1>
+      <div id="barre-telemetrie" style="font-size:0.86rem;opacity:0.92;">Verification /health et X-Process-Time-Ms...</div>
+      <nav class="liens-oas">
+        <a href="/docs" target="_blank">Swagger UI (/docs)</a>
+        <a href="/api/docs" target="_blank">Swagger UI (/api/docs)</a>
+        <a href="/redoc" target="_blank">ReDoc (/redoc)</a>
+        <a href="/openapi.json" target="_blank">Contrat OpenAPI 3.1 (/openapi.json)</a>
+        <a href="/health" target="_blank">Sonde /health</a>
+      </nav>
+    </header>
+    <div class="grille">
+      <section>
+        <div class="panneau">
+          <h2 style="margin-top:0;font-size:1.03rem;color:var(--bleu);">Authentification Portail &amp; API</h2>
+          <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
+            <button type="button" onclick="loginRapide('admin','isgp-admin-2026')">Cookie Admin</button>
+            <button type="button" class="btn-sec" onclick="loginRapide('lecteur','isgp-lecteur-2026')">Cookie Lecteur</button>
+            <button type="button" class="btn-del" onclick="logoutRapide()">Deconnexion</button>
+          </div>
+          <p id="etat-session" style="font-size:0.84rem;margin:0.55rem 0 0;color:var(--vert);font-weight:600;">Session : Anonyme</p>
+        </div>
+        <div class="panneau">
+          <h2 style="margin-top:0;font-size:1.03rem;color:var(--bleu);">Ajouter une Formation (Admin RBAC)</h2>
+          <div class="champ"><label>Code</label><input id="h-code" value="ISGP-OAS-601"></div>
+          <div class="champ"><label>Intitule</label><input id="h-intitule" value="Gouvernance API & OpenAPI 3.1"></div>
+          <div class="champ"><label>Domaine</label>
+            <select id="h-domaine">
+              <option value="Architecture SI">Architecture SI</option>
+              <option value="Cybersecurite">Cybersecurite</option>
+              <option value="Management Public">Management Public</option>
+              <option value="Data & IA">Data &amp; IA</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <div class="champ"><label>Duree (j)</label><input type="number" id="h-duree" value="5"></div>
+            <div class="champ"><label>Tarif DZD</label><input type="number" id="h-tarif" value="98000"></div>
+          </div>
+          <button type="button" onclick="creerHero()" style="margin-top:0.4rem;width:100%;">POST /api/v1/formations</button>
+        </div>
+      </section>
+      <section class="panneau">
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+          <input id="h-q" placeholder="Filtrer par mot-cle..." style="flex:1;">
+          <button type="button" class="btn-sec" onclick="chargerCatalogueHero()">Rechercher</button>
+        </div>
+        <div id="catalogue-hero"></div>
+        <h3 style="font-size:0.92rem;color:var(--bleu);margin-top:1rem;">Journal HTTP &amp; X-Process-Time-Ms</h3>
+        <pre id="console-hero">Initialisation du portail Hero...</pre>
+      </section>
+    </div>
+  </div>
+  <script>
+    function tracer(label, rep, payload) {
+      const ms = rep.headers.get("x-process-time-ms") || "n/a";
+      document.getElementById("console-hero").textContent = `${label} -> HTTP ${rep.status} | X-Process-Time-Ms: ${ms} ms\n\n` + JSON.stringify(payload, null, 2);
+    }
+    async function verifierHealth() {
+      const rep = await fetch("/health");
+      const d = await rep.json();
+      const ms = rep.headers.get("x-process-time-ms") || "0";
+      document.getElementById("barre-telemetrie").textContent = `Statut: ${d.statut} | SQLite: ${d.journal_mode} | OpenAPI: ${d.openapi_version} | Latence /health: ${ms} ms`;
+    }
+    async function loginRapide(identifiant, mot_de_passe) {
+      const rep = await fetch("/api/v1/auth/cookie-login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiant, mot_de_passe }) });
+      const d = await rep.json();
+      document.getElementById("etat-session").textContent = `Session Cookie HttpOnly : ${d.utilisateur} (role=${d.role})`;
+      tracer("POST /api/v1/auth/cookie-login", rep, d);
+    }
+    async function logoutRapide() {
+      const rep = await fetch("/api/v1/auth/cookie-logout", { method: "POST" });
+      document.getElementById("etat-session").textContent = "Session : Anonyme";
+      tracer("POST /api/v1/auth/cookie-logout", rep, await rep.json());
+    }
+    async function chargerCatalogueHero() {
+      const q = document.getElementById("h-q").value.trim();
+      const url = "/api/v1/formations?taille=20" + (q ? "&recherche=" + encodeURIComponent(q) : "");
+      const rep = await fetch(url);
+      const payload = await rep.json();
+      tracer("GET " + url, rep, payload);
+      document.getElementById("catalogue-hero").innerHTML = payload.data.map(f => `
+        <div class="item">
+          <span><strong>#${f.id} ${f.code}</strong> - ${f.intitule} (${f.domaine}, ${f.tarif_dzd} DZD)</span>
+          <button type="button" class="btn-del" onclick="supprimerHero(${f.id})">Supprimer</button>
+        </div>
+      `).join("");
+    }
+    async function creerHero() {
+      const corps = {
+        code: document.getElementById("h-code").value,
+        intitule: document.getElementById("h-intitule").value,
+        domaine: document.getElementById("h-domaine").value,
+        duree_jours: Number(document.getElementById("h-duree").value),
+        tarif_dzd: Number(document.getElementById("h-tarif").value)
+      };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+      tracer("POST /api/v1/formations", rep, await rep.json());
+      await chargerCatalogueHero();
+    }
+    async function supprimerHero(id) {
+      const rep = await fetch("/api/v1/formations/" + id, { method: "DELETE" });
+      const data = rep.status === 204 ? { supprime: id } : await rep.json();
+      tracer("DELETE /api/v1/formations/" + id, rep, data);
+      await chargerCatalogueHero();
+    }
+    verifierHealth();
+    chargerCatalogueHero();
+  </script>
+</body>
+</html>

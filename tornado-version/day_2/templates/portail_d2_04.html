@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 2.4 — Cycle de Vie RequestHandler &amp; Audit X-Request-ID</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 900px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 9px 12px; border-radius: 6px; border: 1px solid #94a3b8; font-size: 0.9rem; margin-right: 8px; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 2.4 — Hooks Tornado : set_default_headers(), prepare() &amp; on_finish()</h1></header>
+  <main>
+    <div class="card">
+      <p>Inspectez les en-tetes injectes par <code>BaseAuditHandler</code> lors d'un appel sur <code>GET /api/v1/statut</code> :</p>
+      <input id="req-id" type="text" placeholder="X-Request-ID optionnel (ex: trace-isgp-42)" style="width:310px;" />
+      <button type="button" onclick="verifierStatut()">Appeler GET /api/v1/statut</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function verifierStatut() {
+      const customId = document.getElementById("req-id").value.trim();
+      const headers = customId ? { "X-Request-ID": customId } : {};
+      const rep = await fetch("/api/v1/statut", { headers });
+      const data = await rep.json();
+      const resume = {
+        status: rep.status,
+        headers_recus: {
+          "X-Request-ID": rep.headers.get("X-Request-ID"),
+          "X-Response-Time-Ms": rep.headers.get("X-Response-Time-Ms"),
+          "X-Content-Type-Options": rep.headers.get("X-Content-Type-Options")
+        },
+        body: data
+      };
+      document.getElementById("sortie").textContent = JSON.stringify(resume, null, 2);
+    }
+    verifierStatut();
+  </script>
+</body>
+</html>

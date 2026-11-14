@@ -4,6 +4,7 @@
 #            sans ouvrir de port réseau grâce à app.test_client().
 
 import os
+import sys
 from flask import Flask, jsonify, render_template, request
 
 DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
@@ -33,9 +34,15 @@ def calculer_taxe_formulaire():
     return render_template("resultat_taxe.html", resultat=resultat), 200
 
 
+@app.route("/", methods=["GET"])
+def index_tests_prod():
+    return render_template("index_04_tests.html"), 200
+
+
 # ================= SUITE DE TESTS AUTOMATISÉS (JSON + FORMULAIRE JINJA2) =================
 def executer_tests_automatises():
     client = app.test_client()
+    assert client.get("/").status_code == 200
 
     # Test 1 : Appel API JSON nominal (json={...} -> Content-Type: application/json)
     rep_ok = client.post("/api/calcul-taxe", json={"montant_ht": 1000})
@@ -58,5 +65,15 @@ def executer_tests_automatises():
 
 if __name__ == "__main__":
     executer_tests_automatises()
-    # EN PRODUCTION : Ne jamais utiliser app.run() !
-    # Commande de déploiement WSGI : gunicorn -w 4 -b 0.0.0.0:8000 day_5.04_tests_et_production:app
+    # EN PRODUCTION : Utiliser un serveur WSGI : gunicorn -w 4 -b 0.0.0.0:8000 day_5.04_tests_et_production:app
+    if "--once" not in sys.argv:
+        import socket as _sock
+        port = int(os.environ.get("PORT", 5001))
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as _s:
+            if _s.connect_ex(("127.0.0.1", port)) == 0:
+                _s2 = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                _s2.bind(("127.0.0.1", 0))
+                port = _s2.getsockname()[1]
+                _s2.close()
+        print(f"[SERVEUR WSGI FLASK ACTIF] http://127.0.0.1:{port}")
+        app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

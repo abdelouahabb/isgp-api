@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_page }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 20px 28px; }
+    header h1 { margin: 0; font-size: 1.35rem; }
+    header p { margin: 6px 0 0; opacity: 0.88; font-size: 0.92rem; }
+    main { max-width: 780px; margin: 28px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 10px 18px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #0f2942; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.88rem; margin-top: 16px; }
+    .meta { margin-top: 12px; font-size: 0.88rem; color: #334155; }
+    code { background: #e2e8f0; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ titre_page }}</h1>
+    <p>Etape 1 / 6 — Premier serveur Tornado unifiant page Web HTML (GET /) et API JSON (GET /api/bonjour)</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Interroger l'API JSON en direct depuis le navigateur</h2>
+      <p>Organisme : <strong>{{ organisme }}</strong> — Cliquez sur le bouton ci-dessous pour declencher un appel <code>fetch('/api/bonjour')</code> vers le <code>RequestHandler</code> JSON.</p>
+      <button id="btn-ping" type="button" onclick="interrogerApi()">Appeler GET /api/bonjour</button>
+      <a href="/api/bonjour" target="_blank" style="margin-left:12px; color:#1e3a5f; font-weight:600;">Ouvrir /api/bonjour brut</a>
+      <div id="statut" class="meta">En attente d'appel HTTP...</div>
+      <pre id="sortie">{ "astuce": "Cliquez sur le bouton pour recevoir le JSON du serveur Tornado." }</pre>
+    </div>
+  </main>
+  <script>
+    async function interrogerApi() {
+      const debut = performance.now();
+      const rep = await fetch("/api/bonjour");
+      const duree = (performance.now() - debut).toFixed(1);
+      const data = await rep.json();
+      document.getElementById("statut").textContent =
+        "HTTP " + rep.status + " | Content-Type: " + rep.headers.get("Content-Type") + " | Latence: " + duree + " ms";
+      document.getElementById("sortie").textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>

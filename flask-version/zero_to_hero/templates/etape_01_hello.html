@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ etape }} — ISGP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #ffffff; padding: 20px 24px; border-bottom: 3px solid #0f172a; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 6px 0 0; font-size: 0.92rem; opacity: 0.9; }
+    main { max-width: 860px; margin: 28px auto; padding: 0 16px; }
+    .card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; }
+    button { background: #1e3a5f; color: #ffffff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem; }
+    button:hover { background: #0f2942; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; margin-top: 14px; font-size: 0.88rem; }
+    .meta { margin-top: 12px; font-size: 0.88rem; font-weight: 600; color: #334155; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ organisme }}</h1>
+    <p>{{ etape }}</p>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Premier dialogue entre une page Web Jinja2 et une route JSON Flask</h2>
+      <p>Cette page HTML est servie sur <code>GET /</code> par <code>render_template()</code>. Le bouton ci-dessous interroge en direct la route <code>GET /api/bonjour</code> via <code>fetch()</code> sans recharger la page.</p>
+      <button onclick="interrogerApi()">Interroger GET /api/bonjour en direct</button>
+      <div id="statut" class="meta">Pret a emettre une requete HTTP...</div>
+      <pre id="resultat">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function interrogerApi() {
+      const reponse = await fetch("/api/bonjour");
+      const donnees = await reponse.json();
+      document.getElementById("statut").textContent =
+        `Reponse recue : HTTP ${reponse.status} | Content-Type : ${reponse.headers.get("Content-Type")}`;
+      document.getElementById("resultat").textContent = JSON.stringify(donnees, null, 2);
+    }
+    interrogerApi();
+  </script>
+</body>
+</html>

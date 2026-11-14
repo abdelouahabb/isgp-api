@@ -81,8 +81,18 @@ async def calculer_tva(
     }
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_routes(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_02_routes.html",
+        context={"stagiaires": list(STAGIAIRES.values())},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. TEST PARAMÈTRE DE CHEMIN ({prenom}: str) ===")
     print(client.get("/api/saluer/Yasmine").json())
 

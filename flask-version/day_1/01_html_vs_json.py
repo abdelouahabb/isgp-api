@@ -52,9 +52,16 @@ def meteo_api_json():
     return jsonify(DONNEES_METEO), 200
 
 
+# 4. PORTAIL WEB INTERACTIF SUR GET / (Expose et interroge les 3 routes via fetch)
+@app.route("/", methods=["GET"])
+def portail_comparateur():
+    return render_template("index_01_formats.html", meteo=DONNEES_METEO), 200
+
+
 if __name__ == "__main__":
     # Comparaison automatique des 3 formats grâce au client de test intégré à Flask
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         rep_html = client.get("/meteo/html")
         rep_soap = client.get("/meteo/soap")
         rep_json = client.get("/api/v1/meteo")

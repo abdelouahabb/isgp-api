@@ -57,11 +57,21 @@ class ProfilProtegeHandler(tornado.web.RequestHandler):
             self.write({"erreur": "Signature du jeton invalide (jeton falsifié)"})
 
 
+class PortailBearerHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d4_02.html")
+
+
 def make_app():
-    return tornado.web.Application([
-        (r"/api/auth/token", AuthTokenHandler),
-        (r"/api/auth/profil", ProfilProtegeHandler),
-    ])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailBearerHandler),
+            (r"/api/auth/token", AuthTokenHandler),
+            (r"/api/auth/profil", ProfilProtegeHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

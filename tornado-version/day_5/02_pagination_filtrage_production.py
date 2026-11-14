@@ -99,11 +99,21 @@ class CatalogueCursorHandler(tornado.web.RequestHandler):
         })
 
 
+class PortailPaginationProdHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d5_02.html")
+
+
 def make_app():
-    return tornado.web.Application([
-        (r"/api/v1/catalogue/offset", CatalogueOffsetHandler),
-        (r"/api/v1/catalogue/cursor", CatalogueCursorHandler),
-    ])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailPaginationProdHandler),
+            (r"/api/v1/catalogue/offset", CatalogueOffsetHandler),
+            (r"/api/v1/catalogue/cursor", CatalogueCursorHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

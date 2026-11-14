@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 4.2 : Bearer Tokens Signes</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.sec { background: #0f766e; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 4.2 : Emission &amp; Verification de Bearer Tokens Signes</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <input id="user" value="stagiaire" />
+        <input id="pwd" value="isgp2026" type="password" />
+        <button onclick="obtenirToken()">1. POST /api/auth/token</button>
+      </div>
+      <div class="row">
+        <input id="token" placeholder="Bearer Token..." style="flex:1; min-width:260px;" />
+        <button class="sec" onclick="lireProfil(false)">2. GET /api/auth/profil (Valide)</button>
+        <button class="err" onclick="lireProfil(true)">Tester Jeton Falsifie (401)</button>
+      </div>
+      <pre id="sortie">Obtenez un jeton puis interrogez /api/auth/profil.</pre>
+    </section>
+  </main>
+  <script>
+    async function obtenirToken() {
+      const r = await fetch("/api/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifiant: document.getElementById("user").value,
+          mot_de_passe: document.getElementById("pwd").value
+        })
+      });
+      const j = await r.json();
+      if (j.access_token) document.getElementById("token").value = j.access_token;
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(j, null, 2);
+    }
+    async function lireProfil(falsifier) {
+      const tok = falsifier ? (document.getElementById("token").value + "X") : document.getElementById("token").value;
+      const r = await fetch("/api/auth/profil", { headers: { "Authorization": `Bearer ${tok}` } });
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

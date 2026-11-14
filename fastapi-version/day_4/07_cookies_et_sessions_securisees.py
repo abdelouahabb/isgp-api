@@ -142,8 +142,18 @@ async def deconnexion_cookies(response: Response):
     return {"statut": "Déconnecté — Cookies révoqués (Max-Age=0)"}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_cookies_accueil(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_07_cookies_home.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. CONNEXION (POST /api/auth/cookie-login) -> EN-TÊTES Set-Cookie ===")
     r_login = client.post("/api/auth/cookie-login", json={"identifiant": "yasmine.merabet", "theme": "sombre"})
     for sc in r_login.headers.get_list("set-cookie"):

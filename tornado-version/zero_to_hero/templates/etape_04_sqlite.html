@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_page }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 4px 0 0; opacity: 0.88; font-size: 0.9rem; }
+    main { max-width: 1100px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    .wal-strip { grid-column: 1 / -1; background: #eef2ff; border: 1px solid #6366f1; border-radius: 8px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; }
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    input, select, button { padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.danger { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2e8f0; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ titre_page }}</h1>
+    <p>Etape 4 / 6 — Persistance SQLite3 en mode WAL deporte hors de l'IOLoop via ThreadPoolExecutor</p>
+  </header>
+  <main>
+    <div class="wal-strip">
+      <div id="diag-texte">Chargement du diagnostic SQLite WAL...</div>
+      <button type="button" onclick="chargerDiagnostic()">Verifier PRAGMA SQLite</button>
+    </div>
+
+    <div class="card">
+      <h2>Table SQLite `formations` (Persistance ACID)</h2>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <select id="filtre-domaine" onchange="rafraichir()">
+          <option value="">Tous domaines</option>
+          <option value="Architecture">Architecture</option>
+          <option value="Backend">Backend</option>
+          <option value="Data">Data</option>
+          <option value="Securite">Securite</option>
+          <option value="DevOps">DevOps</option>
+        </select>
+        <select id="filtre-tri" onchange="rafraichir()">
+          <option value="id">ORDER BY id ASC</option>
+          <option value="-tarif_dzd">ORDER BY tarif_dzd DESC</option>
+          <option value="duree_jours">ORDER BY duree_jours ASC</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Domaine</th><th>Tarif</th><th>Actions</th></tr></thead>
+        <tbody id="tbody-sql"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Ecriture Non-Bloquante (run_in_executor)</h2>
+      <div class="grid-form">
+        <input id="f-id" type="number" placeholder="ID (PATCH / PUT)" />
+        <input id="f-code" type="text" value="ISGP-SQL-404" />
+        <input id="f-titre" type="text" value="Optimisation SQLite WAL sous Tornado" style="grid-column: 1 / -1;" />
+        <select id="f-domaine">
+          <option value="Data">Data</option>
+          <option value="Backend">Backend</option>
+          <option value="Architecture">Architecture</option>
+          <option value="Securite">Securite</option>
+          <option value="DevOps">DevOps</option>
+        </select>
+        <input id="f-jours" type="number" value="4" />
+        <input id="f-tarif" type="number" value="59000" style="grid-column: 1 / -1;" />
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" onclick="insererSql()">INSERT (POST)</button>
+        <button type="button" onclick="patcherSql()">UPDATE Tarif (PATCH)</button>
+        <button type="button" class="danger" onclick="testerErreur()">Tester 422 RFC 7807</button>
+      </div>
+      <pre id="sortie-sql">{ "astuce": "Toutes les requetes SQLite utilisent des parametres ? et s'executent dans un ThreadPoolExecutor." }</pre>
+    </div>
+  </main>
+  <script>
+    async function chargerDiagnostic() {
+      const rep = await fetch("/api/v1/sqlite-diagnostic");
+      const d = await rep.json();
+      document.getElementById("diag-texte").textContent =
+        `Moteur: SQLite ${d.sqlite_version} | journal_mode=${d.journal_mode} | foreign_keys=${d.foreign_keys} | Lignes=${d.nb_formations} | Pool=${d.executor}`;
+    }
+    async function rafraichir() {
+      const dom = encodeURIComponent(document.getElementById("filtre-domaine").value);
+      const tri = encodeURIComponent(document.getElementById("filtre-tri").value);
+      const rep = await fetch(`/api/v1/formations?domaine=${dom}&tri=${tri}&limit=25`);
+      const json = await rep.json();
+      const tbody = document.getElementById("tbody-sql");
+      tbody.innerHTML = "";
+      for (const f of json.data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>#${f.id}</td><td><strong>${f.code}</strong></td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.tarif_dzd}</td>
+          <td><button type="button" onclick="selectionner(${f.id}, ${f.tarif_dzd})">Cibler</button>
+          <button type="button" class="danger" onclick="supprimerSql(${f.id})">X</button></td>`;
+        tbody.appendChild(tr);
+      }
+      chargerDiagnostic();
+    }
+    function selectionner(id, tarif) {
+      document.getElementById("f-id").value = id;
+      document.getElementById("f-tarif").value = tarif;
+    }
+    async function insererSql() {
+      const corps = {
+        code: document.getElementById("f-code").value + "-" + Math.floor(Math.random() * 90 + 10),
+        titre: document.getElementById("f-titre").value,
+        domaine: document.getElementById("f-domaine").value,
+        duree_jours: Number(document.getElementById("f-jours").value),
+        tarif_dzd: Number(document.getElementById("f-tarif").value)
+      };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corps) });
+      document.getElementById("sortie-sql").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      rafraichir();
+    }
+    async function patcherSql() {
+      const id = document.getElementById("f-id").value || 1;
+      const tarif = Number(document.getElementById("f-tarif").value) + 3000;
+      document.getElementById("f-tarif").value = tarif;
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ tarif_dzd: tarif }) });
+      document.getElementById("sortie-sql").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      rafraichir();
+    }
+    async function supprimerSql(id) {
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "DELETE" });
+      document.getElementById("sortie-sql").textContent = `DELETE /api/v1/formations/${id} -> HTTP ${rep.status}`;
+      rafraichir();
+    }
+    async function testerErreur() {
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ code: "", titre: "X", duree_jours: 0, tarif_dzd: -5 }) });
+      document.getElementById("sortie-sql").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    rafraichir();
+  </script>
+</body>
+</html>

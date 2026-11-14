@@ -1,13 +1,15 @@
 import os
+import sys
 # Fichier : day_3/04_gestion_erreurs_globale.py
 # Exécution : .venv/bin/python day_3/04_gestion_erreurs_globale.py
 # Objectif : Intercepter globalement les erreurs 400, 404, 405 et 500 pour ne JAMAIS
 #            renvoyer une page HTML d'erreur par défaut à un client d'API JSON.
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 # 1. INTERCEPTEUR 404 : Route inexistante
 @app.errorhandler(404)
@@ -43,8 +45,15 @@ def calculer_division():
     b = float(request.args.get("b", 0))  # Si b=0 -> ZeroDivisionError intercepté proprement en JSON !
     return jsonify({"resultat": a / b}), 200
 
+
+@app.route("/", methods=["GET"])
+def index_erreurs():
+    return render_template("index_04_erreurs.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         r_404 = client.get("/api/v1/route-inconnue")
         print("1. Erreur 404 en JSON :", r_404.status_code, r_404.get_json())
         r_405 = client.delete("/api/v1/division")

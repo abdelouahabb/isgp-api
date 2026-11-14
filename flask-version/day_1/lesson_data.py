@@ -37,11 +37,11 @@ DAY_1_DATA = {
             ],
             "code": _read("01_html_vs_json.py"),
             "line_explanations": [
-                {"lines": "11-12", "text": "Configuration du dossier `day_1/templates/` contenant le fichier HTML Jinja2 `meteo.html` (zéro HTML codé en dur dans Python)."},
-                {"lines": "23-26", "text": "Approche Web classique : `render_template('meteo.html', meteo=DONNEES_METEO)` injecte les données dans le gabarit HTML Jinja2."},
-                {"lines": "30-43", "text": "Enveloppe SOAP/XML historique : structure hiérarchique verbeuse (`<soap:Envelope>`, `<soap:Body>`) avec espaces de noms (`xmlns`)."},
-                {"lines": "47-49", "text": "Approche API REST moderne : `jsonify(DONNEES_METEO)` sérialise directement le dictionnaire en JSON léger (`application/json`)."},
-                {"lines": "52-63", "text": "Exécution comparative automatique mesurant la taille exacte en octets et le `Content-Type` des trois formats."}
+                {"lines": "13-14", "text": "Configuration du dossier `day_1/templates/` contenant les fichiers HTML Jinja2 (zéro HTML codé en dur dans Python)."},
+                {"lines": "26-29", "text": "Approche Web classique : `render_template('meteo.html', meteo=DONNEES_METEO)` injecte les données dans le gabarit HTML Jinja2."},
+                {"lines": "33-46", "text": "Enveloppe SOAP/XML historique : structure hiérarchique verbeuse (`<soap:Envelope>`, `<soap:Body>`) avec espaces de noms (`xmlns`)."},
+                {"lines": "50-58", "text": "Approche API REST moderne (`jsonify`) et portail Web interactif sur `GET /` interrogeant les trois formats en direct."},
+                {"lines": "61-73", "text": "Exécution comparative automatique mesurant la taille exacte en octets et le `Content-Type` des trois formats."}
             ],
             "sandbox_preset": {
                 "label": "Tester une réponse REST/JSON réelle : GET /api/sandbox/meteo?ville=Alger",

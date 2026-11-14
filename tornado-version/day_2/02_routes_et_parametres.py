@@ -75,9 +75,15 @@ class CalculTvaHandler(tornado.web.RequestHandler):
         })
 
 
+class PortailRoutesHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d2_02.html")
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailRoutesHandler),
             (r"/api/saluer/([^/]+)", SaluerStagiaireHandler),
             (r"/api/v1/stagiaires/([0-9]+)", StagiaireJsonHandler),
             (r"/stagiaires/([0-9]+)/fiche", FicheStagiaireHtmlHandler),

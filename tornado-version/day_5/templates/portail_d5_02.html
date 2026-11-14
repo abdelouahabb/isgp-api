@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 5.2 — Pagination Offset/Limit vs Pagination par Curseur (Keyset)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 1020px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    button, select { padding: 8px 12px; border-radius: 6px; border: 1px solid #94a3b8; margin: 4px 6px 8px 0; font-size: 0.86rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 5.2 — Pagination Offset/Limit vs Curseur Keyset O(1)</h1></header>
+  <main>
+    <div class="card">
+      <h2>1. Mode Offset / Limit + Tri Whitelist</h2>
+      <select id="sort" onchange="chargerOffset(1)">
+        <option value="-tarif_dzd">sort=-tarif_dzd</option>
+        <option value="duree_jours">sort=duree_jours</option>
+        <option value="id">sort=id</option>
+      </select>
+      <button type="button" onclick="chargerOffset(1)">Page 1</button>
+      <button type="button" onclick="chargerOffset(2)">Page 2</button>
+      <button type="button" class="err" onclick="testerTriInterdit()">Tri Interdit (422)</button>
+      <pre id="out-offset"></pre>
+    </div>
+    <div class="card">
+      <h2>2. Mode Curseur Keyset (?after_id=)</h2>
+      <button type="button" onclick="chargerCurseur(0)">Debut (after_id=0)</button>
+      <button type="button" onclick="suivantCurseur()">Suivant (next_cursor)</button>
+      <pre id="out-cursor"></pre>
+    </div>
+  </main>
+  <script>
+    let prochainCurseur = 0;
+    async function chargerOffset(page) {
+      const sort = document.getElementById("sort").value;
+      const rep = await fetch(`/api/v1/catalogue/offset?sort=${encodeURIComponent(sort)}&page=${page}&per_page=2`);
+      document.getElementById("out-offset").textContent = JSON.stringify(await rep.json(), null, 2);
+    }
+    async function testerTriInterdit() {
+      const rep = await fetch("/api/v1/catalogue/offset?sort=mot_de_passe_sql");
+      document.getElementById("out-offset").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function chargerCurseur(afterId) {
+      const rep = await fetch(`/api/v1/catalogue/cursor?after_id=${afterId}&limit=2`);
+      const data = await rep.json();
+      prochainCurseur = data.meta.next_cursor || 0;
+      document.getElementById("out-cursor").textContent = JSON.stringify(data, null, 2);
+    }
+    function suivantCurseur() { chargerCurseur(prochainCurseur); }
+    chargerOffset(1);
+    chargerCurseur(0);
+  </script>
+</body>
+</html>

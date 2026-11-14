@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre_page }}</title>
+  <style>
+    :root { --bleu: #0f2b46; --accent: #1d6fa5; --vert: #15803d; --danger: #b91c1c; --fond: #f4f7fa; --carte: #ffffff; --bord: #d8e1e8; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--fond); color: #1e293b; margin: 0; padding: 1.5rem; }
+    .conteneur { max-width: 1060px; margin: 0 auto; }
+    .entete, .panneau { background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+    .badge { display: inline-block; background: #dcfce7; color: var(--vert); font-weight: 700; font-size: 0.78rem; padding: 0.22rem 0.65rem; border-radius: 999px; text-transform: uppercase; }
+    h1 { color: var(--bleu); margin: 0.45rem 0; font-size: 1.45rem; }
+    .grille { display: grid; grid-template-columns: 1fr 1.3fr; gap: 1rem; }
+    .champ { display: flex; flex-direction: column; margin-bottom: 0.6rem; }
+    label { font-size: 0.84rem; font-weight: 600; margin-bottom: 0.2rem; }
+    input, select, button { padding: 0.54rem 0.7rem; border: 1px solid var(--bord); border-radius: 6px; font-size: 0.9rem; }
+    button { background: var(--bleu); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    .btn-sec { background: var(--accent); }
+    .btn-del { background: var(--danger); }
+    .item { border-bottom: 1px solid #eef2f6; padding: 0.6rem 0; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.85rem; border-radius: 8px; overflow-x: auto; font-size: 0.8rem; max-height: 220px; }
+    @media (max-width: 800px) { .grille { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="conteneur">
+    <header class="entete">
+      <span class="badge">Etape 04 - Persistance SQLite ACID (WAL + Depends(get_db))</span>
+      <h1>{{ titre_page }}</h1>
+      <p>Routes synchrones <code>def</code> executees dans le threadpool ASGI avec connexion SQLite injectee par generateur <code>Depends(get_db)</code> (<code>journal_mode=WAL</code>, <code>foreign_keys=ON</code>, <code>busy_timeout=5000</code>). <a href="/docs" target="_blank">Swagger UI (/docs)</a></p>
+      <p id="etat-sqlite" style="font-size:0.88rem;color:var(--vert);font-weight:600;">Verification pragmatique SQLite en cours...</p>
+    </header>
+    <div class="grille">
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.08rem;color:var(--bleu);">Nouvelle Formation (Transaction SQLite)</h2>
+        <div class="champ"><label>Code</label><input id="s-code" value="ISGP-SQL-401"></div>
+        <div class="champ"><label>Intitule</label><input id="s-intitule" value="Transactions ACID & SQLite Mode WAL"></div>
+        <div class="champ"><label>Domaine</label>
+          <select id="s-domaine">
+            <option value="Data & IA">Data &amp; IA</option>
+            <option value="Architecture SI">Architecture SI</option>
+            <option value="Cybersecurite">Cybersecurite</option>
+            <option value="Management Public">Management Public</option>
+          </select>
+        </div>
+        <div class="champ"><label>Duree (jours)</label><input type="number" id="s-duree" value="5"></div>
+        <div class="champ"><label>Tarif DZD</label><input type="number" id="s-tarif" value="97000"></div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+          <button type="button" onclick="insererSQLite()">POST Inserer SQL</button>
+          <button type="button" class="btn-sec" onclick="chargerTout()">Rafraichir Liste</button>
+        </div>
+      </section>
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.08rem;color:var(--bleu);">Enregistrements SQLite Persistants</h2>
+        <div id="liste-sql"></div>
+        <h3 style="font-size:0.95rem;color:var(--bleu);">Sortie API JSON</h3>
+        <pre id="journal-sql">Chargement...</pre>
+      </section>
+    </div>
+  </div>
+  <script>
+    async function chargerDiagnostics() {
+      const rep = await fetch("/api/v1/sqlite-pragmas");
+      const d = await rep.json();
+      document.getElementById("etat-sqlite").textContent = `Moteur SQLite actif : journal_mode=${d.journal_mode} | foreign_keys=${d.foreign_keys} | busy_timeout=${d.busy_timeout}ms | fichier=${d.fichier}`;
+    }
+    async function chargerTout() {
+      const rep = await fetch("/api/v1/formations?taille=25");
+      const payload = await rep.json();
+      document.getElementById("journal-sql").textContent = JSON.stringify(payload, null, 2);
+      document.getElementById("liste-sql").innerHTML = payload.data.map(f => `
+        <div class="item">
+          <span><strong>#${f.id} ${f.code}</strong> - ${f.intitule} (${f.tarif_dzd} DZD)</span>
+          <div style="display:flex;gap:0.35rem;">
+            <button type="button" class="btn-sec" onclick="majorerTarif(${f.id}, ${f.tarif_dzd + 5000})">+5000 DZD</button>
+            <button type="button" class="btn-del" onclick="supprimerSQL(${f.id})">Supprimer</button>
+          </div>
+        </div>
+      `).join("");
+    }
+    async function insererSQLite() {
+      const corps = {
+        code: document.getElementById("s-code").value,
+        intitule: document.getElementById("s-intitule").value,
+        domaine: document.getElementById("s-domaine").value,
+        duree_jours: Number(document.getElementById("s-duree").value),
+        tarif_dzd: Number(document.getElementById("s-tarif").value)
+      };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+      document.getElementById("journal-sql").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      await chargerTout();
+    }
+    async function majorerTarif(id, nouveauTarif) {
+      const rep = await fetch("/api/v1/formations/" + id, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tarif_dzd: nouveauTarif }) });
+      document.getElementById("journal-sql").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      await chargerTout();
+    }
+    async function supprimerSQL(id) {
+      const rep = await fetch("/api/v1/formations/" + id, { method: "DELETE" });
+      document.getElementById("journal-sql").textContent = `DELETE /api/v1/formations/${id} -> HTTP ${rep.status}`;
+      await chargerTout();
+    }
+    chargerDiagnostics();
+    chargerTout();
+  </script>
+</body>
+</html>

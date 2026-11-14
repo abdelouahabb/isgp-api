@@ -8,11 +8,15 @@ import math
 import sys
 from typing import Literal, Optional
 import uvicorn
-from fastapi import FastAPI, Query, Response, status
+from fastapi import FastAPI, Query, Request, Response, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Pagination, Filtrage, Tri & Réception JSON", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 CATALOGUE = [
     {"id": 1, "code": "API-101", "titre": "Fondamentaux HTTP & REST", "duree_jours": 2, "salle": "Salle A"},
@@ -79,8 +83,18 @@ async def ajouter_formation(payload: FormationCreation, response: Response):
     return {"statut": "cree", "data": nouvelle}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_pagination(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_03_pagination.html",
+        context={"total": len(CATALOGUE)},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. TEST PAGINATION, FILTRAGE ET TRI (Query FastAPI) ===")
     rep = client.get("/api/v1/formations?page=1&limit=2&salle=Salle+A&tri=duree_jours&ordre=desc")
     print("Statut HTTP :", rep.status_code)

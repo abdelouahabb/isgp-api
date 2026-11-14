@@ -66,8 +66,20 @@ class FormationsPaginationHandler(tornado.web.RequestHandler):
         })
 
 
+class PortailPaginationHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d2_03.html")
+
+
 def make_app():
-    return tornado.web.Application([(r"/api/v1/formations", FormationsPaginationHandler)])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailPaginationHandler),
+            (r"/api/v1/formations", FormationsPaginationHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

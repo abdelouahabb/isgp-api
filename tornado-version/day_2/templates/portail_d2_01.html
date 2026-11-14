@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 2.1 — Serveur Minimal Tornado (Web + API JSON)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 920px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 9px 14px; font-weight: 600; cursor: pointer; margin-right: 8px; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 2.1 — Serveur Minimal Tornado : RequestHandler Web &amp; API REST</h1></header>
+  <main>
+    <div class="card">
+      <h2>Modules du Bootcamp (rendus par tornado.template)</h2>
+      <ul>
+        {% for mod in modules %}
+        <li>{{ mod }}</li>
+        {% end %}
+      </ul>
+      <p><a href="/accueil" target="_blank">Ouvrir egalement la vue /accueil</a></p>
+    </div>
+    <div class="card">
+      <h2>Tester les Routes JSON en Direct</h2>
+      <button type="button" onclick="appeler('/api/bonjour')">GET /api/bonjour</button>
+      <button type="button" onclick="appeler('/api/v1/modules')">GET /api/v1/modules</button>
+      <pre id="sortie">Cliquez sur un bouton pour inspecter la reponse JSON Tornado...</pre>
+    </div>
+  </main>
+  <script>
+    async function appeler(url) {
+      const rep = await fetch(url);
+      const data = await rep.json();
+      document.getElementById("sortie").textContent = `GET ${url} -> HTTP ${rep.status}\n` + JSON.stringify(data, null, 2);
+    }
+    appeler("/api/bonjour");
+  </script>
+</body>
+</html>

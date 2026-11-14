@@ -159,10 +159,10 @@ DAY_4_DATA = {
             ],
             "code": _read("06_authn_vs_authz_scopes.py"),
             "line_explanations": [
-                {"lines": "20-29", "text": "**Étape 1 (`AuthN`)** : Vérifie la présence, l'expiration et la signature du jeton. En cas d'échec, renvoie `401 Unauthorized`."},
-                {"lines": "38-43", "text": "**Étape 2A (`AuthZ — RBAC`)** : Vérifie si le rôle du jeton correspond au `role_requis` (`403 Forbidden` sinon)."},
-                {"lines": "45-50", "text": "**Étape 2B (`AuthZ — Scopes OAuth2`)** : Vérifie que la permission granulaire exigée (`scope_requis`) figure dans la liste `scopes` du jeton (`403` sinon)."},
-                {"lines": "52-57", "text": "**Étape 2C (`AuthZ — Anti-BOLA`)** : Vérifie que l'utilisateur connecté est bien le propriétaire légitime de l'enregistrement demandé (`403` sinon)."}
+                {"lines": "28-38", "text": "**Étape 1 (`AuthN`)** : Vérifie la présence, l'expiration et la signature du jeton. En cas d'échec, renvoie `401 Unauthorized`."},
+                {"lines": "47-52", "text": "**Étape 2A (`AuthZ — RBAC`)** : Vérifie si le rôle du jeton correspond au `role_requis` (`403 Forbidden` sinon)."},
+                {"lines": "54-59", "text": "**Étape 2B (`AuthZ — Scopes OAuth2`)** : Vérifie que la permission granulaire exigée (`scope_requis`) figure dans la liste `scopes` du jeton (`403` sinon)."},
+                {"lines": "61-66", "text": "**Étape 2C (`AuthZ — Anti-BOLA`)** : Vérifie que l'utilisateur connecté est bien le propriétaire légitime de l'enregistrement demandé (`403` sinon)."}
             ],
             "sandbox_preset": {
                 "label": "Tester AuthN (401) vs AuthZ (403 / 200) : GET /api/sandbox/authz-demo",
@@ -299,9 +299,9 @@ DAY_4_DATA = {
             ],
             "code": _read("05_cors_webhooks_headers.py"),
             "line_explanations": [
-                {"lines": "23-37", "text": "`SecureCorsBaseHandler` : applique la liste blanche CORS dans `set_default_headers()` et implémente `options()` (`204 No Content`)."},
-                {"lines": "41-59", "text": "`WebhookPaiementHandler.post` : vérifie la signature `HMAC-SHA256` calculée sur `self.request.body`."},
-                {"lines": "70", "text": "`HTTPServer(app, max_body_size=1 * 1024 * 1024)` plafonne la taille maximale du corps HTTP à 1 Mo."}
+                {"lines": "23-38", "text": "`SecureCorsBaseHandler` : applique la liste blanche CORS dans `set_default_headers()` et implémente `options()` (`204 No Content`)."},
+                {"lines": "41-60", "text": "`WebhookPaiementHandler.post` : vérifie la signature `HMAC-SHA256` calculée sur `self.request.body`."},
+                {"lines": "90", "text": "`HTTPServer(app, max_body_size=1 * 1024 * 1024)` plafonne la taille maximale du corps HTTP à 1 Mo."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_4/05_cors_webhooks_headers.py` pour tester la vérification HMAC-SHA256 d'un Webhook et les en-têtes CORS dans Tornado :",
@@ -344,10 +344,10 @@ DAY_4_DATA = {
             ],
             "code": _read("07_cookies_et_sessions_securisees.py"),
             "line_explanations": [
-                {"lines": "35-43", "text": "`self.set_secure_cookie('isgp_session', ...)` signe en HMAC-SHA256 avec `cookie_secret` et active `httponly=True` et `samesite='Strict'`."},
-                {"lines": "60-66", "text": "`self.get_secure_cookie('isgp_session', max_age_days=1)` vérifie l'authenticité cryptographique et l'âge du cookie."},
-                {"lines": "97-100", "text": "`self.clear_cookie(...)` révoque immédiatement les cookies côté navigateur."},
-                {"lines": "104-113", "text": "Configuration de `cookie_secret=COOKIE_SECRET` dans `tornado.web.Application`."}
+                {"lines": "35-44", "text": "`self.set_secure_cookie('isgp_session', ...)` signe en HMAC-SHA256 avec `cookie_secret` et active `httponly=True` et `samesite='Strict'`."},
+                {"lines": "60-69", "text": "`self.get_secure_cookie('isgp_session', max_age_days=1)` vérifie l'authenticité cryptographique et l'âge du cookie."},
+                {"lines": "97-102", "text": "`self.clear_cookie(...)` révoque immédiatement les cookies côté navigateur."},
+                {"lines": "110-121", "text": "Configuration de `cookie_secret=COOKIE_SECRET` dans `tornado.web.Application`."}
             ],
             "sandbox_preset": {
                 "label": "1. Émettre Cookies Sécurisés (HttpOnly + Session HMAC) : POST /api/sandbox/cookies/login",

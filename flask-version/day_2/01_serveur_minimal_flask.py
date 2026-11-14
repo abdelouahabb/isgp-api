@@ -54,9 +54,16 @@ def lister_modules_api():
     }), 200
 
 
+# 4. PORTAIL WEB INTERACTIF SUR GET / (Expose et consomme les routes JSON & HTML)
+@app.route("/", methods=["GET"])
+def index_portail():
+    return render_template("index_01_minimal.html", modules=MODULES_BOOTCAMP), 200
+
+
 if __name__ == "__main__":
     # Sinon, exécute une démonstration immédiate des 2 modes (Jinja2 HTML vs API JSON)
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         rep_html = client.get("/accueil")
         print("=== 1. RENDU DU TEMPLATE JINJA2 (GET /accueil -> day_2/templates/accueil.html) ===")
         print(rep_html.get_data(as_text=True).strip())

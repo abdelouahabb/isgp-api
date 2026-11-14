@@ -60,8 +60,20 @@ class WebhookPaiementHandler(SecureCorsBaseHandler):
         self.write({"statut": "Webhook authentifié et traité par Tornado", "evenement": evenement})
 
 
+class PortailWebhookCorsHandler(SecureCorsBaseHandler):
+    def get(self):
+        self.render("portail_d4_05.html")
+
+
 def make_app():
-    return tornado.web.Application([(r"/api/webhooks/paiement", WebhookPaiementHandler)])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailWebhookCorsHandler),
+            (r"/api/webhooks/paiement", WebhookPaiementHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

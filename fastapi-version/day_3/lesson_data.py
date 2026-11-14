@@ -39,9 +39,10 @@ DAY_3_DATA = {
             ],
             "code": _read("01_api_crud_memoire.py"),
             "line_explanations": [
-                {"lines": "21-33", "text": "Modèle Pydantic v2 `FormationCreation(BaseModel)` combinant `Field(min_length=3, max_length=120)`, `Field(ge=1, le=30)` et `@field_validator('titre')`."},
-                {"lines": "37-52", "text": "Gestionnaire `@app.exception_handler(RequestValidationError)` transformant les erreurs Pydantic en enveloppe normalisée RFC 7807 (`422 Unprocessable Entity`)."},
-                {"lines": "60-69", "text": "Route `@app.post('/api/v1/formations', status_code=status.HTTP_201_CREATED)` recevant un `payload: FormationCreation` déjà validé et nettoyé."}
+                {"lines": "27-38", "text": "Modèle Pydantic v2 `FormationCreation(BaseModel)` combinant `Field(min_length=3, max_length=120)`, `Field(ge=1, le=30)` et `@field_validator('titre')`."},
+                {"lines": "42-58", "text": "Gestionnaire `@app.exception_handler(RequestValidationError)` transformant les erreurs Pydantic en enveloppe normalisée RFC 7807 (`422 Unprocessable Entity`)."},
+                {"lines": "66-76", "text": "Route `@app.post('/api/v1/formations', status_code=status.HTTP_201_CREATED)` recevant un `payload: FormationCreation` déjà validé et nettoyé."},
+                {"lines": "79-85", "text": "Portail Web interactif sur `GET /` (`portail_01_validation.html`) testant les créations valides et le rejet `422` RFC 7807."}
             ],
             "sandbox_preset": {
                 "label": "Tester la création : POST /api/sandbox/formations",
@@ -79,10 +80,11 @@ DAY_3_DATA = {
             ],
             "code": _read("03_put_patch_et_idempotence.py"),
             "line_explanations": [
-                {"lines": "20-29", "text": "Modèles Pydantic `FormationComplete` (pour POST/PUT) et `FormationPartielle` (champs `Optional` pour PATCH)."},
-                {"lines": "33-53", "text": "Contrôle de `Header(default=None, alias='Idempotency-Key')` sur `POST` : renvoie l'objet mémorisé (`200 OK`) en cas de rejeu réseau."},
-                {"lines": "57-68", "text": "Implémentation de `@app.put` : remplacement complet de l'entité."},
-                {"lines": "72-80", "text": "Implémentation idiomatique de `@app.patch` : `payload.model_dump(exclude_unset=True)` ne met à jour que les champs réellement transmis."}
+                {"lines": "27-36", "text": "Modèles Pydantic `FormationComplete` (pour POST/PUT) et `FormationPartielle` (champs `Optional` pour PATCH)."},
+                {"lines": "40-62", "text": "Contrôle de `Header(default=None, alias='Idempotency-Key')` sur `POST` : renvoie l'objet mémorisé (`200 OK`) en cas de rejeu réseau."},
+                {"lines": "66-76", "text": "Implémentation de `@app.put` : remplacement complet de l'entité."},
+                {"lines": "80-87", "text": "Implémentation idiomatique de `@app.patch` : `payload.model_dump(exclude_unset=True)` ne met à jour que les champs réellement transmis."},
+                {"lines": "90-96", "text": "Portail Web interactif sur `GET /` (`portail_03_idempotence.html`) démontrant `Idempotency-Key`, `PUT` et `PATCH`."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_3/03_put_patch_et_idempotence.py` pour tester `Idempotency-Key` et `PATCH` (`exclude_unset=True`) :",
@@ -114,9 +116,10 @@ DAY_3_DATA = {
             ],
             "code": _read("04_gestion_erreurs_globale.py"),
             "line_explanations": [
-                {"lines": "16-35", "text": "`@app.exception_handler(StarletteHTTPException)` intercepte les codes `404` et `405` et retourne une `JSONResponse` enrichie."},
-                {"lines": "39-47", "text": "`@app.exception_handler(Exception)` intercepte tout crash non géré (ex: `ZeroDivisionError`), l'écrit dans le journal serveur et retourne un JSON `500` sécurisé."},
-                {"lines": "55-64", "text": "Vérification automatisée avec `TestClient(app, raise_server_exceptions=False)` sur `404`, `405` et `500`."}
+                {"lines": "21-39", "text": "`@app.exception_handler(StarletteHTTPException)` intercepte les codes `404` et `405` et retourne une `JSONResponse` enrichie."},
+                {"lines": "43-52", "text": "`@app.exception_handler(Exception)` intercepte tout crash non géré (ex: `ZeroDivisionError`), l'écrit dans le journal serveur et retourne un JSON `500` sécurisé."},
+                {"lines": "61-67", "text": "Portail Web interactif sur `GET /` (`portail_04_erreurs.html`) déclenchant en direct `200`, `404`, `405` et `500`."},
+                {"lines": "70-76", "text": "Vérification automatisée avec `TestClient(app, raise_server_exceptions=False)` sur `404`, `405` et `500`."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_3/04_gestion_erreurs_globale.py` pour observer l'interception en JSON des erreurs 404, 405 et 500 :",
@@ -148,9 +151,10 @@ DAY_3_DATA = {
             ],
             "code": _read("02_api_crud_sqlite.py"),
             "line_explanations": [
-                {"lines": "24-30", "text": "Dépendance génératrice `get_db()` avec `yield conn` et fermeture garantie dans `finally: conn.close()`."},
-                {"lines": "69-99", "text": "Routes Web Jinja2 `/formations-sqlite` (GET et POST) utilisant `Form(...)`, `Depends(get_db)`, une requête `INSERT` paramétrée `?` et `Jinja2Templates`."},
-                {"lines": "103-141", "text": "Routes API REST `GET`, `POST`, `PUT`, `DELETE` sur `/api/formations` utilisant `FormationSQLiteIn`, `Depends(get_db)` et des requêtes paramétrées `?`."}
+                {"lines": "25-31", "text": "Dépendance génératrice `get_db()` avec `yield conn` et fermeture garantie dans `finally: conn.close()`."},
+                {"lines": "69-103", "text": "Routes Web Jinja2 `/formations-sqlite` (GET et POST) utilisant `Form(...)`, `Depends(get_db)`, une requête `INSERT` paramétrée `?` et `Jinja2Templates`."},
+                {"lines": "107-147", "text": "Routes API REST `GET`, `POST`, `PUT`, `DELETE` sur `/api/formations` utilisant `FormationSQLiteIn`, `Depends(get_db)` et des requêtes paramétrées `?`."},
+                {"lines": "150-156", "text": "Portail Web interactif sur `GET /` (`portail_02_sqlite.html`) consommant `/api/formations` via `fetch()`."}
             ],
             "sandbox_preset": {
                 "label": "Tester PUT /api/sandbox/formations/1 sur la base SQLite",

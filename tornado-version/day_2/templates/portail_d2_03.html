@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 2.3 — Pagination, Filtrage &amp; Tri Tornado</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 980px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    select, input, button { padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; margin-right: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 2.3 — Filtrage, Tri Dynamique &amp; Pagination (/api/v1/formations)</h1></header>
+  <main>
+    <div class="card">
+      <div>
+        <select id="salle" onchange="charger(1)">
+          <option value="">Toutes les salles</option>
+          <option value="Salle A">Salle A</option>
+          <option value="Salle B">Salle B</option>
+          <option value="Labo 1">Labo 1</option>
+        </select>
+        <select id="tri" onchange="charger(1)">
+          <option value="id">Tri : ID</option>
+          <option value="duree_jours">Tri : Duree</option>
+          <option value="titre">Tri : Titre</option>
+        </select>
+        <select id="ordre" onchange="charger(1)">
+          <option value="asc">Croissant (asc)</option>
+          <option value="desc">Decroissant (desc)</option>
+        </select>
+        <input id="limit" type="number" value="3" min="1" max="10" style="width:65px;" onchange="charger(1)" />
+        <button type="button" onclick="charger(pageActuelle - 1)">Page Prec.</button>
+        <button type="button" onclick="charger(pageActuelle + 1)">Page Suiv.</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Duree</th><th>Salle</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <pre id="meta-json"></pre>
+    </div>
+  </main>
+  <script>
+    let pageActuelle = 1;
+    async function charger(p) {
+      pageActuelle = Math.max(1, p);
+      const qs = new URLSearchParams({
+        page: pageActuelle,
+        limit: document.getElementById("limit").value,
+        salle: document.getElementById("salle").value,
+        tri: document.getElementById("tri").value,
+        ordre: document.getElementById("ordre").value
+      });
+      const rep = await fetch("/api/v1/formations?" + qs.toString());
+      const json = await rep.json();
+      pageActuelle = json.meta.page_actuelle;
+      const tb = document.getElementById("tbody");
+      tb.innerHTML = "";
+      for (const f of json.data) {
+        tb.innerHTML += `<tr><td>#${f.id}</td><td><strong>${f.code}</strong></td><td>${f.titre}</td><td>${f.duree_jours}j</td><td>${f.salle}</td></tr>`;
+      }
+      document.getElementById("meta-json").textContent = JSON.stringify(json.meta, null, 2);
+    }
+    charger(1);
+  </script>
+</body>
+</html>

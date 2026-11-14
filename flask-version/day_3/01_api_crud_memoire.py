@@ -1,11 +1,13 @@
 import os
+import sys
 # Fichier : day_3/01_api_crud_memoire.py
 # Exécution : .venv/bin/python day_3/01_api_crud_memoire.py
 # Objectif : Validation stricte des champs entrants et réponses d'erreur RFC 7807
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 formations = [
     {"id": 1, "titre": "Architecture des APIs REST", "duree_jours": 5, "salle": "Salle A"},
@@ -58,8 +60,15 @@ def creer_formation():
     formations.append(nouvelle)
     return jsonify({"message": "Formation créée", "formation": nouvelle}), 201
 
+
+@app.route("/", methods=["GET"])
+def index_crud_memoire():
+    return render_template("index_01_crud_memoire.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         rep_err = client.post("/api/v1/formations", json={"titre": "AB", "duree_jours": 99})
         print("1. Rejet RFC 7807 (HTTP 422) :", rep_err.status_code, rep_err.get_json())
         rep_ok = client.post("/api/v1/formations", json={"titre": "Sécurité OWASP API", "duree_jours": 4})

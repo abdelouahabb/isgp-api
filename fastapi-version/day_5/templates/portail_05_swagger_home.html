@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 5.5 - Portail OpenAPI 3.1, Swagger UI & ReDoc</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.85rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.81rem; max-height: 260px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 5.5 — Contrat OpenAPI 3.1 Auto-Genere, Swagger UI &amp; ReDoc</h1>
+    <div class="ligne">
+      <button type="button" onclick="lister()">GET /api/v1/formations</button>
+      <button type="button" onclick="creerAvecCle()">POST /api/v1/formations (X-API-Key)</button>
+      <button type="button" onclick="inspecterContrat()">Inspecter /openapi.json</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+      <a class="btn" href="/redoc" target="_blank">ReDoc (/redoc)</a>
+    </div>
+    <pre id="sortie">Chargement du catalogue...</pre>
+  </main>
+  <script>
+    async function lister() {
+      const rep = await fetch("/api/v1/formations");
+      document.getElementById("sortie").textContent = `GET /api/v1/formations -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function creerAvecCle() {
+      const rep = await fetch("/api/v1/formations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": "isgp-secret-2026" },
+        body: JSON.stringify({ code: "API-305", titre: "Gouvernance OpenAPI 3.1", duree_jours: 4, tarif_dzd: 68000 })
+      });
+      document.getElementById("sortie").textContent = `POST /api/v1/formations -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function inspecterContrat() {
+      const rep = await fetch("/openapi.json");
+      const spec = await rep.json();
+      document.getElementById("sortie").textContent = `OpenAPI ${spec.openapi} - ${spec.info.title}\nSchemas: ${Object.keys(spec.components.schemas).join(", ")}\nSecuritySchemes: ${Object.keys(spec.components.securitySchemes).join(", ")}\n\n` + JSON.stringify(spec.paths, null, 2);
+    }
+    lister();
+  </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 2.5 — Templates Tornado, Formulaires HTML &amp; Upload Multipart</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 1020px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 8px; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 2.5 — RequestHandler Hybride (Formulaire HTML + JSON) &amp; Upload Fichier</h1></header>
+  <main>
+    <div class="card">
+      <h2>1. Formulaire HTML Classique (/formations)</h2>
+      <p style="font-size:0.88rem;">Actuellement <strong>{{ len(formations) }}</strong> formations en memoire. <a href="/formations">Ouvrir la vue formulaire /formations</a></p>
+      <input id="j-titre" type="text" value="Ingenierie Web Tornado" style="width:92%;" />
+      <input id="j-jours" type="number" value="4" style="width:80px;" />
+      <input id="j-salle" type="text" value="Salle C" style="width:120px;" />
+      <button type="button" onclick="creerViaJson()">POST /formations (Mode JSON)</button>
+    </div>
+    <div class="card">
+      <h2>2. Upload Syllabus Multipart (/formations/upload-syllabus)</h2>
+      <form id="form-upload" onsubmit="envoyerFichier(event)">
+        <input type="text" name="code_formation" value="ISGP-205" /><br />
+        <input type="file" name="document_pdf" required /><br />
+        <button type="submit">Envoyer via multipart/form-data</button>
+      </form>
+    </div>
+    <pre id="sortie">Utilisez l'un des formulaires ci-dessus pour observer la reponse du serveur Tornado...</pre>
+  </main>
+  <script>
+    async function creerViaJson() {
+      const rep = await fetch("/formations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          titre: document.getElementById("j-titre").value,
+          duree_jours: Number(document.getElementById("j-jours").value),
+          salle: document.getElementById("j-salle").value
+        })
+      });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function envoyerFichier(ev) {
+      ev.preventDefault();
+      const fd = new FormData(document.getElementById("form-upload"));
+      const rep = await fetch("/formations/upload-syllabus", { method: "POST", body: fd });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

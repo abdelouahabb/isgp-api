@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 4.2 — Emission &amp; Verification de Bearer Tokens Signes</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 940px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #94a3b8; margin: 4px 6px 8px 0; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 4.2 — Bearer Tokens Signes HMAC (POST /api/auth/token &amp; GET /api/auth/profil)</h1></header>
+  <main>
+    <div class="card">
+      <div>
+        <input id="ident" type="text" value="stagiaire" />
+        <input id="mdp" type="password" value="isgp2026" />
+        <button type="button" onclick="emettre()">1. Obtenir Bearer Token</button>
+      </div>
+      <div>
+        <input id="tok" type="text" placeholder="Jeton Bearer..." style="width:65%;" />
+        <button type="button" onclick="lireProfil()">2. Appeler /api/auth/profil</button>
+        <button type="button" class="err" onclick="falsifier()">Falsifier Signature (401)</button>
+      </div>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function emettre() {
+      const rep = await fetch("/api/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifiant: document.getElementById("ident").value, mot_de_passe: document.getElementById("mdp").value })
+      });
+      const data = await rep.json();
+      if (data.access_token) document.getElementById("tok").value = data.access_token;
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(data, null, 2);
+    }
+    async function lireProfil() {
+      const t = document.getElementById("tok").value.trim();
+      const headers = t ? { "Authorization": "Bearer " + t } : {};
+      const rep = await fetch("/api/auth/profil", { headers });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    function falsifier() {
+      document.getElementById("tok").value += " falsifie";
+      lireProfil();
+    }
+  </script>
+</body>
+</html>

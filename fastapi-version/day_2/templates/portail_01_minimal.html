@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 2.1 - Serveur Minimal FastAPI (HTML + JSON)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 880px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.55rem 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.88rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.83rem; min-height: 110px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 2.1 — Portail Serveur Minimal FastAPI ({{ organisme }})</h1>
+    <p>Interrogez en direct les endpoints REST de ce serveur ASGI ou consultez le gabarit Jinja2 <code>/accueil</code> :</p>
+    <div class="actions">
+      <button type="button" onclick="appeler('/api/bonjour')">GET /api/bonjour</button>
+      <button type="button" onclick="appeler('/api/v1/modules')">GET /api/v1/modules</button>
+      <a class="btn" href="/accueil">Voir /accueil (Jinja2)</a>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Cliquez sur un bouton pour executer fetch()...</pre>
+  </main>
+  <script>
+    async function appeler(url) {
+      const rep = await fetch(url);
+      const data = await rep.json();
+      document.getElementById("sortie").textContent = `GET ${url} -> HTTP ${rep.status}\n\n` + JSON.stringify(data, null, 2);
+    }
+    appeler("/api/bonjour");
+  </script>
+</body>
+</html>

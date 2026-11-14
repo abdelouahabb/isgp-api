@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ etape }} — ISGP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 1020px; margin: 22px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .pragmas { background: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 10px 14px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 13px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.err { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+    th { background: #f1f5f9; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — {{ etape }}</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div id="pragmas" class="pragmas">Verification des PRAGMAs SQLite...</div>
+      <div class="row">
+        <input id="code" value="WAL-501" placeholder="Code UNIQUE" style="width:110px;" />
+        <input id="titre" value="Haute Concurrence SQLite WAL" style="min-width:240px;" />
+        <input id="domaine" value="Data" style="width:105px;" />
+        <input id="jours" type="number" value="4" style="width:70px;" />
+        <input id="tarif" type="number" value="64000" style="width:95px;" />
+        <button onclick="inserer()">INSERT SQLite (POST)</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Domaine</th><th>Jours</th><th>Tarif DZD</th><th>Action</th></tr></thead>
+        <tbody id="lignes"></tbody>
+      </table>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function chargerPragmas() {
+      const r = await fetch("/api/v1/sqlite-pragmas");
+      const p = await r.json();
+      document.getElementById("pragmas").textContent =
+        `Moteur SQLite actif (${p.fichier_db}) | journal_mode=${p.journal_mode} | foreign_keys=${p.foreign_keys} | busy_timeout=${p.busy_timeout_ms}ms`;
+    }
+    async function chargerListe() {
+      const r = await fetch("/api/v1/formations");
+      const j = await r.json();
+      document.getElementById("lignes").innerHTML = j.data.map(f =>
+        `<tr><td>${f.id}</td><td>${f.code}</td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.duree_jours}</td><td>${f.tarif_dzd}</td>
+         <td><button class="err" onclick="supprimer(${f.id})">DELETE</button></td></tr>`
+      ).join("");
+    }
+    async function inserer() {
+      const r = await fetch("/api/v1/formations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: document.getElementById("code").value,
+          titre: document.getElementById("titre").value,
+          domaine: document.getElementById("domaine").value,
+          duree_jours: Number(document.getElementById("jours").value),
+          tarif_dzd: Number(document.getElementById("tarif").value)
+        })
+      });
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+      chargerListe();
+    }
+    async function supprimer(id) {
+      const r = await fetch(`/api/v1/formations/${id}`, { method: "DELETE" });
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+      chargerListe();
+    }
+    chargerPragmas();
+    chargerListe();
+  </script>
+</body>
+</html>

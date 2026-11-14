@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ etape }} — ISGP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 1020px; margin: 22px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .form-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    input, select { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 13px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.86rem; }
+    button.warn { background: #b45309; }
+    button.err { background: #b91c1c; }
+    .banniere-erreur { display: none; background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d; padding: 12px; border-radius: 6px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+    th { background: #f1f5f9; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — {{ etape }}</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div id="banniere" class="banniere-erreur"></div>
+      <h2>Creer ou tester la validation RFC 7807 (application/problem+json)</h2>
+      <div class="form-row">
+        <input id="code" value="OPS-402" placeholder="Code (ex: OPS-402)" style="width:110px;" />
+        <input id="titre" value="Supervision &amp; Observabilite API" placeholder="Titre" style="min-width:230px;" />
+        <input id="domaine" value="DevOps" placeholder="Domaine" style="width:110px;" />
+        <input id="jours" type="number" value="4" style="width:70px;" />
+        <input id="tarif" type="number" value="62000" style="width:95px;" />
+        <button onclick="creer(false)">POST Creer (201)</button>
+        <button class="err" onclick="creer(true)">Simuler Erreur 422 (RFC 7807)</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Domaine</th><th>Jours</th><th>Tarif DZD</th><th>Actions REST</th></tr></thead>
+        <tbody id="lignes"></tbody>
+      </table>
+      <h3>Trace HTTP &amp; Payload JSON :</h3>
+      <pre id="journal">{}</pre>
+    </section>
+  </main>
+  <script>
+    function afficherErreurRFC7807(prob, contentType) {
+      const b = document.getElementById("banniere");
+      if (!prob) { b.style.display = "none"; return; }
+      const details = prob.errors ? Object.entries(prob.errors).map(([k, v]) => `<li><strong>${k}</strong> : ${v}</li>`).join("") : "";
+      b.innerHTML = `<strong>[${prob.status}] ${prob.title} (${contentType})</strong><br>${prob.detail}<ul>${details}</ul>`;
+      b.style.display = "block";
+    }
+    async function rafraichir() {
+      const r = await fetch("/api/v1/formations");
+      const j = await r.json();
+      document.getElementById("lignes").innerHTML = j.data.map(f =>
+        `<tr><td>${f.id}</td><td>${f.code}</td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.duree_jours}</td><td>${f.tarif_dzd}</td>
+         <td><button class="warn" onclick="patchTarif(${f.id}, ${f.tarif_dzd + 5000})">PATCH +5000</button>
+             <button class="err" onclick="supprimer(${f.id})">DELETE</button></td></tr>`
+      ).join("");
+    }
+    async function creer(invalide) {
+      const payload = invalide ? { code: "A", titre: "XY", duree_jours: 99, tarif_dzd: -10 } : {
+        code: document.getElementById("code").value,
+        titre: document.getElementById("titre").value,
+        domaine: document.getElementById("domaine").value,
+        duree_jours: Number(document.getElementById("jours").value),
+        tarif_dzd: Number(document.getElementById("tarif").value)
+      };
+      const r = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await r.json();
+      afficherErreurRFC7807(r.status >= 400 ? data : null, r.headers.get("Content-Type"));
+      document.getElementById("journal").textContent = `POST /api/v1/formations -> HTTP ${r.status}\n` + JSON.stringify(data, null, 2);
+      rafraichir();
+    }
+    async function patchTarif(id, tarif) {
+      const r = await fetch(`/api/v1/formations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tarif_dzd: tarif }) });
+      afficherErreurRFC7807(null);
+      document.getElementById("journal").textContent = `PATCH /api/v1/formations/${id} -> HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+      rafraichir();
+    }
+    async function supprimer(id) {
+      const r = await fetch(`/api/v1/formations/${id}`, { method: "DELETE" });
+      afficherErreurRFC7807(null);
+      document.getElementById("journal").textContent = `DELETE /api/v1/formations/${id} -> HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+      rafraichir();
+    }
+    rafraichir();
+  </script>
+</body>
+</html>

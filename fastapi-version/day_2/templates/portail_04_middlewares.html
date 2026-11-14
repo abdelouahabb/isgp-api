@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 2.4 - Middleware ASGI & Audit Log</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 880px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+    input { padding: 0.48rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.83rem; min-height: 130px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 2.4 — Inspecteur Middleware ASGI (X-Request-ID &amp; X-Response-Time-Ms)</h1>
+    <div class="ligne">
+      <input id="req-id" value="req-isgp-navigateur-01" style="width:230px;">
+      <button type="button" onclick="interroger(true)">GET /api/v1/statut (avec X-Request-ID)</button>
+      <button type="button" onclick="interroger(false)">GET /api/v1/statut (auto-genere)</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Inspection des en-tetes injectes par @app.middleware('http')...</pre>
+  </main>
+  <script>
+    async function interroger(avecHeader) {
+      const headers = avecHeader ? { "X-Request-ID": document.getElementById("req-id").value } : {};
+      const rep = await fetch("/api/v1/statut", { headers });
+      const data = await rep.json();
+      document.getElementById("sortie").textContent =
+        `HTTP ${rep.status}\nX-Request-ID: ${rep.headers.get("x-request-id")}\nX-Response-Time-Ms: ${rep.headers.get("x-response-time-ms")} ms\nX-Content-Type-Options: ${rep.headers.get("x-content-type-options")}\n\n` +
+        JSON.stringify(data, null, 2);
+    }
+    interroger(true);
+  </script>
+</body>
+</html>

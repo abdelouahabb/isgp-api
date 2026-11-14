@@ -58,9 +58,15 @@ class ModulesCollectionHandler(tornado.web.RequestHandler):
         })
 
 
+class PortailMinimalHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d2_01.html", modules=MODULES_BOOTCAMP)
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailMinimalHandler),
             (r"/accueil", AccueilHandler),
             (r"/api/bonjour", BonjourApiHandler),
             (r"/api/v1/modules", ModulesCollectionHandler),

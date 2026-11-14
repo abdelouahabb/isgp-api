@@ -52,11 +52,11 @@ DAY_1_DATA = {
             ],
             "code": _read("01_html_vs_json.py"),
             "line_explanations": [
-                {"lines": "26-29", "text": "`MeteoHtmlHandler` : `self.render('meteo.html', meteo=DONNEES_METEO)` injecte le dictionnaire dans le gabarit HTML `tornado.template`."},
-                {"lines": "33-47", "text": "`MeteoSoapHandler` : définit `self.set_header('Content-Type', 'application/xml; charset=UTF-8')` et écrit l'enveloppe XML verbeuse."},
-                {"lines": "51-56", "text": "`MeteoJsonHandler` : passer un `dict` Python à `self.write(DONNEES_METEO)` le sérialise automatiquement en JSON (`application/json; charset=UTF-8`)."},
-                {"lines": "59-67", "text": "`make_app()` configure `tornado.web.Application` en associant chaque expression régulière d'URL à sa classe `RequestHandler`."},
-                {"lines": "70-86", "text": "Test asynchrone non-bloquant avec `tornado.httpclient.AsyncHTTPClient` mesurant la taille exacte en octets et le `Content-Type` des 3 formats."}
+                {"lines": "28-32", "text": "`MeteoHtmlHandler` : `self.render('meteo.html', meteo=DONNEES_METEO)` injecte le dictionnaire dans le gabarit HTML `tornado.template`."},
+                {"lines": "35-50", "text": "`MeteoSoapHandler` : définit `self.set_header('Content-Type', 'application/xml; charset=UTF-8')` et écrit l'enveloppe XML verbeuse."},
+                {"lines": "53-59", "text": "`MeteoJsonHandler` : passer un `dict` Python à `self.write(DONNEES_METEO)` le sérialise automatiquement en JSON (`application/json; charset=UTF-8`)."},
+                {"lines": "67-76", "text": "`make_app()` configure `tornado.web.Application` en associant chaque expression régulière d'URL à sa classe `RequestHandler`."},
+                {"lines": "79-102", "text": "Test asynchrone non-bloquant avec `tornado.httpclient.AsyncHTTPClient` mesurant la taille exacte en octets et le `Content-Type` des 3 formats."}
             ],
             "sandbox_preset": {
                 "label": "Tester une réponse REST/JSON réelle : GET /api/sandbox/meteo?ville=Alger",

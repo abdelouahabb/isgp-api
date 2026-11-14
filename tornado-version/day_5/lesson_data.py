@@ -98,9 +98,9 @@ DAY_5_DATA = {
             "line_explanations": [
                 {"lines": "24-28", "text": "Source de données métier unique (`CATALOGUE_METIER`) partagée entre le portail Web, l'API `v1` et l'API `v2`."},
                 {"lines": "32-42", "text": "`PortailWebHandler` et `WEB_ROUTES` (`/portail`) servant le template `day_5/templates/portail_blueprint.html`."},
-                {"lines": "46-64", "text": "`FormationsV1Handler` (`/api/v1/formations`) conservant le schéma plat historique (`duree: 5`) et injectant les en-têtes RFC 8594 dans `set_default_headers()`."},
-                {"lines": "68-92", "text": "`FormationsV2Handler` (`/api/v2/formations`) exposant le nouveau schéma structuré (`duree: {valeur, unite, heures_pedagogiques}`)."},
-                {"lines": "96-119", "text": "`HEALTH_ROUTES` (`/api/health/live` & `/ready`) et `create_app()` assemblant toutes les tables de routes dans `tornado.web.Application`."}
+                {"lines": "46-63", "text": "`FormationsV1Handler` (`/api/v1/formations`) conservant le schéma plat historique (`duree: 5`) et injectant les en-têtes RFC 8594 dans `set_default_headers()`."},
+                {"lines": "67-89", "text": "`FormationsV2Handler` (`/api/v2/formations`) exposant le nouveau schéma structuré (`duree: {valeur, unite, heures_pedagogiques}`)."},
+                {"lines": "93-124", "text": "`HEALTH_ROUTES` (`/api/health/live` & `/ready`) et `create_app()` assemblant toutes les tables de routes dans `tornado.web.Application`."}
             ],
             "sandbox_preset": {
                 "label": "Comparer API v1 (Dépréciée RFC 8594) vs API v2 : GET /api/v1/sandbox/formations",
@@ -145,9 +145,9 @@ DAY_5_DATA = {
             ],
             "code": _read("04_tests_et_production.py"),
             "line_explanations": [
-                {"lines": "16-25", "text": "`CalculTaxeApiHandler` : route API JSON `POST /api/calcul-taxe` validant `montant_ht` (`422` si négatif)."},
-                {"lines": "29-41", "text": "`CalculTaxeFormulaireHandler` : route Formulaire HTML `POST /formulaire-taxe` lisant `self.get_body_argument('montant_ht')` et rendant `resultat_taxe.html`."},
-                {"lines": "54-88", "text": "`TestCalculateurFiscalTornado(tornado.testing.AsyncHTTPTestCase)` : exécute 3 tests automatisés (`self.fetch`) couvrant le JSON nominal (`200`), l'erreur métier (`422`) et le formulaire HTML."}
+                {"lines": "22-31", "text": "`CalculTaxeApiHandler` : route API JSON `POST /api/calcul-taxe` validant `montant_ht` (`422` si négatif)."},
+                {"lines": "35-48", "text": "`CalculTaxeFormulaireHandler` : route Formulaire HTML `POST /formulaire-taxe` lisant `self.get_body_argument('montant_ht')` et rendant `resultat_taxe.html`."},
+                {"lines": "68-103", "text": "`TestCalculateurFiscalTornado(tornado.testing.AsyncHTTPTestCase)` : exécute 3 tests automatisés (`self.fetch`) couvrant le JSON nominal (`200`), l'erreur métier (`422`) et le formulaire HTML."}
             ],
             "python_runner": {
                 "prompt": "Exécutez la suite de tests officielle `tornado.testing.AsyncHTTPTestCase` en direct :",
@@ -185,10 +185,10 @@ DAY_5_DATA = {
             ],
             "code": _read("05_swagger_openapi_ui.py"),
             "line_explanations": [
-                {"lines": "32-55", "text": "En-tête du contrat OpenAPI 3.0.3 (`info`, `servers` sur le port `8888`, `tags`)."},
-                {"lines": "57-71", "text": "`securitySchemes` configure les deux cadenas d'authentification dans Swagger UI : `BearerAuth` et `ApiKeyAuth`."},
-                {"lines": "195-210", "text": "`OpenApiSpecHandler` (`/api/openapi.json`) et `SwaggerUiHandler` (`/api/docs`)."},
-                {"lines": "215-232", "text": "`FormationsListHandler` et `FormationDetailHandler` implémentant les routes documentées."}
+                {"lines": "36-57", "text": "En-tête du contrat OpenAPI 3.0.3 (`info`, `servers` sur le port `8888`, `tags`)."},
+                {"lines": "58-72", "text": "`securitySchemes` configure les deux cadenas d'authentification dans Swagger UI : `BearerAuth` et `ApiKeyAuth`."},
+                {"lines": "200-216", "text": "`OpenApiSpecHandler` (`/api/openapi.json`) et `SwaggerUiHandler` (`/api/docs`)."},
+                {"lines": "221-256", "text": "`FormationsListHandler` et `FormationDetailHandler` implémentant les routes documentées."}
             ],
             "sandbox_preset": {
                 "label": "Inspecter le Contrat OpenAPI 3.0 : GET /api/openapi.json",

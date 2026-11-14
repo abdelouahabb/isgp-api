@@ -138,9 +138,9 @@ DAY_3_DATA = {
             ],
             "code": _read("04_gestion_erreurs_globale.py"),
             "line_explanations": [
-                {"lines": "17-45", "text": "`JsonApiBaseHandler.write_error` : intercepte les codes `404`, `405` et `>= 500` (avec inspection de `kwargs.get('exc_info')` côté serveur) et renvoie une réponse JSON via `self.finish({...})`."},
-                {"lines": "49-51", "text": "`NotFoundJsonHandler` : utilisé comme `default_handler_class` pour intercepter toute URL inconnue en JSON."},
-                {"lines": "61-64", "text": "Enregistrement de `default_handler_class=NotFoundJsonHandler` dans `tornado.web.Application`."}
+                {"lines": "18-46", "text": "`JsonApiBaseHandler.write_error` : intercepte les codes `404`, `405` et `>= 500` (avec inspection de `kwargs.get('exc_info')` côté serveur) et renvoie une réponse JSON via `self.finish({...})`."},
+                {"lines": "49-52", "text": "`NotFoundJsonHandler` : utilisé comme `default_handler_class` pour intercepter toute URL inconnue en JSON."},
+                {"lines": "67-76", "text": "Enregistrement de `default_handler_class=NotFoundJsonHandler` dans `tornado.web.Application`."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_3/04_gestion_erreurs_globale.py` pour tester les réponses JSON sur 404, 405 et 500 (ZeroDivisionError) :",

@@ -9,9 +9,13 @@ import time
 import uuid
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Middleware ASGI & Audit Log", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 
 # MIDDLEWARE ASGI : Enveloppe le cycle complet (AVANT et APRÈS `await call_next(request)`)
@@ -44,8 +48,18 @@ async def verifier_statut(request: Request):
     }
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_middlewares(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_04_middlewares.html",
+        context={"service": "ISGP FastAPI Core (ASGI)"},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     rep = client.get("/api/v1/statut", headers={"X-Request-ID": "req-isgp-2026"})
     print("En-têtes injectés par le middleware ASGI :", dict(rep.headers))
     print("Corps JSON :", rep.json())

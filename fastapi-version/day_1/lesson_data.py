@@ -40,11 +40,12 @@ DAY_1_DATA = {
             ],
             "code": _read("01_html_vs_json.py"),
             "line_explanations": [
-                {"lines": "13-16", "text": "Création de l'instance `FastAPI` et configuration de `Jinja2Templates` pointant vers `day_1/templates/` (zéro HTML codé en dur dans Python)."},
-                {"lines": "26-34", "text": "Approche Web classique : `@app.get('/meteo/html', response_class=HTMLResponse)` et `templates.TemplateResponse(...)` injectent les données dans le gabarit Jinja2 `meteo.html`."},
-                {"lines": "37-51", "text": "Enveloppe SOAP/XML historique : structure hiérarchique verbeuse (`<soap:Envelope>`, `<soap:Body>`) retournée via `Response(media_type='application/xml')`."},
-                {"lines": "54-57", "text": "Approche API REST moderne dans FastAPI : retourner un dictionnaire Python le sérialise automatiquement en `JSONResponse` (`application/json`)."},
-                {"lines": "60-72", "text": "Exécution comparative automatique via `TestClient(app)` mesurant la taille exacte en octets et le `Content-Type` des trois formats."}
+                {"lines": "16-18", "text": "Création de l'instance `FastAPI` et configuration de `Jinja2Templates` pointant vers `day_1/templates/` (zéro HTML codé en dur dans Python)."},
+                {"lines": "30-37", "text": "Approche Web classique : `@app.get('/meteo/html', response_class=HTMLResponse)` et `templates.TemplateResponse(...)` injectent les données dans le gabarit Jinja2 `meteo.html`."},
+                {"lines": "41-54", "text": "Enveloppe SOAP/XML historique : structure hiérarchique verbeuse (`<soap:Envelope>`, `<soap:Body>`) retournée via `Response(media_type='application/xml')`."},
+                {"lines": "58-61", "text": "Approche API REST moderne dans FastAPI : retourner un dictionnaire Python le sérialise automatiquement en `JSONResponse` (`application/json`)."},
+                {"lines": "65-71", "text": "Portail Web interactif sur `GET /` (`portail_html_vs_json.html`) interrogeant en direct les trois formats via `fetch()`."},
+                {"lines": "74-86", "text": "Exécution comparative automatique via `TestClient(app)` mesurant la taille exacte en octets et le `Content-Type` des trois formats."}
             ],
             "sandbox_preset": {
                 "label": "Tester une réponse REST/JSON réelle : GET /api/sandbox/meteo?ville=Alger",

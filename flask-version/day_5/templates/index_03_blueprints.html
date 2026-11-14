@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 5.3 : Blueprints, Versioning v1/v2 &amp; Health Probes</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    button, a.btn { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.88rem; }
+    button.sec { background: #0f766e; }
+    button.warn { background: #b45309; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 5.3 : Architecture Blueprints, Versioning (/api/v1 vs /api/v2) &amp; Sondes</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <button class="warn" onclick="appeler('/api/v1/formations')">GET /api/v1/formations (Deprecie RFC 8594)</button>
+        <button class="sec" onclick="appeler('/api/v2/formations')">GET /api/v2/formations (v2 Enrichi)</button>
+        <button onclick="appeler('/api/health/live')">GET /api/health/live</button>
+        <button onclick="appeler('/api/health/ready')">GET /api/health/ready</button>
+        <a class="btn" href="/portail" target="_blank">Ouvrir Blueprint Web /portail</a>
+      </div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function appeler(url) {
+      const r = await fetch(url);
+      const data = await r.json();
+      document.getElementById("sortie").textContent = JSON.stringify({
+        url,
+        status: r.status,
+        headers: {
+          "X-API-Version": r.headers.get("X-API-Version"),
+          "Deprecation": r.headers.get("Deprecation"),
+          "Sunset": r.headers.get("Sunset"),
+          "Link": r.headers.get("Link")
+        },
+        body: data
+      }, null, 2);
+    }
+    appeler("/api/v2/formations");
+  </script>
+</body>
+</html>

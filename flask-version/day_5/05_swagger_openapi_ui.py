@@ -15,8 +15,8 @@ import json
 import os
 from flask import Flask, jsonify, render_template, request
 
-RACINE_PROJET = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-app = Flask(__name__, template_folder=os.path.join(RACINE_PROJET, "templates"))
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 # Base de données simulée en mémoire
 FORMATIONS = [
@@ -222,6 +222,31 @@ def lister_formations():
     return jsonify(resultat), 200
 
 
+@app.route("/api/v1/formations", methods=["POST"])
+def creer_formation_openapi():
+    if request.headers.get("X-API-Key") != "isgp-secret-2026":
+        return jsonify({"erreur": "Clé X-API-Key manquante ou invalide"}), 401
+    corps = request.get_json(silent=True) or {}
+    titre = str(corps.get("titre", "")).strip()
+    duree = corps.get("duree_jours", 0)
+    if len(titre) < 3 or not isinstance(duree, int) or not (1 <= duree <= 30):
+        return jsonify({
+            "type": "https://api.isgp.dz/errors/validation",
+            "title": "Erreur de validation métier",
+            "status": 422,
+            "detail": "titre >= 3 car. et duree_jours entre 1 et 30 requis.",
+        }), 422
+    nouvelle = {
+        "id": max((f["id"] for f in FORMATIONS), default=0) + 1,
+        "code": str(corps.get("code", "API-NEW")),
+        "titre": titre,
+        "duree_jours": duree,
+        "tarif_dzd": int(corps.get("tarif_dzd", 50000)),
+    }
+    FORMATIONS.append(nouvelle)
+    return jsonify(nouvelle), 201
+
+
 @app.route("/api/v1/formations/<int:id>", methods=["GET"])
 def obtenir_formation(id):
     for f in FORMATIONS:
@@ -230,11 +255,18 @@ def obtenir_formation(id):
     return jsonify({"erreur": f"Formation #{id} introuvable"}), 404
 
 
+@app.route("/", methods=["GET"])
+def index_swagger():
+    return render_template("index_05_swagger.html"), 200
+
+
 # =====================================================================
 # 4. DÉMONSTRATION AUTOMATISÉE DU CONTRAT OPENAPI
 # =====================================================================
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
+        assert client.get("/api/docs").status_code == 200
         resp_spec = client.get("/api/openapi.json")
         spec = resp_spec.get_json()
         print("=== CONTRAT OPENAPI 3.0 GÉNÉRÉ AVEC SUCCÈS ===")

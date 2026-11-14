@@ -133,8 +133,14 @@ def supprimer_formation(id):
     return jsonify({"message": f"Formation ID {id} supprimée"}), 200
 
 
+@app.route("/", methods=["GET"])
+def index_crud_sqlite():
+    return render_template("index_02_crud_sqlite.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         print("=== 1. AJOUT VIA FORMULAIRE HTML (POST /formations-sqlite -> request.form) ===")
         rep_form = client.post(
             "/formations-sqlite",

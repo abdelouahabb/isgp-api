@@ -71,11 +71,11 @@ DAY_5_DATA = {
             ],
             "code": _read("03_architecture_blueprints.py"),
             "line_explanations": [
-                {"lines": "17-22", "text": "Source de données métier unique (`CATALOGUE_METIER`) partagée entre le portail Web Jinja2, l'API `v1` et l'API `v2`."},
-                {"lines": "24-40", "text": "Blueprint Web Jinja2 `web_bp` (`/portail`) servant le template `day_5/templates/portail_blueprint.html`."},
-                {"lines": "45-64", "text": "Blueprint `formations_v1_bp` (`/api/v1/formations`) conservant le schéma plat historique (`duree: 5`) et injectant les en-têtes RFC 8594 (`Deprecation: true`, `Sunset`, `Link`)."},
-                {"lines": "69-95", "text": "Blueprint `formations_v2_bp` (`/api/v2/formations`) exposant le nouveau schéma structuré (`duree: {valeur, unite, heures_pedagogiques}`, enveloppe `meta` + `data` + `links`)."},
-                {"lines": "98-118", "text": "Blueprint `sante_bp` (`/api/health/live` & `/ready`) et fonction `create_app()` enregistrant les 4 Blueprints en parallèle."}
+                {"lines": "18-22", "text": "Source de données métier unique (`CATALOGUE_METIER`) partagée entre le portail Web Jinja2, l'API `v1` et l'API `v2`."},
+                {"lines": "25-40", "text": "Blueprint Web Jinja2 `web_bp` (`/portail`) servant le template `day_5/templates/portail_blueprint.html`."},
+                {"lines": "46-66", "text": "Blueprint `formations_v1_bp` (`/api/v1/formations`) conservant le schéma plat historique (`duree: 5`) et injectant les en-têtes RFC 8594 (`Deprecation: true`, `Sunset`, `Link`)."},
+                {"lines": "73-98", "text": "Blueprint `formations_v2_bp` (`/api/v2/formations`) exposant le nouveau schéma structuré (`duree: {valeur, unite, heures_pedagogiques}`, enveloppe `meta` + `data` + `links`)."},
+                {"lines": "102-128", "text": "Blueprint `sante_bp` (`/api/health/live` & `/ready`) et fonction `create_app()` enregistrant les Blueprints et la racine `GET /`."}
             ],
             "sandbox_preset": {
                 "label": "Comparer API v1 (Dépréciée RFC 8594) vs API v2 : GET /api/v1/sandbox/formations",
@@ -111,10 +111,10 @@ DAY_5_DATA = {
             ],
             "code": _read("04_tests_et_production.py"),
             "line_explanations": [
-                {"lines": "13-20", "text": "Route API JSON `POST /api/calcul-taxe` lisant `request.get_json()` et validant `montant_ht` (`422` si négatif)."},
-                {"lines": "24-32", "text": "Route Formulaire HTML `POST /formulaire-taxe` lisant `request.form.get('montant_ht', type=float)` et rendant `day_5/templates/resultat_taxe.html`."},
-                {"lines": "36-46", "text": "Tests 1 et 2 : Vérification automatisée par `assert` de la route API JSON (`client.post(..., json={...})`)."},
-                {"lines": "49-53", "text": "Test 3 : Vérification automatisée de la soumission du formulaire HTML (`client.post(..., data={...})`) et du rendu Jinja2."}
+                {"lines": "15-22", "text": "Route API JSON `POST /api/calcul-taxe` lisant `request.get_json()` et validant `montant_ht` (`422` si négatif)."},
+                {"lines": "26-34", "text": "Route Formulaire HTML `POST /formulaire-taxe` lisant `request.form.get('montant_ht', type=float)` et rendant `day_5/templates/resultat_taxe.html`."},
+                {"lines": "43-56", "text": "Tests 1 et 2 : Vérification automatisée par `assert` de la route API JSON (`client.post(..., json={...})`)."},
+                {"lines": "58-63", "text": "Test 3 : Vérification automatisée de la soumission du formulaire HTML (`client.post(..., data={...})`) et du rendu Jinja2."}
             ],
             "python_runner": {
                 "prompt": "Exécutez la suite de tests automatisés `app.test_client()` en direct :",
@@ -144,11 +144,11 @@ DAY_5_DATA = {
             ],
             "code": _read("05_swagger_openapi_ui.py"),
             "line_explanations": [
-                {"lines": "26-50", "text": "En-tête du contrat OpenAPI 3.0.3 (`info`, `servers`, `tags`) définissant l'identité et les environnements de l'API."},
-                {"lines": "52-66", "text": "`securitySchemes` configure les deux cadenas d'authentification dans Swagger UI : `BearerAuth` (`Authorization: Bearer`) et `ApiKeyAuth` (`X-API-Key`)."},
-                {"lines": "67-102", "text": "`components.schemas` centralise les schémas JSON (`Formation`, `FormationInput`, `ErreurRFC7807`) référencés ensuite par `$ref`."},
-                {"lines": "104-190", "text": "`paths` documente chaque route, ses paramètres (`in: query`, `in: path`), le `requestBody` et les réponses HTTP (`200`, `201`, `401`, `404`, `422`)."},
-                {"lines": "196-225", "text": "Routes Flask `/api/openapi.json` (contrat machine) et `/api/docs` (interface graphique interactive **Swagger UI**)."}
+                {"lines": "31-52", "text": "En-tête du contrat OpenAPI 3.0.3 (`info`, `servers`, `tags`) définissant l'identité et les environnements de l'API."},
+                {"lines": "55-68", "text": "`securitySchemes` configure les deux cadenas d'authentification dans Swagger UI : `BearerAuth` (`Authorization: Bearer`) et `ApiKeyAuth` (`X-API-Key`)."},
+                {"lines": "69-100", "text": "`components.schemas` centralise les schémas JSON (`Formation`, `FormationInput`, `ErreurRFC7807`) référencés ensuite par `$ref`."},
+                {"lines": "103-191", "text": "`paths` documente chaque route, ses paramètres (`in: query`, `in: path`), le `requestBody` et les réponses HTTP (`200`, `201`, `401`, `404`, `422`)."},
+                {"lines": "197-212", "text": "Routes Flask `/api/openapi.json` (contrat machine) et `/api/docs` (interface graphique interactive **Swagger UI**)."}
             ],
             "sandbox_preset": {
                 "label": "Inspecter le Contrat OpenAPI 3.0 : GET /api/openapi.json",
@@ -184,9 +184,9 @@ DAY_5_DATA = {
             ],
             "code": _read("02_pagination_filtrage_production.py"),
             "line_explanations": [
-                {"lines": "20-21", "text": "Liste blanche stricte `CHAMPS_TRI_AUTORISES` protégeant le tri dynamique contre toute injection ou `KeyError`."},
-                {"lines": "25-66", "text": "Route `GET /api/v1/catalogue/offset` : filtrage multi-critères (`domaine`, `duree_min`), tri sécurisé (`?sort=-tarif_dzd`) et enveloppe `meta` / `data` / `links`."},
-                {"lines": "70-89", "text": "Route `GET /api/v1/catalogue/cursor` : pagination par curseur (`?after_id=2&limit=2`) renvoyant `meta.next_cursor`."}
+                {"lines": "23-24", "text": "Liste blanche stricte `CHAMPS_TRI_AUTORISES` protégeant le tri dynamique contre toute injection ou `KeyError`."},
+                {"lines": "28-70", "text": "Route `GET /api/v1/catalogue/offset` : filtrage multi-critères (`domaine`, `duree_min`), tri sécurisé (`?sort=-tarif_dzd`) et enveloppe `meta` / `data` / `links`."},
+                {"lines": "74-94", "text": "Route `GET /api/v1/catalogue/cursor` : pagination par curseur (`?after_id=2&limit=2`) renvoyant `meta.next_cursor`."}
             ],
             "sandbox_preset": {
                 "label": "Tester la Pagination v2 : GET /api/v2/sandbox/formations?page=1&per_page=2",

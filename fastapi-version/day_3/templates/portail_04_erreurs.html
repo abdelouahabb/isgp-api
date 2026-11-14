@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 3.4 - Gestionnaires d'Exceptions Globaux JSON</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    .btn-err { background: #b91c1c; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 140px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 3.4 — Intercepteurs Globaux (@app.exception_handler : 200, 404, 405, 500)</h1>
+    <div class="ligne">
+      <button type="button" onclick="tester('GET', '/api/v1/division?a=100&b=4')">200 Division Valide</button>
+      <button type="button" class="btn-err" onclick="tester('GET', '/route-introuvable')">404 Not Found JSON</button>
+      <button type="button" class="btn-err" onclick="tester('DELETE', '/api/v1/division')">405 Method Not Allowed</button>
+      <button type="button" class="btn-err" onclick="tester('GET', '/api/v1/division?a=100&b=0')">500 ZeroDivisionError JSON</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Testez les intercepteurs globaux JSON...</pre>
+  </main>
+  <script>
+    async function tester(method, url) {
+      const rep = await fetch(url, { method });
+      document.getElementById("sortie").textContent = `${method} ${url} -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    tester("GET", "/api/v1/division?a=100&b=4");
+  </script>
+</body>
+</html>

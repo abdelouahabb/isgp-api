@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 4.3 - Rate Limiting & 429 Retry-After</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    .btn-warn { background: #b45309; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 140px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 4.3 — Rate Limiter Fenetre Glissante (Max 3 req / 20s -> 429)</h1>
+    <div class="ligne">
+      <button type="button" onclick="appelSimple()">GET /api/catalogue-protege (1 appel)</button>
+      <button type="button" class="btn-warn" onclick="rafale()">Rafale 4 appels (Declencher 429 Retry-After)</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Testez le quota X-RateLimit-Remaining et Retry-After...</pre>
+  </main>
+  <script>
+    async function appelSimple() {
+      const rep = await fetch("/api/catalogue-protege");
+      document.getElementById("sortie").textContent =
+        `HTTP ${rep.status} | X-RateLimit-Remaining: ${rep.headers.get("x-ratelimit-remaining")} | Retry-After: ${rep.headers.get("retry-after") || "-"}\n\n` +
+        JSON.stringify(await rep.json(), null, 2);
+    }
+    async function rafale() {
+      const lignes = [];
+      for (let i = 1; i <= 4; i++) {
+        const rep = await fetch("/api/catalogue-protege");
+        const d = await rep.json();
+        lignes.push(`#${i} -> HTTP ${rep.status} (Remaining=${rep.headers.get("x-ratelimit-remaining")}, Retry-After=${rep.headers.get("retry-after") || "-"}) : ${JSON.stringify(d)}`);
+      }
+      document.getElementById("sortie").textContent = lignes.join("\n");
+    }
+  </script>
+</body>
+</html>

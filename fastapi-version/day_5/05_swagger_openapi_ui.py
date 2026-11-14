@@ -12,12 +12,16 @@ Objectif :
 
 import json
 from typing import Optional
-from fastapi import Depends, FastAPI, HTTPException, Path, Query, Security, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, Security, status
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import APIKeyHeader, HTTPBearer
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
+
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 # =====================================================================
 # 1. SCHÉMAS PYDANTIC V2 & SÉCURITÉ DÉCLARATIVE (GÉNÈRENT LE CONTRAT OPENAPI)
@@ -172,11 +176,21 @@ async def swagger_ui_alias():
     return RedirectResponse(url="/docs")
 
 
+@app.get("/", response_class=HTMLResponse, tags=["Formations"], summary="Portail Web interactif du catalogue et du contrat OpenAPI 3.1")
+async def portail_swagger_accueil(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_05_swagger_home.html",
+        context={},
+    )
+
+
 # =====================================================================
 # 4. DÉMONSTRATION AUTOMATISÉE DU CONTRAT OPENAPI NATIF FASTAPI
 # =====================================================================
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     resp_spec = client.get("/openapi.json")
     spec = resp_spec.json()
     print("=== CONTRAT OPENAPI GÉNÉRÉ AUTOMATIQUEMENT PAR FASTAPI ===")

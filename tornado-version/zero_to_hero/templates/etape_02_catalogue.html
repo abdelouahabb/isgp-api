@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_page }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 4px 0 0; opacity: 0.88; font-size: 0.9rem; }
+    main { max-width: 980px; margin: 24px auto; padding: 0 20px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    select, input, button { padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.9rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.sec { background: #475569; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+    .badge { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ titre_page }}</h1>
+    <p>Etape 2 / 6 — Routage Regex Tornado, Filtrage (?domaine=&amp;tri=), Pagination et Vue Detail dynamique</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Catalogue des Formations ({{ nb_initial }} references)</h2>
+      <div class="controls">
+        <select id="filtre-domaine" onchange="chargerCatalogue(1)">
+          <option value="">Tous les domaines</option>
+          {% for d in domaines %}
+          <option value="{{ d }}">{{ d }}</option>
+          {% end %}
+        </select>
+        <select id="filtre-tri" onchange="chargerCatalogue(1)">
+          <option value="id">Tri : ID</option>
+          <option value="tarif_dzd">Tri : Tarif (croissant)</option>
+          <option value="-tarif_dzd">Tri : Tarif (decroissant)</option>
+          <option value="duree_jours">Tri : Duree</option>
+        </select>
+        <select id="filtre-limit" onchange="chargerCatalogue(1)">
+          <option value="3">3 / page</option>
+          <option value="5">5 / page</option>
+        </select>
+        <button type="button" onclick="chargerCatalogue(1)">Actualiser</button>
+      </div>
+      <table>
+        <thead><tr><th>Code</th><th>Intitule</th><th>Domaine</th><th>Tarif</th><th>Action</th></tr></thead>
+        <tbody id="tbody-formations"></tbody>
+      </table>
+      <div class="controls" style="margin-top:12px; justify-content:space-between; align-items:center;">
+        <span id="meta-pagination" style="font-size:0.86rem; color:#475569;"></span>
+        <div>
+          <button type="button" class="sec" onclick="changerPage(-1)">Precedent</button>
+          <button type="button" class="sec" onclick="changerPage(1)">Suivant</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Inspecteur Ressource Individuelle</h2>
+      <p style="font-size:0.88rem; color:#475569;">Cliquez sur une formation ou saisissez un ID pour appeler <code>GET /api/v1/formations/([0-9]+)</code> :</p>
+      <div class="controls">
+        <input id="input-id" type="number" value="1" min="1" style="width:80px;" />
+        <button type="button" onclick="chargerDetail(document.getElementById('input-id').value)">Inspecter ID</button>
+        <button type="button" class="sec" onclick="chargerDetail(999)">Tester 404</button>
+      </div>
+      <div id="url-appelee" style="font-size:0.82rem; color:#1e3a5f; font-weight:600; margin-bottom:6px;"></div>
+      <pre id="sortie-detail">Selectionnez une formation...</pre>
+    </div>
+  </main>
+  <script>
+    let pageCourante = 1;
+    let totalPages = 1;
+    async function chargerCatalogue(page) {
+      pageCourante = Math.max(1, page);
+      const dom = encodeURIComponent(document.getElementById("filtre-domaine").value);
+      const tri = encodeURIComponent(document.getElementById("filtre-tri").value);
+      const lim = encodeURIComponent(document.getElementById("filtre-limit").value);
+      const url = `/api/v1/formations?domaine=${dom}&tri=${tri}&page=${pageCourante}&limit=${lim}`;
+      const rep = await fetch(url);
+      const json = await rep.json();
+      totalPages = json.meta.total_pages;
+      document.getElementById("meta-pagination").textContent =
+        `Page ${json.meta.page} / ${json.meta.total_pages} (${json.meta.total} resultats) — ${url}`;
+      const tbody = document.getElementById("tbody-formations");
+      tbody.innerHTML = "";
+      for (const f of json.data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><strong>${f.code}</strong></td><td>${f.titre}</td><td><span class="badge">${f.domaine}</span></td><td>${f.tarif_dzd} DZD</td><td><button type="button" onclick="chargerDetail(${f.id})">Detail</button></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    function changerPage(delta) {
+      const cible = pageCourante + delta;
+      if (cible >= 1 && cible <= totalPages) chargerCatalogue(cible);
+    }
+    async function chargerDetail(id) {
+      const url = `/api/v1/formations/${id}`;
+      const rep = await fetch(url);
+      const json = await rep.json();
+      document.getElementById("url-appelee").textContent = `GET ${url} -> HTTP ${rep.status}`;
+      document.getElementById("sortie-detail").textContent = JSON.stringify(json, null, 2);
+    }
+    chargerCatalogue(1);
+    chargerDetail(1);
+  </script>
+</body>
+</html>

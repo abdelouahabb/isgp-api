@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 4.5 : CORS, Headers &amp; Webhooks HMAC-SHA256</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 4.5 : Signature Webhook HMAC-SHA256 &amp; En-tetes de Securite</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <input id="facture" value="FAC-2026-09" />
+        <input id="montant" type="number" value="45000" style="width:110px;" />
+        <button onclick="envoyerWebhook(true)">Envoyer Webhook Signe HMAC (200)</button>
+        <button class="err" onclick="envoyerWebhook(false)">Envoyer Signature Invalide (401)</button>
+      </div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function envoyerWebhook(valide) {
+      const corps = JSON.stringify({
+        facture_id: document.getElementById("facture").value,
+        montant_dzd: Number(document.getElementById("montant").value)
+      });
+      let sig = "sha256=signature_falsifiee";
+      if (valide) {
+        const rs = await fetch("/api/webhooks/signer-demo", { method: "POST", body: corps });
+        sig = (await rs.json()).signature;
+      }
+      const r = await fetch("/api/webhooks/paiement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Webhook-Signature": sig },
+        body: corps
+      });
+      document.getElementById("sortie").textContent = JSON.stringify({
+        status: r.status,
+        "X-Content-Type-Options": r.headers.get("X-Content-Type-Options"),
+        "X-Frame-Options": r.headers.get("X-Frame-Options"),
+        "Cache-Control": r.headers.get("Cache-Control"),
+        body: await r.json()
+      }, null, 2);
+    }
+    envoyerWebhook(true);
+  </script>
+</body>
+</html>

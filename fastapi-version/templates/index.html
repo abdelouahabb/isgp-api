@@ -21,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=44" />
+  <link rel="stylesheet" href="/static/styles.css?v=45" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -90,6 +90,18 @@
           <div class="sidebar-header">
             <h2>Sommaire (Chapitre 0 &amp; Jours 0 à 5)</h2>
             <p class="muted-small">Commencez par la littérature du Chapitre 0 avant le code Python.</p>
+            <div class="sidebar-search-box">
+              <input
+                type="search"
+                id="course-search-input"
+                class="sidebar-search-input"
+                placeholder="Rechercher un concept, RFC, code HTTP..."
+                oninput="onCourseSearchInput(this.value)"
+                aria-label="Rechercher dans les 34 chapitres"
+              />
+              <div id="course-search-meta" class="course-search-meta"></div>
+            </div>
+            <div id="course-progress-summary" class="course-progress-summary"></div>
           </div>
           <div id="days-nav-container" class="days-nav"></div>
         </aside>
@@ -236,6 +248,7 @@ def lister_formations():
 
     <!-- ONGLET 3 : ATELIER PYTHON -->
     <section id="tab-runner" class="tab-section">
+      <div id="zero-to-hero-panel" style="display:none;"></div>
       <div class="runner-grid">
         <div class="card">
           <div class="card-header">
@@ -4096,6 +4109,6 @@ async def modifier_avec_verrou_optimiste(
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=44"></script>
+  <script src="/static/app.js?v=45"></script>
 </body>
 </html>

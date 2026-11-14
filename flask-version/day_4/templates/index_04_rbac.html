@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 4.4 : Refresh Token &amp; RBAC (401 vs 403)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.sec { background: #0f766e; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 4.4 : Controle d'Acces RBAC (401 vs 403) &amp; Refresh Token</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <button onclick="login('stagiaire')">1a. Login Stagiaire</button>
+        <button class="sec" onclick="login('directeur')">1b. Login Directeur (Admin)</button>
+        <button onclick="audit()">2. GET /api/admin/audit</button>
+        <button onclick="refresh()">3. POST /api/auth/refresh</button>
+      </div>
+      <pre id="sortie">Connectez-vous en tant que stagiaire (403) ou directeur (200) puis testez /api/admin/audit.</pre>
+    </section>
+  </main>
+  <script>
+    let accessToken = "";
+    let refreshToken = "";
+    async function login(identifiant) {
+      const r = await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiant })
+      });
+      const j = await r.json();
+      accessToken = j.access_token;
+      refreshToken = j.refresh_token;
+      document.getElementById("sortie").textContent = `Login (${identifiant}) -> HTTP ${r.status}\n` + JSON.stringify(j, null, 2);
+    }
+    async function audit() {
+      const headers = accessToken ? { "Authorization": `Bearer ${accessToken}` } : {};
+      const r = await fetch("/api/admin/audit", { headers });
+      document.getElementById("sortie").textContent = `GET /api/admin/audit -> HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    async function refresh() {
+      const r = await fetch("/api/auth/refresh", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      const j = await r.json();
+      if (j.access_token) accessToken = j.access_token;
+      document.getElementById("sortie").textContent = `POST /api/auth/refresh -> HTTP ${r.status}\n` + JSON.stringify(j, null, 2);
+    }
+  </script>
+</body>
+</html>

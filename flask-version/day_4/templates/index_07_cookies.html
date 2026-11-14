@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 4.7 : Cookies HttpOnly, SameSite &amp; Sessions HMAC</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button, a.btn { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.86rem; }
+    button.sec { background: #0f766e; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 4.7 : Cookies HttpOnly, SameSite &amp; Session Signee Flask</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <input id="identifiant" value="yasmine.merabet" />
+        <input id="theme" value="institutionnel" style="width:130px;" />
+        <button onclick="connexion()">1. POST /api/auth/cookie-login</button>
+        <button class="sec" onclick="inspecter()">2. GET /api/auth/cookie-inspect</button>
+        <a class="btn" href="/portail-cookies" target="_blank">3. Ouvrir /portail-cookies</a>
+        <button class="err" onclick="deconnexion()">4. POST /api/auth/cookie-logout</button>
+      </div>
+      <p><strong>Cookies visibles par JavaScript (<code>document.cookie</code>) :</strong> <code id="doc_cookie"></code> (les cookies <code>HttpOnly</code> sont invisibles ici !)</p>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    function majDocCookie() {
+      document.getElementById("doc_cookie").textContent = document.cookie || "(aucun)";
+    }
+    async function connexion() {
+      const r = await fetch("/api/auth/cookie-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifiant: document.getElementById("identifiant").value,
+          theme: document.getElementById("theme").value
+        })
+      });
+      majDocCookie();
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    async function inspecter() {
+      const r = await fetch("/api/auth/cookie-inspect");
+      majDocCookie();
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    async function deconnexion() {
+      const r = await fetch("/api/auth/cookie-logout", { method: "POST" });
+      majDocCookie();
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    majDocCookie();
+  </script>
+</body>
+</html>

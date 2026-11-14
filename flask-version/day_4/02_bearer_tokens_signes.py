@@ -2,10 +2,12 @@
 # Exécution : .venv/bin/python day_4/02_bearer_tokens_signes.py
 
 import os
-from flask import Flask, jsonify, request
+import sys
+from flask import Flask, jsonify, render_template, request
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 SECRET_KEY = os.environ.get("API_SECRET_KEY", "secret-signature-isgp-2026")
 signer = URLSafeTimedSerializer(SECRET_KEY)
 
@@ -40,8 +42,15 @@ def profil_protege():
     except BadSignature:
         return jsonify({"erreur": "Signature du jeton invalide (jeton falsifié)"}), 401
 
+
+@app.route("/", methods=["GET"])
+def index_bearer():
+    return render_template("index_02_bearer.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
         tok = r_tok.get_json()["access_token"]
         print("1. Bearer Token émis (200) :", tok[:35] + "...")

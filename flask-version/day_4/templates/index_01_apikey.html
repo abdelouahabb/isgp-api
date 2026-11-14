@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 4.1 : Secrets &amp; X-API-Key</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    input { padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 6px; min-width: 240px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 4.1 : Authentification par En-tete X-API-Key (hmac.compare_digest)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <input id="apikey" value="{{ cle_demo }}" placeholder="X-API-Key" />
+        <button onclick="appeler(true)">Appeler avec X-API-Key (200)</button>
+        <button class="err" onclick="appeler(false)">Appeler sans cle (401)</button>
+      </div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function appeler(avecCle) {
+      const headers = avecCle ? { "X-API-Key": document.getElementById("apikey").value } : {};
+      const r = await fetch("/api/admin/statistiques", { headers });
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    appeler(true);
+  </script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_page }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #0f2942; color: #fff; padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    header h1 { margin: 0; font-size: 1.28rem; }
+    header p { margin: 4px 0 0; opacity: 0.88; font-size: 0.86rem; }
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+    .nav-links a { color: #fff; text-decoration: none; background: #1e40af; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; }
+    .nav-links a.alt { background: rgba(255,255,255,0.16); }
+    main { max-width: 1160px; margin: 20px auto; padding: 0 20px; display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .status-strip { grid-column: 1 / -1; background: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 10px 16px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    input, select, button { padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.85rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.sec { background: #475569; }
+    button.danger { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #e2e8f0; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>{{ titre_page }}</h1>
+      <p>Etape 6 / 6 (Hero Final) — SQLite WAL + Executor + Cookies/Bearer HMAC + RBAC + 429 + OpenAPI 3.0.3 &amp; Swagger UI</p>
+    </div>
+    <div class="nav-links">
+      <a href="/api/docs">Ouvrir Swagger UI (/api/docs)</a>
+      <a class="alt" href="/api/openapi.json" target="_blank">Contrat OpenAPI JSON</a>
+      <a class="alt" href="/health" target="_blank">Sonde /health</a>
+    </div>
+  </header>
+  <main>
+    <div class="status-strip">
+      <span id="health-label">Verification de la sonde /health...</span>
+      <button type="button" onclick="chargerHealth()">Rafraichir /health</button>
+    </div>
+
+    <div class="card">
+      <h2>Catalogue Formations ISGP (Filtrage, Pagination &amp; Actions Admin)</h2>
+      <div class="row">
+        <select id="filtre-dom" onchange="chargerCatalogue()">
+          <option value="">Tous les domaines</option>
+          <option value="Architecture">Architecture</option>
+          <option value="Backend">Backend</option>
+          <option value="Data">Data</option>
+          <option value="Securite">Securite</option>
+          <option value="DevOps">DevOps</option>
+        </select>
+        <select id="filtre-tri" onchange="chargerCatalogue()">
+          <option value="id">Tri : ID</option>
+          <option value="-tarif_dzd">Tri : Tarif decroissant</option>
+          <option value="duree_jours">Tri : Duree</option>
+        </select>
+        <button type="button" onclick="chargerCatalogue()">Actualiser</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Domaine</th><th>Jours</th><th>Tarif</th><th>Action</th></tr></thead>
+        <tbody id="tbody-hero"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Console Authentification, RBAC &amp; Creation</h2>
+      <div class="row">
+        <button type="button" onclick="connecter('admin', 'admin2026')">Connexion Admin (Bearer + Cookie)</button>
+        <button type="button" class="sec" onclick="connecter('stagiaire', 'isgp2026')">Connexion Stagiaire</button>
+        <button type="button" class="danger" onclick="deconnecter()">Deconnexion</button>
+      </div>
+      <div class="row">
+        <input id="h-code" type="text" value="ISGP-HERO-601" style="width:130px;" />
+        <input id="h-titre" type="text" value="Plateforme Complete Tornado & OpenAPI" style="flex:1;" />
+      </div>
+      <div class="row">
+        <select id="h-dom">
+          <option value="Architecture">Architecture</option>
+          <option value="Backend">Backend</option>
+          <option value="Securite">Securite</option>
+          <option value="Data">Data</option>
+          <option value="DevOps">DevOps</option>
+        </select>
+        <input id="h-jours" type="number" value="5" style="width:70px;" />
+        <input id="h-tarif" type="number" value="75000" style="width:95px;" />
+        <button type="button" onclick="creerHero()">POST Creer</button>
+      </div>
+      <pre id="console-hero">{ "pret": true, "documentation": "/api/docs" }</pre>
+    </div>
+  </main>
+  <script>
+    let jetonActif = "";
+    function entetes(extra = {}) {
+      const h = { ...extra };
+      if (jetonActif) h["Authorization"] = "Bearer " + jetonActif;
+      return h;
+    }
+    async function chargerHealth() {
+      const rep = await fetch("/health");
+      const h = await rep.json();
+      document.getElementById("health-label").textContent =
+        `Sante: ${h.statut} | SQLite journal_mode=${h.sqlite_journal_mode} | Formations=${h.nb_formations} | Uptime=${h.uptime_sec}s`;
+    }
+    async function connecter(identifiant, mot_de_passe) {
+      await fetch("/api/v1/auth/cookie-login", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({identifiant, mot_de_passe}) });
+      const rep = await fetch("/api/v1/auth/token", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({identifiant, mot_de_passe}) });
+      const data = await rep.json();
+      jetonActif = data.access_token || "";
+      document.getElementById("console-hero").textContent = `Connecte (${identifiant}) -> HTTP ${rep.status}\n` + JSON.stringify(data, null, 2);
+    }
+    async function deconnecter() {
+      jetonActif = "";
+      const rep = await fetch("/api/v1/auth/logout", { method: "POST" });
+      document.getElementById("console-hero").textContent = JSON.stringify(await rep.json(), null, 2);
+    }
+    async function creerHero() {
+      const corps = {
+        code: document.getElementById("h-code").value + "-" + Math.floor(Math.random() * 90 + 10),
+        titre: document.getElementById("h-titre").value,
+        domaine: document.getElementById("h-dom").value,
+        duree_jours: Number(document.getElementById("h-jours").value),
+        tarif_dzd: Number(document.getElementById("h-tarif").value)
+      };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: entetes({"Content-Type": "application/json"}), body: JSON.stringify(corps) });
+      document.getElementById("console-hero").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      chargerCatalogue();
+      chargerHealth();
+    }
+    async function supprimerHero(id) {
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "DELETE", headers: entetes() });
+      document.getElementById("console-hero").textContent = `DELETE /api/v1/formations/${id} -> HTTP ${rep.status}`;
+      chargerCatalogue();
+      chargerHealth();
+    }
+    async function chargerCatalogue() {
+      const dom = encodeURIComponent(document.getElementById("filtre-dom").value);
+      const tri = encodeURIComponent(document.getElementById("filtre-tri").value);
+      const rep = await fetch(`/api/v1/formations?domaine=${dom}&tri=${tri}&limit=25`);
+      const json = await rep.json();
+      const tbody = document.getElementById("tbody-hero");
+      tbody.innerHTML = "";
+      for (const f of json.data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>#${f.id}</td><td><strong>${f.code}</strong></td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.duree_jours}j</td><td>${f.tarif_dzd}</td>
+          <td><button type="button" class="danger" onclick="supprimerHero(${f.id})">DELETE</button></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    chargerHealth();
+    chargerCatalogue();
+  </script>
+</body>
+</html>

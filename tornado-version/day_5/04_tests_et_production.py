@@ -3,11 +3,15 @@
 # Objectif : Tester automatiquement ses RequestHandlers Tornado (API JSON et Formulaire HTML)
 #            avec tornado.testing.AsyncHTTPTestCase et comprendre le déploiement multi-processus HTTPServer.
 
+import asyncio
 import json
 import os
+import sys
 import unittest
 import urllib.parse
 import tornado.escape
+import tornado.httpserver
+import tornado.netutil
 import tornado.testing
 import tornado.web
 
@@ -44,9 +48,15 @@ class CalculTaxeFormulaireHandler(tornado.web.RequestHandler):
         self.render("resultat_taxe.html", resultat=resultat)
 
 
+class PortailTestsProdHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d5_04.html")
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailTestsProdHandler),
             (r"/api/calcul-taxe", CalculTaxeApiHandler),
             (r"/formulaire-taxe", CalculTaxeFormulaireHandler),
         ],
@@ -99,7 +109,19 @@ if __name__ == "__main__":
     result = runner.run(suite)
     if not result.wasSuccessful():
         raise SystemExit(1)
-    # EN PRODUCTION : Déployer Tornado derrière Nginx avec xheaders=True :
-    # server = tornado.httpserver.HTTPServer(make_app(), xheaders=True)
-    # server.bind(8001)
-    # server.start(0)  # Forke 1 processus par cœur CPU (ou superviser 4 instances derrière Nginx)
+    if "--once" not in sys.argv:
+        async def _serve():
+            bind_port = int(os.environ.get("PORT", 8889))
+            try:
+                sockets = tornado.netutil.bind_sockets(bind_port, "127.0.0.1")
+            except OSError:
+                sockets = tornado.netutil.bind_sockets(0, "127.0.0.1")
+            port = sockets[0].getsockname()[1]
+            server = tornado.httpserver.HTTPServer(make_app(), xheaders=True)
+            server.add_sockets(sockets)
+            print(f"\n[BOUCLE IOLOOP TORNADO ACTIVE] Portail Calculateur Fiscal sur http://127.0.0.1:{port}/")
+            await asyncio.Event().wait()
+        try:
+            asyncio.run(_serve())
+        except KeyboardInterrupt:
+            print("\n[IOLOOP TORNADO] Arrêt propre demandé par l'utilisateur (Ctrl+C).")

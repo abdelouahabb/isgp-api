@@ -50,8 +50,20 @@ class StatutHandler(BaseAuditHandler):
         })
 
 
+class PortailAuditHandler(BaseAuditHandler):
+    def get(self):
+        self.render("portail_d2_04.html")
+
+
 def make_app():
-    return tornado.web.Application([(r"/api/v1/statut", StatutHandler)])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailAuditHandler),
+            (r"/api/v1/statut", StatutHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

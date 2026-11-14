@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ etape }} — ISGP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 1020px; margin: 22px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 13px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.86rem; }
+    button.sec { background: #0f766e; }
+    button.warn { background: #b45309; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.83rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — {{ etape }}</h1>
+  </header>
+  <main>
+    <section class="card">
+      <h2>1. Authentification Hybride (Session Cookie HttpOnly + Bearer Token Signe)</h2>
+      <div class="row">
+        <button onclick="connecter('stagiaire', 'isgp-stagiaire-2026')">Connexion Stagiaire</button>
+        <button class="sec" onclick="connecter('admin', 'isgp-admin-2026')">Connexion Admin</button>
+        <button class="err" onclick="deconnecter()">Deconnexion (Revoquer Session &amp; Token)</button>
+      </div>
+      <h2>2. Verification RBAC (401 vs 403 vs 201) &amp; Rate Limiting (429 Retry-After)</h2>
+      <div class="row">
+        <button onclick="lireCatalogue()">GET /api/v1/formations (Stagiaire ou Admin)</button>
+        <button class="warn" onclick="creerAdmin()">POST /api/v1/formations (Exige Role Admin)</button>
+        <button class="err" onclick="rafaleRateLimit()">Simuler Rafale Rate-Limit (429)</button>
+      </div>
+      <pre id="sortie">Testez un appel sans connexion pour observer 401 + WWW-Authenticate.</pre>
+    </section>
+  </main>
+  <script>
+    let jetonBearer = "";
+    function entetesAuth() {
+      const h = { "Content-Type": "application/json" };
+      if (jetonBearer) h["Authorization"] = `Bearer ${jetonBearer}`;
+      return h;
+    }
+    async function connecter(identifiant, mot_de_passe) {
+      const r = await fetch("/api/v1/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiant, mot_de_passe })
+      });
+      const j = await r.json();
+      jetonBearer = j.access_token || "";
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(j, null, 2);
+    }
+    async function deconnecter() {
+      jetonBearer = "";
+      const r = await fetch("/api/v1/auth/logout", { method: "POST" });
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    async function lireCatalogue() {
+      const r = await fetch("/api/v1/formations", { headers: entetesAuth() });
+      document.getElementById("sortie").textContent = JSON.stringify({
+        status: r.status,
+        "WWW-Authenticate": r.headers.get("WWW-Authenticate"),
+        "X-RateLimit-Remaining": r.headers.get("X-RateLimit-Remaining"),
+        "Retry-After": r.headers.get("Retry-After"),
+        body: await r.json()
+      }, null, 2);
+    }
+    async function creerAdmin() {
+      const code = "ADM-" + Math.floor(100 + Math.random() * 899);
+      const r = await fetch("/api/v1/formations", {
+        method: "POST", headers: entetesAuth(), body: JSON.stringify({ code, titre: "Audit Securite OWASP", domaine: "Securite", duree_jours: 4, tarif_dzd: 72000 })
+      });
+      document.getElementById("sortie").textContent = `POST /api/v1/formations -> HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    async function rafaleRateLimit() {
+      const resultats = [];
+      for (let i = 1; i <= 6; i++) {
+        const r = await fetch("/api/v1/formations", { headers: entetesAuth() });
+        resultats.push({ essai: i, status: r.status, restant: r.headers.get("X-RateLimit-Remaining"), retry_after: r.headers.get("Retry-After") });
+      }
+      document.getElementById("sortie").textContent = JSON.stringify(resultats, null, 2);
+    }
+  </script>
+</body>
+</html>

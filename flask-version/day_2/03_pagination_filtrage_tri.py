@@ -1,13 +1,15 @@
 import os
+import sys
 # Fichier : day_2/03_pagination_filtrage_tri.py
 # Exécution : .venv/bin/python day_2/03_pagination_filtrage_tri.py
 # Exemple d'appel :
 #   http://127.0.0.1:5001/api/v1/formations?page=1&limit=2&salle=Salle+A&tri=duree_jours&ordre=desc
 
 import math
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 CATALOGUE = [
     {"id": 1, "code": "API-101", "titre": "Fondamentaux HTTP & REST", "duree_jours": 2, "salle": "Salle A"},
@@ -59,8 +61,15 @@ def rechercher_formations():
         "data": tranche_page
     }), 200
 
+
+@app.route("/", methods=["GET"])
+def index_pagination():
+    return render_template("index_03_pagination.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         rep = client.get("/api/v1/formations?page=1&limit=2&salle=Salle+A&tri=duree_jours&ordre=desc")
         print("Statut HTTP :", rep.status_code)
         print("Réponse paginée :", rep.get_json())

@@ -7,9 +7,10 @@ import os
 #   3. Filtrage multi-critères (?domaine=Securite&duree_min=4) & Tri sécurisé par liste blanche (Whitelist)
 
 import sys
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 CATALOGUE_FORMATIONS = [
     {"id": 1, "titre": "Architecture API REST & Flask", "domaine": "Backend", "duree_jours": 5, "tarif_dzd": 65000},
@@ -93,8 +94,14 @@ def lister_avec_pagination_curseur():
     }), 200
 
 
+@app.route("/", methods=["GET"])
+def index_pagination_prod():
+    return render_template("index_02_pagination_prod.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         print("=== 1. PAGINATION OFFSET/LIMIT + TRI DÉCROISSANT (?sort=-tarif_dzd&page=1&per_page=2) ===")
         r1 = client.get("/api/v1/catalogue/offset?sort=-tarif_dzd&page=1&per_page=2")
         print(r1.get_json())

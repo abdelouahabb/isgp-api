@@ -137,9 +137,15 @@ class UploadSyllabusHandler(tornado.web.RequestHandler):
         })
 
 
+class PortailFormulairesHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d2_05.html", formations=FORMATIONS)
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailFormulairesHandler),
             (r"/formations", FormationsHybrideHandler),
             (r"/formations/upload-syllabus", UploadSyllabusHandler),
         ],

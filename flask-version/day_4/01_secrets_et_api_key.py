@@ -1,11 +1,13 @@
 # Fichier : day_4/01_secrets_et_api_key.py
 # Exécution : .venv/bin/python day_4/01_secrets_et_api_key.py
 
-import os
 import hmac
-from flask import Flask, jsonify, request
+import os
+import sys
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 # 1. Lecture des secrets depuis les variables d'environnement du système
 API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "cle-signature-interne-isgp-2026")
@@ -27,8 +29,15 @@ def stats_confidentielles():
         "stagiaires_certifies": 148
     }), 200
 
+
+@app.route("/", methods=["GET"])
+def index_apikey():
+    return render_template("index_01_apikey.html", cle_demo=PARTNER_API_KEY), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         r_no_key = client.get("/api/admin/statistiques")
         print("1. Sans X-API-Key (401) :", r_no_key.status_code, r_no_key.get_json())
         r_valid = client.get("/api/admin/statistiques", headers={"X-API-Key": PARTNER_API_KEY})

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 2.4 : Middlewares WSGI &amp; Audit Log</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    input { padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 6px; min-width: 240px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 2.4 : Middlewares (@before_request / @after_request) &amp; X-Request-ID</h1>
+  </header>
+  <main>
+    <section class="card">
+      <p>Testez l'injection automatique des en-tetes de correlation et de temps de reponse sur <code>GET /api/v1/statut</code>.</p>
+      <div class="row">
+        <input id="reqid" placeholder="X-Request-ID optionnel (ex: trace-alger-01)" />
+        <button onclick="verifier()">Appeler GET /api/v1/statut</button>
+      </div>
+      <h3>En-tetes HTTP retournes par @after_request :</h3>
+      <pre id="entetes">{}</pre>
+      <h3>Corps JSON :</h3>
+      <pre id="corps">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function verifier() {
+      const headers = {};
+      const rid = document.getElementById("reqid").value.trim();
+      if (rid) headers["X-Request-ID"] = rid;
+      const r = await fetch("/api/v1/statut", { headers });
+      const data = await r.json();
+      document.getElementById("entetes").textContent = JSON.stringify({
+        "HTTP-Status": r.status,
+        "X-Request-ID": r.headers.get("X-Request-ID"),
+        "X-Response-Time-Ms": r.headers.get("X-Response-Time-Ms"),
+        "X-Content-Type-Options": r.headers.get("X-Content-Type-Options")
+      }, null, 2);
+      document.getElementById("corps").textContent = JSON.stringify(data, null, 2);
+    }
+    verifier();
+  </script>
+</body>
+</html>

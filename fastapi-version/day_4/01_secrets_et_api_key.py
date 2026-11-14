@@ -8,10 +8,14 @@ import os
 import sys
 from typing import Optional
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Secrets & Authentification X-API-Key", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 # 1. Lecture des secrets depuis les variables d'environnement du système
 API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "cle-signature-interne-isgp-2026")
@@ -38,8 +42,18 @@ async def stats_confidentielles(_cle: str = Depends(verifier_cle_api)):
     }
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_apikey(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_01_apikey.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("1. Appel sans clé (401) :", client.get("/api/admin/statistiques").status_code, client.get("/api/admin/statistiques").json())
     r_ok = client.get("/api/admin/statistiques", headers={"X-API-Key": "isgp-secret-2026"})
     print("2. Appel avec X-API-Key (200) :", r_ok.status_code, r_ok.json())

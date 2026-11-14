@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre_page }}</title>
+  <style>
+    :root { --bleu: #0f2b46; --accent: #1d6fa5; --fond: #f4f7fa; --carte: #ffffff; --bord: #d8e1e8; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--fond); color: #1e293b; margin: 0; padding: 2rem; }
+    .conteneur { max-width: 760px; margin: 0 auto; background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 2rem; box-shadow: 0 4px 14px rgba(15,43,70,0.06); }
+    .badge { display: inline-block; background: #e0f2fe; color: var(--bleu); font-weight: 700; font-size: 0.8rem; padding: 0.25rem 0.65rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+    h1 { color: var(--bleu); margin: 0.75rem 0 0.5rem; font-size: 1.65rem; }
+    p { line-height: 1.6; color: #475569; }
+    .barre-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1.25rem 0; }
+    button, .lien-doc { background: var(--bleu); color: #fff; border: none; border-radius: 6px; padding: 0.65rem 1.1rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+    .lien-doc { background: var(--accent); }
+    button:hover, .lien-doc:hover { opacity: 0.92; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; min-height: 3.5rem; }
+  </style>
+</head>
+<body>
+  <main class="conteneur">
+    <span class="badge">Etape 01 - Zero to Hero FastAPI</span>
+    <h1>{{ titre_page }}</h1>
+    <p>
+      Ce premier serveur ASGI combine sur une meme application FastAPI une <strong>page Web HTML</strong>
+      rendue par <code>Jinja2Templates</code> sur <code>GET /</code> et un <strong>point de terminaison JSON</strong>
+      type sur <code>GET /api/bonjour</code>.
+    </p>
+    <div class="barre-actions">
+      <button type="button" id="btn-appel" onclick="interrogerApi()">Appeler GET /api/bonjour (fetch JSON)</button>
+      <a class="lien-doc" href="/docs" target="_blank" rel="noopener">Ouvrir Swagger UI (/docs)</a>
+    </div>
+    <pre id="zone-json">Cliquez sur le bouton pour interroger l'API JSON en direct...</pre>
+  </main>
+  <script>
+    async function interrogerApi() {
+      const zone = document.getElementById("zone-json");
+      zone.textContent = "Chargement en cours...";
+      const reponse = await fetch("/api/bonjour");
+      const donnees = await reponse.json();
+      zone.textContent = "HTTP " + reponse.status + " (" + reponse.headers.get("content-type") + ")\n\n" + JSON.stringify(donnees, null, 2);
+    }
+  </script>
+</body>
+</html>

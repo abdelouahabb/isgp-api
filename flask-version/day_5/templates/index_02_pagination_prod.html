@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 5.2 : Pagination Offset vs Curseur</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    select, input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.sec { background: #0f766e; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 5.2 : Pagination Offset/Limit vs Pagination par Curseur (Keyset)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <select id="sort">
+          <option value="-tarif_dzd">Tri : -tarif_dzd</option>
+          <option value="duree_jours">Tri : duree_jours</option>
+          <option value="id">Tri : id</option>
+        </select>
+        <input id="page" type="number" value="1" min="1" style="width:65px;" />
+        <button onclick="testerOffset()">GET /api/v1/catalogue/offset</button>
+        <input id="after_id" type="number" value="0" min="0" style="width:75px;" />
+        <button class="sec" onclick="testerCursor()">GET /api/v1/catalogue/cursor</button>
+      </div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function testerOffset() {
+      const s = document.getElementById("sort").value;
+      const p = document.getElementById("page").value;
+      const r = await fetch(`/api/v1/catalogue/offset?sort=${encodeURIComponent(s)}&page=${p}&per_page=2`);
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    async function testerCursor() {
+      const a = document.getElementById("after_id").value;
+      const r = await fetch(`/api/v1/catalogue/cursor?after_id=${a}&limit=2`);
+      const j = await r.json();
+      if (j.meta && j.meta.next_cursor !== null) document.getElementById("after_id").value = j.meta.next_cursor;
+      document.getElementById("sortie").textContent = `HTTP ${r.status}\n` + JSON.stringify(j, null, 2);
+    }
+    testerOffset();
+  </script>
+</body>
+</html>

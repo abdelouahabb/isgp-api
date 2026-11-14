@@ -5,8 +5,12 @@
 #            2. AUTORISATION     (AuthZ) -> "Quels sont vos droits ?" -> Échec = 403 Forbidden
 #            (Contrôle par Rôle RBAC, par Permissions/Scopes OAuth2 et par Propriété BOLA)
 
+import os
+import sys
 from typing import Optional
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Request, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -65,7 +69,9 @@ def verifier_authn_et_authz(token, scope_requis=None, role_requis=None, ressourc
 
 
 # Application FastAPI illustrant la protection anti-BOLA et la vérification des Scopes
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - AuthN (401) vs AuthZ (403, Scopes, Anti-BOLA)", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 
 async def extraire_jeton(authorization: Optional[str] = Header(default=None)) -> Optional[str]:
@@ -83,6 +89,17 @@ async def lire_dossier(dossier_id: int = Path(...), token: Optional[str] = Depen
     if code != 200:
         raise HTTPException(status_code=code, detail=msg)
     return {"message": msg, "dossier": dossier}
+
+
+@app.get("/", response_class=HTMLResponse)
+async def portail_scopes(request: Request):
+    tok_amine = signer.dumps({"sub": "amine", "role": "stagiaire", "scopes": ["formations:read", "dossiers:read"]})
+    tok_admin = signer.dumps({"sub": "directeur", "role": "admin", "scopes": ["formations:read", "dossiers:read", "audit:admin"]})
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_06_scopes.html",
+        context={"token_amine": tok_amine, "token_admin": tok_admin},
+    )
 
 
 if __name__ == "__main__":
@@ -114,6 +131,10 @@ if __name__ == "__main__":
     print(verifier_authn_et_authz(token_directeur, role_requis="admin", scope_requis="audit:admin")[1])
 
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("\n=== 6. TEST FASTAPI ANTI-BOLA SUR /api/v1/dossiers/102 ===")
     print("Amine sur dossier 102 (Sara) ->", client.get("/api/v1/dossiers/102", headers={"Authorization": f"Bearer {token_amine}"}).status_code)
     print("Amine sur dossier 101 (Amine)->", client.get("/api/v1/dossiers/101", headers={"Authorization": f"Bearer {token_amine}"}).status_code)
+    if "--once" not in sys.argv:
+        import uvicorn
+        uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("PORT", 8001)))

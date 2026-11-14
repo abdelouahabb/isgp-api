@@ -1,4 +1,5 @@
 import hmac
+import io
 import json
 import os
 import queue
@@ -13,6 +14,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from datetime import datetime
 from flask import Flask, Response, jsonify, make_response, redirect, render_template, render_template_string, request, send_from_directory, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -308,17 +310,92 @@ def get_day_file(day_id, filename):
     if day_id not in (0, 1, 2, 3, 4, 5):
         return jsonify({"erreur": "Jour invalide"}), 404
     fw = _resolve_active_framework()
-    folder = os.path.join(ROOT_DIR, f"{fw}-version", f"day_{day_id}")
+    folder = os.path.abspath(os.path.join(ROOT_DIR, f"{fw}-version", f"day_{day_id}"))
     if not os.path.isdir(folder):
-        folder = os.path.join(ROOT_DIR, f"day_{day_id}")
-    safe_name = os.path.basename(filename)
-    full_path = os.path.join(folder, safe_name)
-    if not os.path.isfile(full_path):
+        folder = os.path.abspath(os.path.join(ROOT_DIR, f"day_{day_id}"))
+    rel_clean = os.path.normpath(filename).lstrip("/\\")
+    full_path = os.path.abspath(os.path.join(folder, rel_clean))
+    if os.path.commonpath([folder, full_path]) != folder or not os.path.isfile(full_path):
         return jsonify({"erreur": "Fichier introuvable"}), 404
     if request.args.get("download") == "1":
-        return send_from_directory(folder, safe_name, as_attachment=True)
+        return send_from_directory(os.path.dirname(full_path), os.path.basename(full_path), as_attachment=True)
     with open(full_path, encoding="utf-8") as f:
-        return jsonify({"framework": fw, "path": f"{fw}-version/day_{day_id}/{safe_name}", "code": f.read()})
+        return jsonify({"framework": fw, "path": f"{fw}-version/day_{day_id}/{rel_clean}", "code": f.read()})
+
+
+def _build_zero_to_hero_payload(fw: str) -> dict:
+    if fw not in VALID_FRAMEWORKS:
+        fw = "flask"
+    z_dir = os.path.join(ROOT_DIR, f"{fw}-version", "zero_to_hero")
+    tpl_dir = os.path.join(z_dir, "templates")
+    steps = []
+    if os.path.isdir(z_dir):
+        py_files = sorted(f for f in os.listdir(z_dir) if f.startswith("etape_") and f.endswith(".py"))
+        for idx, fname in enumerate(py_files, start=1):
+            fpath = os.path.join(z_dir, fname)
+            with open(fpath, encoding="utf-8") as f:
+                code = f.read()
+            m_tpl = re.search(r'["\']([\w_-]+\.html)["\']', code)
+            tpl_name = m_tpl.group(1) if m_tpl else ""
+            tpl_code = ""
+            if tpl_name and os.path.isfile(os.path.join(tpl_dir, tpl_name)):
+                with open(os.path.join(tpl_dir, tpl_name), encoding="utf-8") as tf:
+                    tpl_code = tf.read()
+            first_doc = ""
+            for ln in code.splitlines()[:12]:
+                s = ln.strip().lstrip("#").strip().strip('"').strip("'")
+                if s and not s.startswith("import ") and not s.startswith("from ") and "===" not in s:
+                    first_doc = s
+                    break
+            steps.append(
+                {
+                    "step": idx,
+                    "filename": fname,
+                    "path": f"{fw}-version/zero_to_hero/{fname}",
+                    "title": first_doc or fname,
+                    "code": code,
+                    "template_name": tpl_name,
+                    "template_path": f"{fw}-version/zero_to_hero/templates/{tpl_name}" if tpl_name else "",
+                    "template_code": tpl_code,
+                }
+            )
+    readme_txt = ""
+    readme_path = os.path.join(z_dir, "README.md")
+    if os.path.isfile(readme_path):
+        with open(readme_path, encoding="utf-8") as rf:
+            readme_txt = rf.read()
+    return {"framework": fw, "steps": steps, "readme": readme_txt}
+
+
+@app.route("/api/zero-to-hero", methods=["GET"])
+def api_zero_to_hero():
+    fw = _resolve_active_framework()
+    return jsonify(_build_zero_to_hero_payload(fw))
+
+
+@app.route("/api/download/zero-to-hero", methods=["GET"])
+def download_zero_to_hero_zip():
+    fw = _resolve_active_framework()
+    z_dir = os.path.join(ROOT_DIR, f"{fw}-version", "zero_to_hero")
+    if not os.path.isdir(z_dir):
+        return jsonify({"erreur": "Parcours Zero-to-Hero introuvable"}), 404
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root_p, _dirs, files in os.walk(z_dir):
+            if "__pycache__" in root_p:
+                continue
+            for fn in sorted(files):
+                if fn.endswith((".pyc", ".db", ".db-wal", ".db-shm")):
+                    continue
+                abs_f = os.path.join(root_p, fn)
+                rel_f = os.path.relpath(abs_f, z_dir)
+                zf.write(abs_f, arcname=f"isgp_{fw}_zero_to_hero/{rel_f}")
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        mimetype="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=isgp_{fw}_zero_to_hero.zip"},
+    )
 
 
 # ==============================================================================
@@ -1328,13 +1405,14 @@ def _prepare_runner_dir(fw: str) -> str:
     tpl_dir = os.path.join(runner_dir, "templates")
     os.makedirs(tpl_dir, exist_ok=True)
     fw_root = os.path.join(ROOT_DIR, f"{fw}-version")
-    for day_idx in range(6):
-        day_tpl = os.path.join(fw_root, f"day_{day_idx}", "templates")
+    candidate_dirs = [os.path.join(fw_root, f"day_{day_idx}", "templates") for day_idx in range(6)]
+    candidate_dirs.append(os.path.join(fw_root, "zero_to_hero", "templates"))
+    for day_tpl in candidate_dirs:
         if os.path.isdir(day_tpl):
             for fname in os.listdir(day_tpl):
                 src = os.path.join(day_tpl, fname)
                 dst = os.path.join(tpl_dir, fname)
-                if os.path.isfile(src) and not os.path.exists(dst):
+                if os.path.isfile(src):
                     with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
                         fdst.write(fsrc.read())
     return runner_dir

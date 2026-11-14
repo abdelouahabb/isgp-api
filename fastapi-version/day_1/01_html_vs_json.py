@@ -61,9 +61,20 @@ async def meteo_api_json():
     return DONNEES_METEO
 
 
+# PORTAIL WEB INTERACTIF (GET / expose et compare les 3 formats via fetch())
+@app.get("/", response_class=HTMLResponse)
+async def portail_comparateur(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_html_vs_json.html",
+        context={"meteo": DONNEES_METEO},
+    )
+
+
 if __name__ == "__main__":
     # Comparaison automatique des 3 formats grâce à TestClient(app) de FastAPI/Starlette
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     rep_html = client.get("/meteo/html")
     rep_soap = client.get("/meteo/soap")
     rep_json = client.get("/api/v1/meteo")

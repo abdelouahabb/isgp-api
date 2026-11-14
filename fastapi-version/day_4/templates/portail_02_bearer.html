@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 4.2 - Bearer Tokens Signes & HTTPBearer</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 920px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    input { padding: 0.48rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    .btn-err { background: #b91c1c; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 140px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 4.2 — Emission et Verification d'un Bearer Token Signe</h1>
+    <div class="ligne">
+      <input id="b-id" value="stagiaire" style="width:130px;">
+      <input id="b-mdp" value="isgp2026" style="width:130px;">
+      <button type="button" onclick="emettre()">1. POST /api/auth/token</button>
+      <button type="button" onclick="profil(false)">2. GET /api/auth/profil (Valide)</button>
+      <button type="button" class="btn-err" onclick="profil(true)">3. Tester Jeton Falsifie (401)</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Obtenez un jeton puis interrogez /api/auth/profil...</pre>
+  </main>
+  <script>
+    let jeton = "";
+    async function emettre() {
+      const rep = await fetch("/api/auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiant: document.getElementById("b-id").value, mot_de_passe: document.getElementById("b-mdp").value }) });
+      const data = await rep.json();
+      if (rep.ok) jeton = data.access_token;
+      document.getElementById("sortie").textContent = `POST /api/auth/token -> HTTP ${rep.status}\n\n` + JSON.stringify(data, null, 2);
+    }
+    async function profil(falsifier) {
+      const tok = falsifier ? (jeton + "falsifie") : jeton;
+      const rep = await fetch("/api/auth/profil", { headers: tok ? { "Authorization": "Bearer " + tok } : {} });
+      document.getElementById("sortie").textContent = `GET /api/auth/profil -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

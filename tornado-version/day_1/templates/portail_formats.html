@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comparateur HTML vs SOAP/XML vs REST/JSON — ISGP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+    .meta { font-size: 0.88rem; color: #334155; font-weight: 600; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Jour 1.1 — Comparateur en Direct : HTML vs SOAP/XML vs REST/JSON (Tornado)</h1>
+  </header>
+  <main>
+    <div class="card">
+      <p>Ville observee : <strong>{{ meteo["ville"] }}</strong> ({{ meteo["temperature_celsius"] }} C, {{ meteo["condition"] }}) — Comparez les 3 representations servies par Tornado :</p>
+      <div class="btns">
+        <button type="button" onclick="comparer('/api/v1/meteo')">1. Appeler REST / JSON (/api/v1/meteo)</button>
+        <button type="button" onclick="comparer('/meteo/soap')">2. Appeler SOAP / XML (/meteo/soap)</button>
+        <button type="button" onclick="comparer('/meteo/html')">3. Appeler Vue HTML (/meteo/html)</button>
+      </div>
+      <div id="meta" class="meta">Selectionnez un format ci-dessus...</div>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function comparer(route) {
+      const rep = await fetch(route);
+      const texte = await rep.text();
+      const octets = new TextEncoder().encode(texte).length;
+      document.getElementById("meta").textContent =
+        `GET ${route} -> HTTP ${rep.status} | Content-Type: ${rep.headers.get("Content-Type")} | Taille: ${octets} octets`;
+      document.getElementById("sortie").textContent = texte;
+    }
+    comparer("/api/v1/meteo");
+  </script>
+</body>
+</html>

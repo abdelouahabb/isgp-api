@@ -39,11 +39,11 @@ DAY_2_DATA = {
             ],
             "code": _read("01_serveur_minimal_flask.py"),
             "line_explanations": [
-                {"lines": "11-12", "text": "Création de l'instance WSGI Flask pointant vers le sous-dossier `day_2/templates/`."},
-                {"lines": "24-32", "text": "Route Web `/accueil` : appelle `render_template('accueil.html', ...)` pour injecter les variables Python dans le gabarit HTML Jinja2 (zéro HTML codé en dur)."},
-                {"lines": "36-43", "text": "Route API `/api/bonjour` : retourne un dictionnaire converti en JSON par `jsonify()` avec le code HTTP `200`."},
-                {"lines": "47-52", "text": "Route RESTful de collection `/api/v1/modules` (nom au pluriel + version `/api/v1`)."},
-                {"lines": "55-68", "text": "Exécution immédiate comparant la sortie HTML Jinja2 (`/accueil`) et la sortie API JSON (`/api/bonjour`)."}
+                {"lines": "12-13", "text": "Création de l'instance WSGI Flask pointant vers le sous-dossier `day_2/templates/`."},
+                {"lines": "26-34", "text": "Route Web `/accueil` : appelle `render_template('accueil.html', ...)` pour injecter les variables Python dans le gabarit HTML Jinja2 (zéro HTML codé en dur)."},
+                {"lines": "38-45", "text": "Route API `/api/bonjour` : retourne un dictionnaire converti en JSON par `jsonify()` avec le code HTTP `200`."},
+                {"lines": "49-60", "text": "Route RESTful de collection `/api/v1/modules` et portail Web interactif sur `GET /`."},
+                {"lines": "63-75", "text": "Exécution immédiate comparant la sortie HTML Jinja2 (`/accueil`) et la sortie API JSON (`/api/bonjour`)."}
             ],
             "sandbox_preset": {
                 "label": "Tester la route GET /api/sandbox/bonjour",
@@ -158,10 +158,10 @@ DAY_2_DATA = {
             ],
             "code": _read("03_pagination_filtrage_tri.py"),
             "line_explanations": [
-                {"lines": "22-29", "text": "Étape 1 (Filtrage) : Sélectionne uniquement les enregistrements respectant `min_jours` et `salle`."},
-                {"lines": "32-36", "text": "Étape 2 (Tri) : Vérifie que `champ_tri` est autorisé, puis trie par ordre croissant (`asc`) ou décroissant (`desc`)."},
-                {"lines": "39-45", "text": "Étape 3 (Pagination) : Calcule `total_pages` avec `math.ceil()`, puis découpe la tranche `resultats[debut:fin]`."},
-                {"lines": "47-57", "text": "Retourne l'enveloppe normalisée contenant les compteurs de pagination dans `meta` et les enregistrements dans `data`."}
+                {"lines": "25-33", "text": "Étape 1 (Filtrage) : Sélectionne uniquement les enregistrements respectant `min_jours` et `salle`."},
+                {"lines": "35-40", "text": "Étape 2 (Tri) : Vérifie que `champ_tri` est autorisé, puis trie par ordre croissant (`asc`) ou décroissant (`desc`)."},
+                {"lines": "42-50", "text": "Étape 3 (Pagination) : Calcule `total_pages` avec `math.ceil()`, puis découpe la tranche `resultats[debut:fin]`."},
+                {"lines": "52-62", "text": "Retourne l'enveloppe normalisée contenant les compteurs de pagination dans `meta` et les enregistrements dans `data`."}
             ],
             "sandbox_preset": {
                 "label": "Tester la Pagination & le Tri : GET /api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc",
@@ -213,8 +213,8 @@ for item in tranche:
             ],
             "code": _read("04_middlewares_et_audit_log.py"),
             "line_explanations": [
-                {"lines": "11-15", "text": "`@app.before_request` démarre un chronomètre haute précision (`time.perf_counter()`) et génère un `X-Request-ID` unique dans `g`."},
-                {"lines": "18-29", "text": "`@app.after_request` calcule la durée d'exécution en millisecondes, injecte `X-Request-ID` et `X-Response-Time-Ms` dans les Headers HTTP, et écrit une trace d'audit."}
+                {"lines": "14-18", "text": "`@app.before_request` démarre un chronomètre haute précision (`time.perf_counter()`) et génère un `X-Request-ID` unique dans `g`."},
+                {"lines": "21-32", "text": "`@app.after_request` calcule la durée d'exécution en millisecondes, injecte `X-Request-ID` et `X-Response-Time-Ms` dans les Headers HTTP, et écrit une trace d'audit."}
             ],
             "vscode_instructions": {
                 "filename": "day_2/04_middlewares_et_audit_log.py",

@@ -54,7 +54,7 @@ def rewrite_html_for_static_depth(html: str, rel_root: str) -> str:
     # Injection du drapeau GitHub Pages et du shim avant static/app.js (ou avant </head> si pas d'app.js)
     shim_tag = (
         f'<script>window.ISGP_GH_PAGES = true; window.ISGP_REL_ROOT = "{rel_root}";</script>\n'
-        f'  <script src="{prefix}/static/gh-pages-shim.js?v=44"></script>'
+        f'  <script src="{prefix}/static/gh-pages-shim.js?v=45"></script>'
     )
     if "/static/app.js" in html:
         html = re.sub(
@@ -165,12 +165,17 @@ document.addEventListener("DOMContentLoaded", () => {
         data_dir.mkdir(parents=True, exist_ok=True)
         for endpoint, out_name in (
             (f"/api/course-data?framework={fw}", "course-data.json"),
+            (f"/api/zero-to-hero?framework={fw}", "zero-to-hero.json"),
             (f"/api/nginx-cluster/state?framework={fw}", "nginx-state.json"),
             (f"/api/sqlite-lab/state?framework={fw}", "sqlite-state.json"),
             (f"/api/advanced-lab/state?framework={fw}", "advanced-state.json"),
         ):
             payload = client.get(endpoint).get_json()
             (data_dir / out_name).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        z2h_zip_resp = client.get(f"/api/download/zero-to-hero?framework={fw}")
+        if z2h_zip_resp.status_code == 200:
+            (dl_dir / f"isgp_{fw}_zero_to_hero.zip").write_bytes(z2h_zip_resp.get_data())
 
         # Données pré-calculées pour le laboratoire Architecture, OAuth2 & OpenAPI/Swagger
         arch_bundle = {
@@ -191,6 +196,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 for item in src_day.iterdir():
                     if item.is_file() and not item.name.endswith((".db", ".db-wal", ".db-shm", ".pyc")):
                         shutil.copy2(item, dst_day / item.name)
+                src_tpl = src_day / "templates"
+                if src_tpl.is_dir():
+                    dst_tpl = dst_day / "templates"
+                    dst_tpl.mkdir(parents=True, exist_ok=True)
+                    for t_item in src_tpl.iterdir():
+                        if t_item.is_file():
+                            shutil.copy2(t_item, dst_tpl / t_item.name)
 
         ref_dst = DIST / "files" / fw / "ref"
         ref_dst.mkdir(parents=True, exist_ok=True)

@@ -134,6 +134,15 @@ async def uploader_syllabus(
     }
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_formulaires(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_05_formulaires.html",
+        context={"formations": FORMATIONS},
+    )
+
+
 # =====================================================================
 # 3. DÉMONSTRATION AUTOMATISÉE (SOUMISSION DE FORMULAIRE + RENDU JINJA2)
 # =====================================================================
@@ -141,6 +150,7 @@ if __name__ == "__main__":
     import io
 
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. TEST SOUMISSION D'UN FORMULAIRE HTML (Form / request.form) ===")
     rep_form = client.post(
         "/formations",

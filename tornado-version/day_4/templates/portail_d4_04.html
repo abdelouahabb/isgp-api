@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 4.4 — Cycle Access / Refresh Token &amp; Decorateur @exiger_role</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 960px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 9px 14px; font-weight: 600; cursor: pointer; margin: 4px 6px 8px 0; }
+    button.sec { background: #475569; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 4.4 — Double Jeton (Access + Refresh) &amp; Controle RBAC (401 vs 403 vs 200)</h1></header>
+  <main>
+    <div class="card">
+      <div>
+        <button type="button" class="sec" onclick="login('stagiaire')">1a. Login Stagiaire</button>
+        <button type="button" onclick="login('directeur')">1b. Login Directeur (Admin)</button>
+        <button type="button" class="sec" onclick="rafraichirToken()">2. POST /api/auth/refresh</button>
+        <button type="button" onclick="testerAudit()">3. GET /api/admin/audit</button>
+      </div>
+      <pre id="sortie">Connectez-vous en stagiaire (403) puis en directeur (200) pour observer @exiger_role("admin").</pre>
+    </div>
+  </main>
+  <script>
+    let accessToken = "";
+    let refreshToken = "";
+    async function login(identifiant) {
+      const rep = await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ identifiant }) });
+      const data = await rep.json();
+      accessToken = data.access_token;
+      refreshToken = data.refresh_token;
+      document.getElementById("sortie").textContent = `Login (${identifiant}) -> HTTP ${rep.status}\n` + JSON.stringify(data, null, 2);
+    }
+    async function rafraichirToken() {
+      const rep = await fetch("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refresh_token: refreshToken }) });
+      const data = await rep.json();
+      if (data.access_token) accessToken = data.access_token;
+      document.getElementById("sortie").textContent = `Refresh -> HTTP ${rep.status}\n` + JSON.stringify(data, null, 2);
+    }
+    async function testerAudit() {
+      const headers = accessToken ? { "Authorization": "Bearer " + accessToken } : {};
+      const rep = await fetch("/api/admin/audit", { headers });
+      document.getElementById("sortie").textContent = `GET /api/admin/audit -> HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

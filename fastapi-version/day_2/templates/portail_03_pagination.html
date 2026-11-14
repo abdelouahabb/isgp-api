@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 2.3 - Pagination, Filtrage, Tri & POST JSON</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    input, select { padding: 0.48rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 150px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 2.3 — Pagination, Filtrage, Tri &amp; Creation Pydantic BaseModel</h1>
+    <div class="ligne">
+      <select id="f-salle"><option value="">Toutes salles</option><option value="Salle A">Salle A</option><option value="Salle B">Salle B</option><option value="Labo 1">Labo 1</option></select>
+      <select id="f-tri"><option value="id">Tri: id</option><option value="duree_jours">Tri: duree_jours</option><option value="titre">Tri: titre</option></select>
+      <select id="f-ordre"><option value="asc">asc</option><option value="desc">desc</option></select>
+      <button type="button" onclick="rechercher()">GET /api/v1/formations</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <div class="ligne">
+      <input id="c-code" value="FAP-310" style="width:95px;">
+      <input id="c-titre" value="Architecture REST & Pagination" style="width:240px;">
+      <input id="c-duree" type="number" value="4" style="width:70px;">
+      <button type="button" onclick="ajouter()">POST /api/v1/formations</button>
+    </div>
+    <pre id="sortie">Chargement...</pre>
+  </main>
+  <script>
+    async function rechercher() {
+      const p = new URLSearchParams({ page: "1", limit: "4", tri: document.getElementById("f-tri").value, ordre: document.getElementById("f-ordre").value });
+      const s = document.getElementById("f-salle").value;
+      if (s) p.set("salle", s);
+      const rep = await fetch("/api/v1/formations?" + p.toString());
+      document.getElementById("sortie").textContent = `GET /api/v1/formations?${p} -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function ajouter() {
+      const corps = { code: document.getElementById("c-code").value, titre: document.getElementById("c-titre").value, duree_jours: Number(document.getElementById("c-duree").value), salle: "Salle A" };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+      document.getElementById("sortie").textContent = `POST /api/v1/formations -> HTTP ${rep.status} (Location: ${rep.headers.get("location")})\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    rechercher();
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-trilogy-v44";
+const CACHE_NAME = "isgp-api-trilogy-v45";
 const IS_GH_PAGES_SW = false;
 
 const CORE_RELATIVE_ASSETS = [
@@ -18,16 +18,19 @@ const WARMUP_RELATIVE_ASSETS = IS_GH_PAGES_SW
       "./cours/fastapi/index.html",
       "./cours/tornado/index.html",
       "./static-data/flask/course-data.json",
+      "./static-data/flask/zero-to-hero.json",
       "./static-data/flask/architecture-lab.json",
       "./static-data/flask/sqlite-state.json",
       "./static-data/flask/advanced-state.json",
       "./static-data/flask/nginx-state.json",
       "./static-data/fastapi/course-data.json",
+      "./static-data/fastapi/zero-to-hero.json",
       "./static-data/fastapi/architecture-lab.json",
       "./static-data/fastapi/sqlite-state.json",
       "./static-data/fastapi/advanced-state.json",
       "./static-data/fastapi/nginx-state.json",
       "./static-data/tornado/course-data.json",
+      "./static-data/tornado/zero-to-hero.json",
       "./static-data/tornado/architecture-lab.json",
       "./static-data/tornado/sqlite-state.json",
       "./static-data/tornado/advanced-state.json",

@@ -7,11 +7,15 @@ import os
 import sys
 from typing import Optional
 import uvicorn
-from fastapi import FastAPI, Header, HTTPException, Path, Response, status
+from fastapi import FastAPI, Header, HTTPException, Path, Request, Response, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - PUT vs PATCH & Idempotency-Key", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 formations = {
     1: {"id": 1, "titre": "Architecture des APIs REST & FastAPI", "duree_jours": 5, "salle": "Salle A"}
@@ -83,8 +87,18 @@ async def modifier_partiellement_patch(payload: FormationPartielle, id: int = Pa
     return {"methode": "PATCH (mise à jour partielle)", "formation": actuelle}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_idempotence(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_03_idempotence.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. TEST POST AVEC IDEMPOTENCY-KEY (Pas de doublon au 2e envoi) ===")
     r1 = client.post("/api/v1/formations", json={"titre": "Sécurité JWT", "duree_jours": 3}, headers={"Idempotency-Key": "idem-001"})
     r2 = client.post("/api/v1/formations", json={"titre": "Sécurité JWT", "duree_jours": 3}, headers={"Idempotency-Key": "idem-001"})

@@ -2099,3 +2099,257 @@ html[data-fullscreen="true"] body,
     padding: 10px 14px 22px;
   }
 }
+
+
+/* ==========================================================================
+   RECHERCHE MONOGRAPHIE, PROGRESSION DE LECTURE, ZERO-TO-HERO & IMPRESSION PDF
+   ========================================================================== */
+.sidebar-search-box {
+  margin-top: 10px;
+}
+
+.sidebar-search-input {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-search-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-soft);
+}
+
+.course-search-meta {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: var(--brand-soft);
+  color: var(--text-primary);
+}
+
+.course-progress-summary {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.course-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.course-progress-track {
+  height: 6px;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.course-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+  transition: width 0.25s ease;
+}
+
+.lesson-done-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.16);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .lesson-done-mark {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+
+.btn-done-active {
+  background: rgba(16, 185, 129, 0.14) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .btn-done-active {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.5) !important;
+}
+
+.glossary-short-lead {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Parcours Bootcamp Zero-to-Hero */
+.z2h-card {
+  margin-bottom: 18px;
+  border-left: 4px solid var(--brand);
+}
+
+.z2h-stepper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.z2h-step-btn {
+  text-align: left;
+  padding: 9px 11px;
+  font-size: 12.8px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.z2h-step-btn:hover {
+  border-color: var(--brand);
+  color: var(--text-primary);
+}
+
+.z2h-step-btn.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.z2h-active-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+}
+
+.z2h-template-box {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+}
+
+/* Feuille de style d'impression / Export PDF de niveau éditorial */
+@media print {
+  @page {
+    margin: 15mm 14mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+  }
+
+  .trilogy-switcher-bar,
+  .doc-topbar,
+  .course-sidebar,
+  .day-banner .btn-group,
+  .lesson-header-actions button,
+  .chapter-toc,
+  .interactive-try-box,
+  .vscode-box .btn-secondary,
+  .panel-bar button,
+  .lesson-footer-nav,
+  .toast-container,
+  .no-print {
+    display: none !important;
+  }
+
+  .app-main,
+  .course-layout,
+  .course-content {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .lesson-card,
+  .deep-section-card,
+  .doc-context-box,
+  .analogy-box,
+  .principle-card,
+  .doc-callout,
+  .ref-table-box,
+  .pitfalls-box,
+  .exercises-box,
+  .mermaid-container {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .code-walkthrough-grid {
+    display: block !important;
+  }
+
+  .code-panel,
+  .line-explain-panel {
+    margin-bottom: 12pt !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  pre,
+  .code-block,
+  .doc-wire-pre {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    page-break-inside: avoid;
+  }
+
+  .principle-card,
+  .doc-callout,
+  .pitfall-row,
+  .mermaid-container,
+  table,
+  tr {
+    page-break-inside: avoid;
+  }
+}

@@ -115,11 +115,16 @@ def readiness_probe():
 
 # 5. APPLICATION FACTORY : Assemblage simultané de v1, v2, Web et Santé dans le même serveur
 def create_app():
-    application = Flask(__name__)
+    application = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
     application.register_blueprint(web_bp)
     application.register_blueprint(formations_v1_bp)
     application.register_blueprint(formations_v2_bp)
     application.register_blueprint(sante_bp)
+
+    @application.route("/", methods=["GET"])
+    def index_blueprints():
+        return render_template("index_03_blueprints.html"), 200
+
     return application
 
 
@@ -127,6 +132,7 @@ app = create_app()
 
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         print("=== 1. BLUEPRINT API v1 (AVEC EN-TÊTES DE DÉPRÉCIATION RFC 8594) ===")
         r1 = client.get("/api/v1/formations")
         print("Headers v1 :", {k: r1.headers[k] for k in ("X-API-Version", "Deprecation", "Sunset", "Link")})

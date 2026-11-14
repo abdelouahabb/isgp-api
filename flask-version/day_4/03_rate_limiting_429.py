@@ -1,11 +1,13 @@
 import os
+import sys
 # Fichier : day_4/03_rate_limiting_429.py
 # Exécution : .venv/bin/python day_4/03_rate_limiting_429.py
 
 import time
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 # Configuration du Rate Limiter : max 3 requêtes par tranche de 20 secondes par IP
 LIMITE_REQUETES = 3
@@ -44,8 +46,15 @@ def catalogue_avec_ratelimit():
     reponse.headers["X-RateLimit-Remaining"] = str(restant)
     return reponse, 200
 
+
+@app.route("/", methods=["GET"])
+def index_ratelimit():
+    return render_template("index_03_ratelimit.html", limite=LIMITE_REQUETES, fenetre=FENETRE_SECONDES), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         for i in range(1, 5):
             r = client.get("/api/catalogue-protege")
             print(f"Appel #{i} -> HTTP {r.status_code} | X-RateLimit-Remaining={r.headers.get('X-RateLimit-Remaining')} | {r.get_json()}")

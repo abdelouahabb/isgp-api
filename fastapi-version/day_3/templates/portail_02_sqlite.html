@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 3.2 - Portail API CRUD SQLite & Depends(get_db)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 940px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    input { padding: 0.48rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 150px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 3.2 — Portail CRUD SQLite (API JSON fetch + Formulaire Jinja2)</h1>
+    <div class="ligne">
+      <input id="s-titre" value="Persistance SQLite Parametree" style="width:230px;">
+      <input id="s-duree" type="number" value="5" style="width:70px;">
+      <button type="button" onclick="creer()">POST /api/formations</button>
+      <button type="button" onclick="lister()">GET /api/formations</button>
+      <a class="btn" href="/formations-sqlite">Formulaire HTML (/formations-sqlite)</a>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Chargement SQLite...</pre>
+  </main>
+  <script>
+    async function lister() {
+      const rep = await fetch("/api/formations");
+      document.getElementById("sortie").textContent = `GET /api/formations -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function creer() {
+      const rep = await fetch("/api/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ titre: document.getElementById("s-titre").value, duree_jours: Number(document.getElementById("s-duree").value), salle: "Salle A" }) });
+      document.getElementById("sortie").textContent = `POST /api/formations -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    lister();
+  </script>
+</body>
+</html>

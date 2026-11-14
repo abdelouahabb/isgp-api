@@ -62,9 +62,19 @@ async def lister_modules_api():
     }
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_minimal(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_01_minimal.html",
+        context={"organisme": "ISGP"},
+    )
+
+
 if __name__ == "__main__":
     # Sinon, exécute une démonstration immédiate des 2 modes (Jinja2 HTML vs API JSON) via TestClient
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     rep_html = client.get("/accueil")
     print("=== 1. RENDU DU TEMPLATE JINJA2 (GET /accueil -> day_2/templates/accueil.html) ===")
     print(rep_html.text.strip())

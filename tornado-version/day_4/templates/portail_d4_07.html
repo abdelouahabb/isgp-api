@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 4.7 — Cookies Signes Tornado (set_secure_cookie, HttpOnly, SameSite)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 960px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, select, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #94a3b8; margin: 4px 6px 8px 0; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 4.7 — Cookies Signes HMAC-SHA256 Tornado (set_secure_cookie / get_secure_cookie)</h1></header>
+  <main>
+    <div class="card">
+      <div>
+        <input id="ident" type="text" value="yasmine.merabet" />
+        <select id="theme">
+          <option value="institutionnel">Theme : institutionnel</option>
+          <option value="sombre">Theme : sombre</option>
+        </select>
+        <button type="button" onclick="loginCookie()">1. POST /api/auth/cookie-login</button>
+      </div>
+      <div>
+        <button type="button" onclick="inspecterCookie()">2. GET /api/auth/cookie-inspect</button>
+        <a href="/portail-cookies" target="_blank" style="margin-right:10px; font-weight:600; color:#1e3a5f;">3. Ouvrir /portail-cookies</a>
+        <button type="button" class="err" onclick="logoutCookie()">4. POST /api/auth/cookie-logout</button>
+      </div>
+      <pre id="sortie">Connectez-vous pour emettre le cookie signe isgp_session (HttpOnly)...</pre>
+    </div>
+  </main>
+  <script>
+    async function loginCookie() {
+      const rep = await fetch("/api/auth/cookie-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifiant: document.getElementById("ident").value, theme: document.getElementById("theme").value })
+      });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function inspecterCookie() {
+      const rep = await fetch("/api/auth/cookie-inspect");
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function logoutCookie() {
+      const rep = await fetch("/api/auth/cookie-logout", { method: "POST" });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

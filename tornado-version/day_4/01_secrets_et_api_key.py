@@ -38,8 +38,20 @@ class StatsConfidentiellesHandler(tornado.web.RequestHandler):
         })
 
 
+class PortailApiKeyHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d4_01.html")
+
+
 def make_app():
-    return tornado.web.Application([(r"/api/admin/statistiques", StatsConfidentiellesHandler)])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailApiKeyHandler),
+            (r"/api/admin/statistiques", StatsConfidentiellesHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

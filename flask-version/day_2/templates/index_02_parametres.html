@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 2.2 : Parametres de Chemin et Query String</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+    input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.9rem; }
+    button, a.btn { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.88rem; }
+    a.btn { background: #475569; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 2.2 : Parametres de Chemin (&lt;id&gt;) &amp; Query String (?ht=&amp;taux=)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <h2>1. Parametre texte &amp; Convertisseur entier</h2>
+      <div class="row">
+        <input id="prenom" value="Yasmine" placeholder="Prenom" />
+        <button onclick="appeler('/api/saluer/' + encodeURIComponent(document.getElementById('prenom').value))">GET /api/saluer/&lt;prenom&gt;</button>
+        <input id="sid" type="number" value="1" style="width:70px;" />
+        <button onclick="appeler('/api/v1/stagiaires/' + document.getElementById('sid').value)">GET /api/v1/stagiaires/&lt;int:id&gt;</button>
+        <a class="btn" href="/stagiaires/1/fiche" target="_blank">Fiche HTML Stagiaire #1</a>
+      </div>
+      <h2>2. Calculateur TVA via Query String (request.args)</h2>
+      <div class="row">
+        <input id="ht" type="number" value="2500" placeholder="Montant HT" />
+        <input id="taux" type="number" value="19" placeholder="Taux %" style="width:90px;" />
+        <button onclick="appeler(`/api/calcul-tva?ht=${document.getElementById('ht').value}&taux=${document.getElementById('taux').value}`)">GET /api/calcul-tva</button>
+      </div>
+      <div id="statut" style="font-weight:600; margin-bottom:6px;">Pret.</div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function appeler(url) {
+      const r = await fetch(url);
+      const data = await r.json();
+      document.getElementById("statut").textContent = `GET ${url} -> HTTP ${r.status}`;
+      document.getElementById("sortie").textContent = JSON.stringify(data, null, 2);
+    }
+    appeler("/api/v1/stagiaires/1");
+  </script>
+</body>
+</html>

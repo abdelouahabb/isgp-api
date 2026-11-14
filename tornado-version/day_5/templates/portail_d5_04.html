@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 5.4 — Tests AsyncHTTPTestCase &amp; Calculateur Fiscal Tornado</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 920px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #94a3b8; margin-right: 8px; font-size: 0.9rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 5.4 — Calculateur Fiscal Tornado (API JSON &amp; Formulaire HTML)</h1></header>
+  <main>
+    <div class="card">
+      <p>Testez <code>POST /api/calcul-taxe</code> en JSON ou ouvrez le <a href="/formulaire-taxe">Formulaire HTML /formulaire-taxe</a> :</p>
+      <input id="ht" type="number" value="1000" />
+      <button type="button" onclick="calculer(Number(document.getElementById('ht').value))">Calculer TVA 19% (JSON)</button>
+      <button type="button" class="err" onclick="calculer(-50)">Tester Montant Negatif (422)</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function calculer(montant_ht) {
+      const rep = await fetch("/api/calcul-taxe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ montant_ht })
+      });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    calculer(1000);
+  </script>
+</body>
+</html>

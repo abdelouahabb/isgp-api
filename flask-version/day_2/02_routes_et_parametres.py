@@ -65,8 +65,15 @@ def calculer_tva():
     }), 200
 
 
+# 5. PORTAIL WEB INTERACTIF SUR GET / (Testeur des paramètres de chemin et query string)
+@app.route("/", methods=["GET"])
+def index_parametres():
+    return render_template("index_02_parametres.html", stagiaires=STAGIAIRES), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         print("=== 1. TEST PARAMÈTRE DE CHEMIN (<prenom>) ===")
         print(client.get("/api/saluer/Yasmine").get_json())
 

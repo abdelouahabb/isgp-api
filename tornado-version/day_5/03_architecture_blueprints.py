@@ -109,14 +109,20 @@ HEALTH_ROUTES = [
 
 
 # 5. APPLICATION FACTORY TORNADO : Assemblage modulaire de v1, v2, Web et Santé
+class PortailModulaireHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d5_03.html")
+
+
 def create_app():
-    toutes_les_routes = WEB_ROUTES + API_V1_ROUTES + API_V2_ROUTES + HEALTH_ROUTES
+    toutes_les_routes = [(r"/", PortailModulaireHandler)] + WEB_ROUTES + API_V1_ROUTES + API_V2_ROUTES + HEALTH_ROUTES
     return tornado.web.Application(
         toutes_les_routes,
         template_path=os.path.join(DOSSIER_COURANT, "templates"),
     )
 
 
+make_app = create_app
 app = create_app()
 
 

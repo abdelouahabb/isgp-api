@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ etape }} — ISGP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 1020px; margin: 22px auto; padding: 0 16px; display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    input, select { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.9rem; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 13px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.sec { background: #0f766e; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+    th { background: #f1f5f9; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — {{ etape }}</h1>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Recherche, Filtrage &amp; Pagination (GET /api/v1/formations)</h2>
+      <div class="bar">
+        <input id="q" placeholder="Mot-cle (ex: Flask, SQL...)" oninput="page=1; chargerCatalogue()" />
+        <select id="domaine" onchange="page=1; chargerCatalogue()">
+          <option value="">Tous les domaines</option>
+          {% for d in domaines %}
+          <option value="{{ d }}">{{ d }}</option>
+          {% endfor %}
+        </select>
+        <select id="tri" onchange="chargerCatalogue()">
+          <option value="id">Tri : ID croissant</option>
+          <option value="-tarif_dzd">Tri : Tarif decroissant</option>
+          <option value="duree_jours">Tri : Duree croissante</option>
+          <option value="titre">Tri : Titre A-Z</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>Code</th><th>Titre</th><th>Domaine</th><th>Jours</th><th>Tarif (DZD)</th><th>Fiche</th></tr></thead>
+        <tbody id="lignes"></tbody>
+      </table>
+      <div class="bar" style="margin-top:12px; align-items:center;">
+        <button onclick="changerPage(-1)">Page precedente</button>
+        <span id="info_page" style="font-weight:600;"></span>
+        <button onclick="changerPage(1)">Page suivante</button>
+      </div>
+    </section>
+    <aside class="card">
+      <h2>Inspecteur Detail (GET /api/v1/formations/&lt;id&gt;)</h2>
+      <p id="url_active" style="font-size:0.84rem; color:#334155; font-weight:600;"></p>
+      <pre id="detail">Cliquez sur "Inspecter" dans le tableau.</pre>
+    </aside>
+  </main>
+  <script>
+    let page = 1;
+    let totalPages = 1;
+    async function chargerCatalogue() {
+      const params = new URLSearchParams({
+        q: document.getElementById("q").value,
+        domaine: document.getElementById("domaine").value,
+        tri: document.getElementById("tri").value,
+        page: page,
+        limit: 3
+      });
+      const url = `/api/v1/formations?${params.toString()}`;
+      const r = await fetch(url);
+      const payload = await r.json();
+      totalPages = payload.meta.total_pages;
+      document.getElementById("info_page").textContent =
+        `Page ${payload.meta.page} / ${totalPages} (${payload.meta.total} formations)`;
+      document.getElementById("lignes").innerHTML = payload.data.map(f =>
+        `<tr><td>${f.code}</td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.duree_jours}j</td><td>${f.tarif_dzd}</td>
+         <td><button class="sec" onclick="voirDetail(${f.id})">Inspecter #${f.id}</button></td></tr>`
+      ).join("");
+    }
+    function changerPage(delta) {
+      const cible = page + delta;
+      if (cible >= 1 && cible <= totalPages) { page = cible; chargerCatalogue(); }
+    }
+    async function voirDetail(id) {
+      const url = `/api/v1/formations/${id}`;
+      const r = await fetch(url);
+      document.getElementById("url_active").textContent = `GET ${url} -> HTTP ${r.status}`;
+      document.getElementById("detail").textContent = JSON.stringify(await r.json(), null, 2);
+    }
+    chargerCatalogue();
+    voirDetail(1);
+  </script>
+</body>
+</html>

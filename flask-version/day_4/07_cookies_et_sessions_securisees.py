@@ -111,8 +111,15 @@ def deconnexion_cookies():
     return reponse
 
 
+# 5. PORTAIL WEB INTERACTIF SUR GET / (Testeur des cookies HttpOnly, SameSite et Session)
+@app.route("/", methods=["GET"])
+def index_cookies():
+    return render_template("index_07_cookies.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         print("=== 1. CONNEXION (POST /api/auth/cookie-login) -> EN-TÊTES Set-Cookie ===")
         r_login = client.post("/api/auth/cookie-login", json={"identifiant": "yasmine.merabet", "theme": "sombre"})
         for sc in r_login.headers.getlist("Set-Cookie"):

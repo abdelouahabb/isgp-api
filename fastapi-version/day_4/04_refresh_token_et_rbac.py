@@ -7,12 +7,16 @@ import os
 import sys
 from typing import Optional
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Refresh Token & RBAC via Depends()", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 SECRET_KEY = os.environ.get("API_SECRET_KEY", "secret-signature-isgp-2026")
 access_signer = URLSafeTimedSerializer(SECRET_KEY, salt="access-token")
 refresh_signer = URLSafeTimedSerializer(SECRET_KEY, salt="refresh-token")
@@ -90,8 +94,18 @@ async def consulter_audit_admin(utilisateur: dict = Depends(exiger_role("admin")
     return {"acces": "Autorisé (Admin)", "operateur": utilisateur["sub"]}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_rbac(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_04_rbac.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     tok_stagiaire = client.post("/api/auth/login", json={"identifiant": "stagiaire"}).json()["access_token"]
     tok_directeur = client.post("/api/auth/login", json={"identifiant": "directeur"}).json()["access_token"]
 

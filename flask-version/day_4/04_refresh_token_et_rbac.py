@@ -4,11 +4,13 @@
 #            le renouvellement par Refresh Token et la révocation (Blacklist).
 
 import os
+import sys
 from functools import wraps
-from flask import Flask, g, jsonify, request
+from flask import Flask, g, jsonify, render_template, request
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 SECRET_KEY = os.environ.get("API_SECRET_KEY", "secret-signature-isgp-2026")
 access_signer = URLSafeTimedSerializer(SECRET_KEY, salt="access-token")
 refresh_signer = URLSafeTimedSerializer(SECRET_KEY, salt="refresh-token")
@@ -82,8 +84,15 @@ def rafraichir_token():
 def consulter_audit_admin():
     return jsonify({"acces": "Autorisé (Admin)", "operateur": g.utilisateur["sub"]}), 200
 
+
+@app.route("/", methods=["GET"])
+def index_rbac():
+    return render_template("index_04_rbac.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         r_stag = client.post("/api/auth/login", json={"identifiant": "stagiaire"}).get_json()
         r_403 = client.get("/api/admin/audit", headers={"Authorization": f"Bearer {r_stag['access_token']}"})
         print("1. Stagiaire sur route Admin (403 Forbidden) :", r_403.status_code, r_403.get_json())

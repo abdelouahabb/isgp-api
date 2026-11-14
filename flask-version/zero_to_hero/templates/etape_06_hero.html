@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_portail }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    .nav-links a { color: #fff; text-decoration: none; background: rgba(255,255,255,0.16); padding: 7px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; margin-left: 6px; }
+    main { max-width: 1120px; margin: 20px auto; padding: 0 16px; display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
+    input, select { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 13px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    button.sec { background: #0f766e; }
+    button.warn { background: #b45309; }
+    button.err { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+    th { background: #f1f5f9; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; max-height: 360px; }
+    .badge-etat { background: #e2e8f0; padding: 5px 10px; border-radius: 5px; font-size: 0.84rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>{{ titre_portail }}</h1>
+      <div style="font-size:0.86rem; opacity:0.9;">Architecture Blueprint + Application Factory + SQLite WAL + RBAC + OpenAPI 3.1.0</div>
+    </div>
+    <div class="nav-links">
+      <a href="/api/docs" target="_blank">Swagger UI (/api/docs)</a>
+      <a href="/api/openapi.json" target="_blank">OpenAPI 3.1 JSON</a>
+      <a href="/health" target="_blank">Sonde /health</a>
+    </div>
+  </header>
+  <main>
+    <div>
+      <section class="card">
+        <h2>Authentification &amp; Session (Cookies HttpOnly + Bearer Token Signe)</h2>
+        <div class="row">
+          <button onclick="login('stagiaire', 'isgp-stagiaire-2026')">Connecter Stagiaire</button>
+          <button class="sec" onclick="login('admin', 'isgp-admin-2026')">Connecter Admin</button>
+          <button class="err" onclick="logout()">Deconnecter</button>
+          <span id="identite" class="badge-etat">Identite : Invite (Public)</span>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Catalogue des Formations ISGP (SQLite WAL)</h2>
+        <div class="row">
+          <input id="q" placeholder="Filtrer par mot-cle..." oninput="charger()" />
+          <select id="domaine" onchange="charger()">
+            <option value="">Tous les domaines</option>
+            <option value="Architecture">Architecture</option>
+            <option value="Backend">Backend</option>
+            <option value="Data">Data</option>
+            <option value="Securite">Securite</option>
+            <option value="DevOps">DevOps</option>
+          </select>
+          <button onclick="charger()">Actualiser</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Domaine</th><th>Jours</th><th>Tarif DZD</th><th>Actions Admin</th></tr></thead>
+          <tbody id="lignes"></tbody>
+        </table>
+      </section>
+      <section class="card">
+        <h2>Ajouter une Formation (POST /api/v1/formations — Role Admin Requis)</h2>
+        <div class="row">
+          <input id="code" value="PRO-601" style="width:95px;" />
+          <input id="titre" value="Architecture Microservices &amp; Passerelles" style="min-width:220px;" />
+          <input id="dom_new" value="Architecture" style="width:110px;" />
+          <input id="jours" type="number" value="5" style="width:65px;" />
+          <input id="tarif" type="number" value="78000" style="width:90px;" />
+          <button class="sec" onclick="creer()">POST Creer</button>
+        </div>
+      </section>
+    </div>
+    <aside>
+      <section class="card">
+        <h2>Journal d'Audit &amp; En-tetes HTTP</h2>
+        <div class="row">
+          <button onclick="inspecterSante()">Tester GET /health</button>
+        </div>
+        <pre id="trace">{}</pre>
+      </section>
+    </aside>
+  </main>
+  <script>
+    let bearer = "";
+    function headersApi() {
+      const h = { "Content-Type": "application/json" };
+      if (bearer) h["Authorization"] = `Bearer ${bearer}`;
+      return h;
+    }
+    function journaliser(methode, url, r, corps) {
+      document.getElementById("trace").textContent = JSON.stringify({
+        requete: `${methode} ${url}`,
+        status: r.status,
+        headers: {
+          "X-Request-ID": r.headers.get("X-Request-ID"),
+          "X-Response-Time-Ms": r.headers.get("X-Response-Time-Ms"),
+          "X-RateLimit-Remaining": r.headers.get("X-RateLimit-Remaining")
+        },
+        payload: corps
+      }, null, 2);
+    }
+    async function login(identifiant, mot_de_passe) {
+      const r = await fetch("/api/v1/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiant, mot_de_passe }) });
+      const j = await r.json();
+      bearer = j.access_token || "";
+      document.getElementById("identite").textContent = r.ok ? `Identite : ${identifiant} (role=${j.role})` : "Echec connexion";
+      journaliser("POST", "/api/v1/auth/login", r, j);
+    }
+    async function logout() {
+      bearer = "";
+      const r = await fetch("/api/v1/auth/logout", { method: "POST" });
+      document.getElementById("identite").textContent = "Identite : Invite (Public)";
+      journaliser("POST", "/api/v1/auth/logout", r, await r.json());
+    }
+    async function charger() {
+      const p = new URLSearchParams({ q: document.getElementById("q").value, domaine: document.getElementById("domaine").value });
+      const url = `/api/v1/formations?${p.toString()}`;
+      const r = await fetch(url);
+      const j = await r.json();
+      document.getElementById("lignes").innerHTML = (j.data || []).map(f =>
+        `<tr><td>${f.id}</td><td>${f.code}</td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.duree_jours}</td><td>${f.tarif_dzd}</td>
+         <td><button class="err" onclick="supprimer(${f.id})">DELETE</button></td></tr>`
+      ).join("");
+      journaliser("GET", url, r, j);
+    }
+    async function creer() {
+      const r = await fetch("/api/v1/formations", {
+        method: "POST", headers: headersApi(),
+        body: JSON.stringify({
+          code: document.getElementById("code").value,
+          titre: document.getElementById("titre").value,
+          domaine: document.getElementById("dom_new").value,
+          duree_jours: Number(document.getElementById("jours").value),
+          tarif_dzd: Number(document.getElementById("tarif").value)
+        })
+      });
+      journaliser("POST", "/api/v1/formations", r, await r.json());
+      charger();
+    }
+    async function supprimer(id) {
+      const r = await fetch(`/api/v1/formations/${id}`, { method: "DELETE", headers: headersApi() });
+      journaliser("DELETE", `/api/v1/formations/${id}`, r, await r.json());
+      charger();
+    }
+    async function inspecterSante() {
+      const r = await fetch("/health");
+      journaliser("GET", "/health", r, await r.json());
+    }
+    charger();
+  </script>
+</body>
+</html>

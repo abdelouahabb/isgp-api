@@ -12,9 +12,13 @@ from typing import Optional
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - CORSMiddleware, Webhooks HMAC & En-têtes de Sécurité", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 MAX_BODY_BYTES = 1 * 1024 * 1024  # 1 Mo
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "whsec_isgp_partenaire_2026")
@@ -63,8 +67,20 @@ async def recevoir_webhook_paiement(
     return {"statut": "Webhook authentifié et traité", "evenement": evenement}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_webhooks(request: Request):
+    charge = '{"facture_id": "FAC-2026-09", "montant_dzd": 45000}'
+    sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), charge.encode("utf-8"), hashlib.sha256).hexdigest()
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_05_webhooks.html",
+        context={"charge_exemple": charge, "signature_exemple": sig},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     charge_json = b'{"facture_id": "FAC-2026-09", "montant_dzd": 45000}'
     sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), charge_json, hashlib.sha256).hexdigest()
 

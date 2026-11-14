@@ -1,12 +1,14 @@
 import os
+import sys
 # Fichier : day_2/04_middlewares_et_audit_log.py
 # Exécution : .venv/bin/python day_2/04_middlewares_et_audit_log.py
 
 import time
 import uuid
-from flask import Flask, g, jsonify, request
+from flask import Flask, g, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 # 1. MIDDLEWARE AVANT REQUÊTE : S'exécute automatiquement AVANT chaque route
 @app.before_request
@@ -37,8 +39,15 @@ def verifier_statut():
         "statut": "opérationnel"
     }), 200
 
+
+@app.route("/", methods=["GET"])
+def index_middlewares():
+    return render_template("index_04_middlewares.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         rep = client.get("/api/v1/statut", headers={"X-Request-ID": "req-demo-isgp"})
         print("En-têtes injectés :", dict(rep.headers))
         print("Corps JSON :", rep.get_json())

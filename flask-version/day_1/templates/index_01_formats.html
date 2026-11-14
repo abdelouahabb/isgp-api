@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 1.1 : HTML vs SOAP/XML vs REST/JSON</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    header p { margin: 4px 0 0; font-size: 0.9rem; opacity: 0.9; }
+    main { max-width: 980px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+    button, a.btn { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+    button.sec { background: #0f766e; }
+    button.alt { background: #475569; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+    .meta { font-size: 0.85rem; color: #334155; font-weight: 600; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Comparateur des Paradigmes Web : HTML, SOAP/XML et REST/JSON</h1>
+    <p>Station meteo de reference : {{ meteo.ville }} ({{ meteo.temperature_celsius }} °C, {{ meteo.condition }})</p>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Interroger les 3 formats exposes par ce serveur Flask</h2>
+      <p>Cliquez sur chaque bouton pour declencher un appel HTTP reel via <code>fetch()</code> et comparer l'en-tete <code>Content-Type</code> ainsi que la taille utile.</p>
+      <div class="actions">
+        <button onclick="testerRoute('/api/v1/meteo')">GET /api/v1/meteo (REST JSON)</button>
+        <button class="sec" onclick="testerRoute('/meteo/soap')">GET /meteo/soap (SOAP XML)</button>
+        <button class="alt" onclick="testerRoute('/meteo/html')">GET /meteo/html (Page Jinja2)</button>
+        <a class="btn" href="/meteo/html" target="_blank">Ouvrir /meteo/html</a>
+      </div>
+      <div id="infos" class="meta">En attente d'une requete...</div>
+      <pre id="sortie">Selectionnez un format ci-dessus pour inspecter la reponse brute du serveur.</pre>
+    </section>
+  </main>
+  <script>
+    async function testerRoute(url) {
+      const res = await fetch(url);
+      const texte = await res.text();
+      const octets = new TextEncoder().encode(texte).length;
+      document.getElementById("infos").textContent =
+        `Statut : HTTP ${res.status} | Content-Type : ${res.headers.get("Content-Type")} | Taille : ${octets} octets`;
+      document.getElementById("sortie").textContent = texte;
+    }
+    testerRoute("/api/v1/meteo");
+  </script>
+</body>
+</html>

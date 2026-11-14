@@ -42,11 +42,12 @@ DAY_2_DATA = {
             ],
             "code": _read("01_serveur_minimal_fastapi.py"),
             "line_explanations": [
-                {"lines": "15-17", "text": "Création de l'application ASGI `FastAPI` et initialisation de `Jinja2Templates` pointant vers `day_2/templates/`."},
-                {"lines": "29-40", "text": "Route Web `@app.get('/accueil', response_class=HTMLResponse)` : appelle `templates.TemplateResponse(...)` pour injecter le contexte dans `accueil.html`."},
-                {"lines": "44-51", "text": "Route API `@app.get('/api/bonjour')` : retourne un dictionnaire Python converti nativement en JSON par FastAPI."},
-                {"lines": "55-60", "text": "Route RESTful de collection `@app.get('/api/v1/modules')`."},
-                {"lines": "63-77", "text": "Démarrage via `uvicorn.run(...)` si `--serve` est fourni, ou test immédiat en mémoire via `TestClient(app)`."}
+                {"lines": "16-18", "text": "Création de l'application ASGI `FastAPI` et initialisation de `Jinja2Templates` pointant vers `day_2/templates/`."},
+                {"lines": "31-42", "text": "Route Web `@app.get('/accueil', response_class=HTMLResponse)` : appelle `templates.TemplateResponse(...)` pour injecter le contexte dans `accueil.html`."},
+                {"lines": "46-53", "text": "Route API `@app.get('/api/bonjour')` : retourne un dictionnaire Python converti nativement en JSON par FastAPI."},
+                {"lines": "57-62", "text": "Route RESTful de collection `@app.get('/api/v1/modules')`."},
+                {"lines": "65-71", "text": "Portail Web interactif `@app.get('/', response_class=HTMLResponse)` interrogeant `/api/bonjour` et `/api/v1/modules` via `fetch()`."},
+                {"lines": "74-86", "text": "Démarrage via `uvicorn.run(...)` ou test immédiat en mémoire via `TestClient(app)`."}
             ],
             "sandbox_preset": {
                 "label": "Tester la route GET /api/sandbox/bonjour",
@@ -85,10 +86,11 @@ DAY_2_DATA = {
             ],
             "code": _read("02_routes_et_parametres.py"),
             "line_explanations": [
-                {"lines": "26-34", "text": "Paramètre de chemin `{prenom}` validé par `Path(..., min_length=2)` et injecté dans `saluer_stagiaire(prenom: str)`."},
-                {"lines": "38-46", "text": "Paramètre typé `{stagiaire_id}: int = Path(..., ge=1)` retournant la ressource en JSON ou levant `HTTPException(status_code=404)`."},
-                {"lines": "50-62", "text": "Même paramètre `{stagiaire_id}: int` utilisé pour rendre la fiche HTML Jinja2 `day_2/templates/fiche_stagiaire.html` via `templates.TemplateResponse`."},
-                {"lines": "66-77", "text": "Extraction et validation déclarative des Query Parameters `?ht=...&taux=...` via `Query(default=..., gt=0)`."}
+                {"lines": "30-38", "text": "Paramètre de chemin `{prenom}` validé par `Path(..., min_length=2)` et injecté dans `saluer_stagiaire(prenom: str)`."},
+                {"lines": "42-50", "text": "Paramètre typé `{stagiaire_id}: int = Path(..., ge=1)` retournant la ressource en JSON ou levant `HTTPException(status_code=404)`."},
+                {"lines": "54-66", "text": "Même paramètre `{stagiaire_id}: int` utilisé pour rendre la fiche HTML Jinja2 `day_2/templates/fiche_stagiaire.html` via `templates.TemplateResponse`."},
+                {"lines": "70-81", "text": "Extraction et validation déclarative des Query Parameters `?ht=...&taux=...` via `Query(default=..., gt=0)`."},
+                {"lines": "84-90", "text": "Portail Web interactif sur `GET /` (`portail_02_routes.html`) exposant l'ensemble des routes paramétrées."}
             ],
             "sandbox_preset": {
                 "label": "Tester GET /api/sandbox/calcul-tva?ht=2500&taux=19",
@@ -127,10 +129,11 @@ DAY_2_DATA = {
             ],
             "code": _read("05_jinja_et_formulaires_html.py"),
             "line_explanations": [
-                {"lines": "19-21", "text": "Initialisation de `FastAPI` et de `Jinja2Templates` pointant vers `day_2/templates/`."},
-                {"lines": "39-64", "text": "Routes `/formations` (GET et POST) gérant aussi bien un formulaire HTML (`await request.form()`) qu'un appel API JSON (`await request.json()`)."},
-                {"lines": "89-99", "text": "`templates.TemplateResponse(request=request, name='formations.html', ...)` rend le gabarit Jinja2 avec le code HTTP approprié (`200` ou `422`)."},
-                {"lines": "105-122", "text": "Route `POST /formations/upload-syllabus` combinant `Form(...)` et `UploadFile = File(...)` avec nettoyage anti-Path Traversal du nom de fichier."}
+                {"lines": "21-23", "text": "Initialisation de `FastAPI` et de `Jinja2Templates` pointant vers `day_2/templates/`."},
+                {"lines": "42-70", "text": "Routes `/formations` (GET et POST) gérant aussi bien un formulaire HTML (`await request.form()`) qu'un appel API JSON (`await request.json()`)."},
+                {"lines": "100-110", "text": "`templates.TemplateResponse(request=request, name='formations.html', ...)` rend le gabarit Jinja2 avec le code HTTP approprié (`200` ou `422`)."},
+                {"lines": "116-134", "text": "Route `POST /formations/upload-syllabus` combinant `Form(...)` et `UploadFile = File(...)` avec nettoyage anti-Path Traversal du nom de fichier."},
+                {"lines": "137-143", "text": "Portail Web interactif sur `GET /` (`portail_05_formulaires.html`) testant `POST /formations` et l'upload multipart."}
             ],
             "sandbox_preset": {
                 "label": "Tester POST /api/sandbox/formulaire-formation (Form FastAPI)",
@@ -169,10 +172,11 @@ DAY_2_DATA = {
             ],
             "code": _read("03_pagination_filtrage_tri.py"),
             "line_explanations": [
-                {"lines": "24-28", "text": "Modèle Pydantic `FormationCreation` définissant les contraintes sur `code`, `titre`, `duree_jours` et `salle`."},
-                {"lines": "31-39", "text": "Signature déclarative avec `Query(ge=1, le=50)` et `Literal['id', 'duree_jours', 'titre']`."},
-                {"lines": "41-68", "text": "Filtrage, tri dynamique et découpage de la page avec retour de l'enveloppe normalisée `meta` + `data`."},
-                {"lines": "71-76", "text": "Route `@app.post('/api/v1/formations', status_code=status.HTTP_201_CREATED)` validant automatiquement le corps JSON via `FormationCreation`."}
+                {"lines": "31-35", "text": "Modèle Pydantic `FormationCreation` définissant les contraintes sur `code`, `titre`, `duree_jours` et `salle`."},
+                {"lines": "38-46", "text": "Signature déclarative avec `Query(ge=1, le=50)` et `Literal['id', 'duree_jours', 'titre']`."},
+                {"lines": "48-74", "text": "Filtrage, tri dynamique et découpage de la page avec retour de l'enveloppe normalisée `meta` + `data`."},
+                {"lines": "77-83", "text": "Route `@app.post('/api/v1/formations', status_code=status.HTTP_201_CREATED)` validant automatiquement le corps JSON via `FormationCreation`."},
+                {"lines": "86-92", "text": "Portail Web interactif sur `GET /` (`portail_03_pagination.html`) pilotant la recherche, le tri et la création via `fetch()`."}
             ],
             "sandbox_preset": {
                 "label": "Tester la Pagination & le Tri : GET /api/sandbox/formations?page=1&limit=2&tri=duree_jours&ordre=desc",
@@ -211,9 +215,10 @@ DAY_2_DATA = {
             ],
             "code": _read("04_middlewares_et_audit_log.py"),
             "line_explanations": [
-                {"lines": "16-21", "text": "Phase aller du middleware `@app.middleware('http')` : démarre `time.perf_counter()` et stocke l'ID de corrélation dans `request.state.request_id`."},
-                {"lines": "24", "text": "`reponse = await call_next(request)` passe le relais à la route FastAPI ciblée et attend sa réponse de manière asynchrone."},
-                {"lines": "27-33", "text": "Phase retour : calcule la durée en ms, injecte `X-Request-ID`, `X-Response-Time-Ms` et `X-Content-Type-Options: nosniff`, puis écrit la trace `[AUDIT ASGI]`."}
+                {"lines": "22-27", "text": "Phase aller du middleware `@app.middleware('http')` : démarre `time.perf_counter()` et stocke l'ID de corrélation dans `request.state.request_id`."},
+                {"lines": "30", "text": "`reponse = await call_next(request)` passe le relais à la route FastAPI ciblée et attend sa réponse de manière asynchrone."},
+                {"lines": "33-39", "text": "Phase retour : calcule la durée en ms, injecte `X-Request-ID`, `X-Response-Time-Ms` et `X-Content-Type-Options: nosniff`, puis écrit la trace `[AUDIT ASGI]`."},
+                {"lines": "51-57", "text": "Portail Web interactif sur `GET /` (`portail_04_middlewares.html`) affichant en direct les en-têtes injectés par le middleware."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_2/04_middlewares_et_audit_log.py` pour observer le middleware ASGI `@app.middleware('http')` en action :",

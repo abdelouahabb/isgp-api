@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 3.1 — Validation Entrante &amp; Erreurs RFC 7807 (422)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 960px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 8px; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; margin-right: 6px; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 3.1 — CRUD en Memoire &amp; Validation Metier RFC 7807 (422)</h1></header>
+  <main>
+    <div class="card">
+      <h2>Creer une Formation (POST /api/v1/formations)</h2>
+      <input id="titre" type="text" value="Architecture Microservices Tornado" style="width:92%;" />
+      <input id="jours" type="number" value="4" style="width:80px;" />
+      <input id="salle" type="text" value="Salle C" style="width:120px;" /><br />
+      <button type="button" onclick="envoyer(false)">POST Valide (201)</button>
+      <button type="button" class="err" onclick="envoyer(true)">Simuler Payload Invalide (422 RFC 7807)</button>
+    </div>
+    <div class="card">
+      <h2>Catalogue Actuel (GET /api/v1/formations)</h2>
+      <ul id="liste"></ul>
+    </div>
+    <pre id="sortie"></pre>
+  </main>
+  <script>
+    async function charger() {
+      const rep = await fetch("/api/v1/formations");
+      const json = await rep.json();
+      const ul = document.getElementById("liste");
+      ul.innerHTML = "";
+      for (const f of json.donnees) {
+        ul.innerHTML += `<li>#${f.id} — <strong>${f.titre}</strong> (${f.duree_jours}j, ${f.salle})</li>`;
+      }
+    }
+    async function envoyer(invalide) {
+      const corps = invalide
+        ? { titre: "AB", duree_jours: -5 }
+        : { titre: document.getElementById("titre").value, duree_jours: Number(document.getElementById("jours").value), salle: document.getElementById("salle").value };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status} (${rep.headers.get("Content-Type")})\n` + JSON.stringify(await rep.json(), null, 2);
+      charger();
+    }
+    charger();
+  </script>
+</body>
+</html>

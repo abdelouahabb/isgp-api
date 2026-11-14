@@ -6,13 +6,17 @@ import os
 import sys
 from typing import Optional
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBearer
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Bearer Tokens Signés & HTTPBearer", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 SECRET_KEY = os.environ.get("API_SECRET_KEY", "secret-signature-isgp-2026")
 signer = URLSafeTimedSerializer(SECRET_KEY)
 schema_bearer = HTTPBearer(auto_error=False)
@@ -61,8 +65,18 @@ async def profil_protege(donnees_utilisateur: dict = Depends(extraire_utilisateu
     return {"acces": "Token vérifié", "profil": donnees_utilisateur}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_bearer(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_02_bearer.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     r_tok = client.post("/api/auth/token", json={"identifiant": "stagiaire", "mot_de_passe": "isgp2026"})
     jeton = r_tok.json()["access_token"]
     print("1. Jeton émis :", jeton[:36] + "...")

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 5.4 - Tests Automatises & Calculateur TVA (API + Formulaire)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    input { padding: 0.48rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.85rem; }
+    .btn-err { background: #b91c1c; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 130px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 5.4 — Calculateur TVA : API JSON Pydantic vs Formulaire HTML</h1>
+    <div class="ligne">
+      <input id="ht" type="number" value="1000" style="width:110px;">
+      <button type="button" onclick="calculer(Number(document.getElementById('ht').value))">POST /api/calcul-taxe</button>
+      <button type="button" class="btn-err" onclick="calculer(-50)">Tester Montant Negatif (422)</button>
+      <a class="btn" href="/formulaire-taxe">Formulaire HTML (/formulaire-taxe)</a>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Pret.</pre>
+  </main>
+  <script>
+    async function calculer(montant_ht) {
+      const rep = await fetch("/api/calcul-taxe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ montant_ht }) });
+      document.getElementById("sortie").textContent = `POST /api/calcul-taxe (montant_ht=${montant_ht}) -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    calculer(1000);
+  </script>
+</body>
+</html>

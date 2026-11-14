@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 2.3 : Pagination, Filtrage &amp; Tri</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+    select, input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+    th { background: #f1f5f9; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 2.3 : Filtrage, Tri Dynamique et Pagination (/api/v1/formations)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="controls">
+        <select id="salle">
+          <option value="">Toutes les salles</option>
+          <option value="Salle A">Salle A</option>
+          <option value="Salle B">Salle B</option>
+          <option value="Labo 1">Labo 1</option>
+        </select>
+        <input id="min_jours" type="number" value="1" min="1" max="10" style="width:70px;" title="Duree min" />
+        <select id="tri">
+          <option value="id">Tri : id</option>
+          <option value="duree_jours">Tri : duree_jours</option>
+          <option value="titre">Tri : titre</option>
+        </select>
+        <select id="ordre">
+          <option value="asc">Croissant (asc)</option>
+          <option value="desc">Decroissant (desc)</option>
+        </select>
+        <input id="page" type="number" value="1" min="1" style="width:65px;" />
+        <input id="limit" type="number" value="3" min="1" max="10" style="width:65px;" />
+        <button onclick="charger()">Rechercher via fetch()</button>
+      </div>
+      <div id="url_appelee" style="font-weight:600; margin-bottom:8px;"></div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Jours</th><th>Salle</th></tr></thead>
+        <tbody id="lignes"></tbody>
+      </table>
+      <pre id="brut">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function charger() {
+      const p = new URLSearchParams({
+        salle: document.getElementById("salle").value,
+        min_jours: document.getElementById("min_jours").value,
+        tri: document.getElementById("tri").value,
+        ordre: document.getElementById("ordre").value,
+        page: document.getElementById("page").value,
+        limit: document.getElementById("limit").value,
+      });
+      const url = `/api/v1/formations?${p.toString()}`;
+      const r = await fetch(url);
+      const json = await r.json();
+      document.getElementById("url_appelee").textContent = `GET ${url} -> HTTP ${r.status} (Page ${json.meta.page_actuelle}/${json.meta.total_pages})`;
+      document.getElementById("lignes").innerHTML = json.data.map(f =>
+        `<tr><td>${f.id}</td><td>${f.code}</td><td>${f.titre}</td><td>${f.duree_jours}</td><td>${f.salle}</td></tr>`
+      ).join("");
+      document.getElementById("brut").textContent = JSON.stringify(json, null, 2);
+    }
+    charger();
+  </script>
+</body>
+</html>

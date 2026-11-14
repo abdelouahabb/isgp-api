@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_page }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 4px 0 0; opacity: 0.88; font-size: 0.9rem; }
+    main { max-width: 1080px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    input, select, button { padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.88rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.warn { background: #b45309; }
+    button.danger { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2e8f0; }
+    .rfc-banner { display: none; background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d; padding: 14px; border-radius: 8px; margin-bottom: 16px; grid-column: 1 / -1; }
+    .ok-banner { display: none; background: #ecfdf5; border: 1px solid #059669; color: #065f46; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; grid-column: 1 / -1; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ titre_page }}</h1>
+    <p>Etape 3 / 6 — CRUD Complet (POST, PUT, PATCH, DELETE) &amp; Validation Metier RFC 7807 (application/problem+json)</p>
+  </header>
+  <main>
+    <div id="rfc-banner" class="rfc-banner">
+      <strong id="rfc-title">Erreur 422 RFC 7807</strong>
+      <div id="rfc-detail" style="margin-top:4px; font-size:0.9rem;"></div>
+      <ul id="rfc-errors" style="margin:6px 0 0; padding-left:20px; font-size:0.86rem;"></ul>
+    </div>
+    <div id="ok-banner" class="ok-banner"></div>
+
+    <div class="card">
+      <h2>Catalogue Interactif CRUD</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Jours</th><th>Tarif</th><th>Actions</th></tr></thead>
+        <tbody id="tbody-crud"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Formulaire Creation (POST) / Edition (PUT &amp; PATCH)</h2>
+      <div class="grid-form">
+        <input id="f-id" type="number" placeholder="ID (pour PUT/PATCH)" />
+        <input id="f-code" type="text" placeholder="Code ex: ISGP-501" value="ISGP-501" />
+        <input id="f-titre" type="text" placeholder="Titre (min 4 car.)" value="Architecture Event-Driven Tornado" style="grid-column: 1 / -1;" />
+        <select id="f-domaine">
+          <option value="Architecture">Architecture</option>
+          <option value="Backend">Backend</option>
+          <option value="Data">Data</option>
+          <option value="Securite">Securite</option>
+          <option value="DevOps">DevOps</option>
+        </select>
+        <input id="f-jours" type="number" placeholder="Duree (1-30)" value="4" />
+        <input id="f-tarif" type="number" placeholder="Tarif DZD (>=0)" value="62000" style="grid-column: 1 / -1;" />
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" onclick="creerFormation()">POST Creer</button>
+        <button type="button" onclick="remplacerPut()">PUT Remplacer</button>
+        <button type="button" class="warn" onclick="modifierPatch()">PATCH Tarif +5000</button>
+        <button type="button" class="danger" onclick="simulerErreur422()">Tester 422 RFC 7807</button>
+      </div>
+      <pre id="journal-http">{ "info": "Journal des reponses HTTP (201, 200, 204, 422 problem+json)" }</pre>
+    </div>
+  </main>
+  <script>
+    function afficherRetour(rep, payload) {
+      document.getElementById("journal-http").textContent =
+        `HTTP ${rep.status} (${rep.headers.get("Content-Type") || "sans corps"})\n` +
+        (payload ? JSON.stringify(payload, null, 2) : "");
+      const rfc = document.getElementById("rfc-banner");
+      const ok = document.getElementById("ok-banner");
+      if (rep.status >= 400 && payload && payload.title) {
+        ok.style.display = "none";
+        rfc.style.display = "block";
+        document.getElementById("rfc-title").textContent = `[HTTP ${payload.status}] ${payload.title} (${payload.type})`;
+        document.getElementById("rfc-detail").textContent = payload.detail || "";
+        const ul = document.getElementById("rfc-errors");
+        ul.innerHTML = "";
+        for (const [champ, msg] of Object.entries(payload.errors || {})) {
+          const li = document.createElement("li");
+          li.textContent = `${champ} : ${msg}`;
+          ul.appendChild(li);
+        }
+      } else {
+        rfc.style.display = "none";
+        ok.style.display = "block";
+        ok.textContent = `Operation reussie : HTTP ${rep.status}`;
+      }
+    }
+    async function rafraichir() {
+      const rep = await fetch("/api/v1/formations?limit=25");
+      const json = await rep.json();
+      const tbody = document.getElementById("tbody-crud");
+      tbody.innerHTML = "";
+      for (const f of json.data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>#${f.id}</td><td><strong>${f.code}</strong></td><td>${f.titre}</td><td>${f.duree_jours}j</td><td>${f.tarif_dzd}</td>
+          <td><button type="button" onclick="preremplir(${f.id}, '${f.code}', '${f.titre.replace(/'/g, "\\'")}', '${f.domaine}', ${f.duree_jours}, ${f.tarif_dzd})">Editer</button>
+          <button type="button" class="danger" onclick="supprimer(${f.id})">Suppr.</button></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    function preremplir(id, code, titre, domaine, jours, tarif) {
+      document.getElementById("f-id").value = id;
+      document.getElementById("f-code").value = code;
+      document.getElementById("f-titre").value = titre;
+      document.getElementById("f-domaine").value = domaine;
+      document.getElementById("f-jours").value = jours;
+      document.getElementById("f-tarif").value = tarif;
+    }
+    function lireFormulaire() {
+      return {
+        code: document.getElementById("f-code").value,
+        titre: document.getElementById("f-titre").value,
+        domaine: document.getElementById("f-domaine").value,
+        duree_jours: Number(document.getElementById("f-jours").value),
+        tarif_dzd: Number(document.getElementById("f-tarif").value)
+      };
+    }
+    async function creerFormation() {
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(lireFormulaire()) });
+      afficherRetour(rep, await rep.json());
+      rafraichir();
+    }
+    async function remplacerPut() {
+      const id = document.getElementById("f-id").value || 1;
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(lireFormulaire()) });
+      afficherRetour(rep, await rep.json());
+      rafraichir();
+    }
+    async function modifierPatch() {
+      const id = document.getElementById("f-id").value || 1;
+      const nouveauTarif = Number(document.getElementById("f-tarif").value) + 5000;
+      document.getElementById("f-tarif").value = nouveauTarif;
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ tarif_dzd: nouveauTarif }) });
+      afficherRetour(rep, await rep.json());
+      rafraichir();
+    }
+    async function supprimer(id) {
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "DELETE" });
+      afficherRetour(rep, rep.status === 204 ? null : await rep.json());
+      rafraichir();
+    }
+    async function simulerErreur422() {
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ code: "X", titre: "AB", duree_jours: 99, tarif_dzd: -10 }) });
+      afficherRetour(rep, await rep.json());
+    }
+    rafraichir();
+  </script>
+</body>
+</html>

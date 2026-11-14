@@ -1,12 +1,14 @@
 import os
+import sys
 # Fichier : day_3/03_put_patch_et_idempotence.py
 # Exécution : .venv/bin/python day_3/03_put_patch_et_idempotence.py
 # Objectif : Différencier PUT (remplacement complet) de PATCH (modification partielle)
 #            et sécuriser POST contre les doublons avec l'en-tête Idempotency-Key.
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 formations = {
     1: {"id": 1, "titre": "Architecture des APIs REST", "duree_jours": 5, "salle": "Salle A"}
@@ -70,8 +72,20 @@ def modifier_partiellement_patch(id):
             actuelle[champ] = corps[champ]
     return jsonify({"methode": "PATCH (mise à jour partielle)", "formation": actuelle}), 200
 
+
+@app.route("/api/v1/formations", methods=["GET"])
+def lister_formations_idem():
+    return jsonify({"donnees": list(formations.values())}), 200
+
+
+@app.route("/", methods=["GET"])
+def index_idempotence():
+    return render_template("index_03_idempotence.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         r1 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
         r2 = client.post("/api/v1/formations", json={"titre": "Audit API"}, headers={"Idempotency-Key": "idem-001"})
         print("1. Premier POST (201) :", r1.status_code, r1.get_json())

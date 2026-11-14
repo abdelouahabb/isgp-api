@@ -53,11 +53,11 @@ DAY_2_DATA = {
             ],
             "code": _read("01_serveur_minimal_tornado.py"),
             "line_explanations": [
-                {"lines": "29-37", "text": "`AccueilHandler` : la méthode `get(self)` appelle `self.render('accueil.html', ...)` pour compiler et servir le gabarit `tornado.template`."},
-                {"lines": "41-48", "text": "`BonjourApiHandler` : passer un `dict` à `self.write({...})` génère automatiquement une réponse JSON (`application/json; charset=UTF-8`, statut `200`)."},
-                {"lines": "52-57", "text": "`ModulesCollectionHandler` : expose la collection RESTful `/api/v1/modules`."},
-                {"lines": "60-68", "text": "`make_app()` instancie `tornado.web.Application` avec la table de routage `(regex, HandlerClass)` et `template_path`."},
-                {"lines": "71-96", "text": "Démonstration asynchrone non-bloquante (`AsyncHTTPClient`) ou démarrage du serveur avec `app.listen(8889)` et `IOLoop.current().start()`."}
+                {"lines": "29-38", "text": "`AccueilHandler` : la méthode `get(self)` appelle `self.render('accueil.html', ...)` pour compiler et servir le gabarit `tornado.template`."},
+                {"lines": "41-49", "text": "`BonjourApiHandler` : passer un `dict` à `self.write({...})` génère automatiquement une réponse JSON (`application/json; charset=UTF-8`, statut `200`)."},
+                {"lines": "52-58", "text": "`ModulesCollectionHandler` : expose la collection RESTful `/api/v1/modules`."},
+                {"lines": "66-75", "text": "`make_app()` instancie `tornado.web.Application` avec la table de routage `(regex, HandlerClass)` et `template_path`."},
+                {"lines": "78-102", "text": "Démonstration asynchrone non-bloquante (`AsyncHTTPClient`) ou démarrage du serveur avec `app.listen(8889)` et `IOLoop.current().start()`."}
             ],
             "sandbox_preset": {
                 "label": "Tester la route GET /api/sandbox/bonjour",

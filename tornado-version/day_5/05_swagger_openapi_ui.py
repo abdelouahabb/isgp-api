@@ -12,6 +12,7 @@ Objectif :
 """
 
 import asyncio
+import hmac
 import json
 import os
 import tornado.escape
@@ -20,7 +21,7 @@ import tornado.httpserver
 import tornado.netutil
 import tornado.web
 
-RACINE_PROJET = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 
 # Base de données simulée en mémoire
 FORMATIONS = [
@@ -47,7 +48,7 @@ def construire_contrat_openapi():
             "contact": {"name": "Direction des Systèmes d'Information ISGP"},
         },
         "servers": [
-            {"url": "http://127.0.0.1:8888", "description": "Serveur Tornado de développement local"},
+            {"url": "/", "description": "Serveur Tornado actif"},
             {"url": "https://api.isgp.dz", "description": "Serveur de production"},
         ],
         "tags": [
@@ -224,6 +225,25 @@ class FormationsListHandler(tornado.web.RequestHandler):
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.write(json.dumps(resultat, ensure_ascii=False))
 
+    def post(self):
+        cle = self.request.headers.get("X-API-Key", "")
+        if not hmac.compare_digest(cle, "isgp-secret-2026"):
+            self.set_status(401)
+            self.write({"erreur": "Clé X-API-Key manquante ou invalide"})
+            return
+        corps = tornado.escape.json_decode(self.request.body or b"{}")
+        titre = str(corps.get("titre", "")).strip()
+        duree = int(corps.get("duree_jours", 0))
+        tarif = int(corps.get("tarif_dzd", -1))
+        if len(titre) < 3 or not (1 <= duree <= 30) or tarif < 0:
+            self.set_status(422)
+            self.write({"type": "https://api.isgp.dz/errors/validation", "title": "Erreur de validation métier", "status": 422, "detail": "Champs invalides."})
+            return
+        nouvelle = {"id": max(f["id"] for f in FORMATIONS) + 1, "code": str(corps.get("code", "API-NEW")), "titre": titre, "duree_jours": duree, "tarif_dzd": tarif}
+        FORMATIONS.append(nouvelle)
+        self.set_status(201)
+        self.write(nouvelle)
+
 
 class FormationDetailHandler(tornado.web.RequestHandler):
     def get(self, id_str):
@@ -236,15 +256,21 @@ class FormationDetailHandler(tornado.web.RequestHandler):
         self.write({"erreur": f"Formation #{fid} introuvable"})
 
 
+class PortailOpenApiHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d5_05.html")
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailOpenApiHandler),
             (r"/api/openapi.json", OpenApiSpecHandler),
             (r"/api/docs", SwaggerUiHandler),
             (r"/api/v1/formations", FormationsListHandler),
             (r"/api/v1/formations/([0-9]+)", FormationDetailHandler),
         ],
-        template_path=os.path.join(RACINE_PROJET, "templates"),
+        template_path=os.path.join(DOSSIER_COURANT, "templates"),
     )
 
 

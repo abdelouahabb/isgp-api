@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 5.5 : Contrat OpenAPI &amp; Portail Swagger UI</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    button, a.btn { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.88rem; }
+    a.btn { background: #0f766e; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.84rem; max-height: 420px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 5.5 : Specification OpenAPI 3.0 (/api/openapi.json) &amp; Swagger UI (/api/docs)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <a class="btn" href="/api/docs" target="_blank">Ouvrir Swagger UI Interactif (/api/docs)</a>
+        <button onclick="charger('/api/v1/formations')">GET /api/v1/formations</button>
+        <button onclick="charger('/api/v1/formations/1')">GET /api/v1/formations/1</button>
+        <button onclick="charger('/api/openapi.json')">Inspecter /api/openapi.json</button>
+      </div>
+      <pre id="sortie">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function charger(url) {
+      const r = await fetch(url);
+      document.getElementById("sortie").textContent = `GET ${url} -> HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+    }
+    charger("/api/v1/formations");
+  </script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ titre_page }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    header h1 { margin: 0; font-size: 1.28rem; }
+    header p { margin: 4px 0 0; opacity: 0.88; font-size: 0.88rem; }
+    main { max-width: 1120px; margin: 20px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    input, select, button { padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.86rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.sec { background: #475569; }
+    button.warn { background: #b45309; }
+    button.danger { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ titre_page }}</h1>
+    <p>Etape 5 / 6 — Cookies Signes Tornado (HttpOnly, SameSite=Lax), Bearer HMAC-SHA256, 401 vs 403 RBAC &amp; Rate-Limit 429</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>1. Authentification &amp; Inspecteur d'Identite</h2>
+      <div class="row">
+        <select id="compte" onchange="majCompte()">
+          <option value="stagiaire">Compte : stagiaire (role=stagiaire, mdp=isgp2026)</option>
+          <option value="admin">Compte : admin (role=admin, mdp=admin2026)</option>
+        </select>
+      </div>
+      <div class="row">
+        <button type="button" onclick="emettreBearer()">POST /api/v1/auth/token (Bearer HMAC)</button>
+        <button type="button" class="sec" onclick="connexionCookie()">Cookie HttpOnly (SameSite=Lax)</button>
+        <button type="button" class="danger" onclick="deconnexion()">Revoquer Session / Token</button>
+      </div>
+      <div class="row">
+        <button type="button" onclick="inspecterSession()">Inspecter Identite (/api/v1/auth/session)</button>
+        <button type="button" class="warn" onclick="testerRafale429()">Rafale Rate-Limit (429 Retry-After)</button>
+      </div>
+      <div style="font-size:0.8rem; color:#334155; margin-bottom:6px;">Jeton Bearer actif en memoire JS :</div>
+      <input id="champ-token" type="text" placeholder="Aucun Bearer Token actif (401 si pas de cookie)" style="width:95%; margin-bottom:8px;" />
+      <pre id="sortie-sec">{ "astuce": "Connectez-vous en stagiaire (403 sur POST) puis en admin (201 sur POST)." }</pre>
+    </div>
+
+    <div class="card">
+      <h2>2. Actions Protegees RBAC sur le Catalogue SQLite WAL</h2>
+      <div class="row">
+        <input id="c-code" type="text" value="ISGP-SEC-505" style="width:120px;" />
+        <input id="c-titre" type="text" value="Audit Zero-Trust & Hardening API" style="flex:1;" />
+        <input id="c-tarif" type="number" value="68000" style="width:95px;" />
+        <button type="button" onclick="creerProtege()">POST (Admin requis)</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Code</th><th>Titre</th><th>Domaine</th><th>Tarif</th><th>Admin</th></tr></thead>
+        <tbody id="tbody-sec"></tbody>
+      </table>
+    </div>
+  </main>
+  <script>
+    function creds() {
+      const c = document.getElementById("compte").value;
+      return c === "admin" ? { identifiant: "admin", mot_de_passe: "admin2026" } : { identifiant: "stagiaire", mot_de_passe: "isgp2026" };
+    }
+    function majCompte() {}
+    function entetesAuth(extra = {}) {
+      const tok = document.getElementById("champ-token").value.trim();
+      const h = { ...extra };
+      if (tok) h["Authorization"] = "Bearer " + tok;
+      return h;
+    }
+    function journaliser(rep, data) {
+      const rl = rep.headers.get("X-RateLimit-Remaining");
+      const ra = rep.headers.get("Retry-After");
+      const wa = rep.headers.get("WWW-Authenticate");
+      let meta = `HTTP ${rep.status}`;
+      if (rl !== null) meta += ` | X-RateLimit-Remaining=${rl}`;
+      if (ra) meta += ` | Retry-After=${ra}s`;
+      if (wa) meta += ` | WWW-Authenticate=${wa}`;
+      document.getElementById("sortie-sec").textContent = meta + "\n" + (data ? JSON.stringify(data, null, 2) : "");
+    }
+    async function emettreBearer() {
+      const rep = await fetch("/api/v1/auth/token", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(creds()) });
+      const data = await rep.json();
+      if (data.access_token) document.getElementById("champ-token").value = data.access_token;
+      journaliser(rep, data);
+    }
+    async function connexionCookie() {
+      const rep = await fetch("/api/v1/auth/cookie-login", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(creds()) });
+      journaliser(rep, await rep.json());
+    }
+    async function deconnexion() {
+      document.getElementById("champ-token").value = "";
+      const rep = await fetch("/api/v1/auth/logout", { method: "POST" });
+      journaliser(rep, await rep.json());
+    }
+    async function inspecterSession() {
+      const rep = await fetch("/api/v1/auth/session", { headers: entetesAuth() });
+      journaliser(rep, await rep.json());
+    }
+    async function creerProtege() {
+      const corps = {
+        code: document.getElementById("c-code").value + "-" + Math.floor(Math.random() * 90 + 10),
+        titre: document.getElementById("c-titre").value,
+        domaine: "Securite",
+        duree_jours: 4,
+        tarif_dzd: Number(document.getElementById("c-tarif").value)
+      };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: entetesAuth({"Content-Type": "application/json"}), body: JSON.stringify(corps) });
+      journaliser(rep, await rep.json());
+      chargerFormations();
+    }
+    async function supprimerProtege(id) {
+      const rep = await fetch(`/api/v1/formations/${id}`, { method: "DELETE", headers: entetesAuth() });
+      journaliser(rep, rep.status === 204 ? { supprime: id } : await rep.json());
+      chargerFormations();
+    }
+    async function testerRafale429() {
+      let dernierRep = null, dernierData = null;
+      for (let i = 0; i < 9; i++) {
+        dernierRep = await fetch("/api/v1/formations?limit=2", { headers: {"X-Client-Bucket": "demo-rafale"} });
+        dernierData = await dernierRep.json();
+        if (dernierRep.status === 429) break;
+      }
+      journaliser(dernierRep, dernierData);
+    }
+    async function chargerFormations() {
+      const rep = await fetch("/api/v1/formations?limit=25");
+      if (rep.status !== 200) return;
+      const json = await rep.json();
+      const tbody = document.getElementById("tbody-sec");
+      tbody.innerHTML = "";
+      for (const f of json.data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>#${f.id}</td><td><strong>${f.code}</strong></td><td>${f.titre}</td><td>${f.domaine}</td><td>${f.tarif_dzd}</td>
+          <td><button type="button" class="danger" onclick="supprimerProtege(${f.id})">DELETE</button></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    chargerFormations();
+  </script>
+</body>
+</html>

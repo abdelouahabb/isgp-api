@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 5.5 — Contrat OpenAPI 3.0.3 &amp; Portail Swagger UI Tornado</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    header a { color: #fff; background: #2563eb; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
+    main { max-width: 980px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 9px 14px; font-weight: 600; cursor: pointer; margin: 4px 6px 8px 0; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.83rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Jour 5.5 — Contrat OpenAPI 3.0.3 &amp; Documentation Swagger UI (Tornado)</h1>
+    <a href="/api/docs">Ouvrir Swagger UI (/api/docs)</a>
+  </header>
+  <main>
+    <div class="card">
+      <p>Explorez les points de terminaison documentes par le contrat OpenAPI :</p>
+      <button type="button" onclick="charger('/api/v1/formations')">GET /api/v1/formations</button>
+      <button type="button" onclick="charger('/api/v1/formations/1')">GET /api/v1/formations/1</button>
+      <button type="button" onclick="charger('/api/openapi.json')">GET /api/openapi.json (Contrat)</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function charger(url) {
+      const rep = await fetch(url);
+      document.getElementById("sortie").textContent = `GET ${url} -> HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    charger("/api/v1/formations");
+  </script>
+</body>
+</html>

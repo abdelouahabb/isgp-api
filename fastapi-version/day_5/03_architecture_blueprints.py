@@ -110,6 +110,15 @@ async def readiness_probe():
 # 5. APPLICATION FACTORY : Assemblage simultané de v1, v2, Web et Santé via app.include_router()
 def create_app() -> FastAPI:
     application = FastAPI(title="ISGP - Architecture Modulaire APIRouter (v1 & v2)", version="2.0.0")
+
+    @application.get("/", response_class=HTMLResponse, tags=["Portail Web HTML"])
+    async def portail_racine(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="portail_03_blueprints_home.html",
+            context={},
+        )
+
     application.include_router(web_router)
     application.include_router(formations_v1_router)
     application.include_router(formations_v2_router)
@@ -121,6 +130,7 @@ app = create_app()
 
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. APIROUTER v1 (AVEC EN-TÊTES DE DÉPRÉCIATION RFC 8594) ===")
     r1 = client.get("/api/v1/formations")
     print("Headers v1 :", {k: r1.headers[k] for k in ("x-api-version", "deprecation", "sunset", "link")})

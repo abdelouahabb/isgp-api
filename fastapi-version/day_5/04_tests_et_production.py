@@ -4,6 +4,7 @@
 #            sans ouvrir de port réseau grâce à TestClient(app), et préparer le déploiement Uvicorn / Gunicorn.
 
 import os
+import sys
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -57,9 +58,19 @@ async def calculer_taxe_formulaire(request: Request, montant_ht: float = Form(..
     )
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_tests_production(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_04_tests_home.html",
+        context={},
+    )
+
+
 # ================= SUITE DE TESTS AUTOMATISÉS (TestClient FastAPI : JSON + FORMULAIRE JINJA2) =================
 def executer_tests_automatises():
     client = TestClient(app)
+    assert client.get("/").status_code == 200
 
     # Test 1 : Appel API JSON nominal (json={...} -> Content-Type: application/json)
     rep_ok = client.post("/api/calcul-taxe", json={"montant_ht": 1000})
@@ -82,6 +93,6 @@ def executer_tests_automatises():
 
 if __name__ == "__main__":
     executer_tests_automatises()
-    # EN PRODUCTION ASGI :
-    # - Serveur Uvicorn multi-workers : uvicorn day_5.04_tests_et_production:app --host 0.0.0.0 --port 8000 --workers 4
-    # - Ou Gunicorn + UvicornWorker   : gunicorn -k uvicorn.workers.UvicornWorker -w 4 -b 0.0.0.0:8000 day_5.04_tests_et_production:app
+    if "--once" not in sys.argv:
+        import uvicorn
+        uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("PORT", 8001)))

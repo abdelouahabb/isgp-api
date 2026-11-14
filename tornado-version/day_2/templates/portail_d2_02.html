@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 2.2 — Routage Regex &amp; Query Parameters Tornado</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 960px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    input, button { padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; font-size: 0.88rem; margin: 4px 4px 4px 0; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 2.2 — Routage Regex Tornado &amp; Parametres d'URL</h1></header>
+  <main>
+    <div class="card">
+      <h2>1. Groupes Capturants Regex</h2>
+      <div>
+        <input id="prenom" type="text" value="Yasmine" />
+        <button type="button" onclick="tester('/api/saluer/' + encodeURIComponent(document.getElementById('prenom').value))">GET /api/saluer/([^/]+)</button>
+      </div>
+      <div style="margin-top:10px;">
+        <input id="sid" type="number" value="1" style="width:70px;" />
+        <button type="button" onclick="tester('/api/v1/stagiaires/' + document.getElementById('sid').value)">JSON Stagiaire</button>
+        <a href="/stagiaires/1/fiche" target="_blank" style="font-size:0.86rem;">Fiche HTML #1</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>2. Query Parameters (?ht=&amp;taux=)</h2>
+      <input id="ht" type="number" value="2500" style="width:100px;" />
+      <input id="taux" type="number" value="19" style="width:75px;" />
+      <button type="button" onclick="tester(`/api/calcul-tva?ht=${document.getElementById('ht').value}&taux=${document.getElementById('taux').value}`)">Calculer TVA</button>
+    </div>
+    <pre id="sortie"></pre>
+  </main>
+  <script>
+    async function tester(url) {
+      const rep = await fetch(url);
+      const data = await rep.json();
+      document.getElementById("sortie").textContent = `GET ${url} -> HTTP ${rep.status}\n` + JSON.stringify(data, null, 2);
+    }
+    tester("/api/saluer/Yasmine");
+  </script>
+</body>
+</html>

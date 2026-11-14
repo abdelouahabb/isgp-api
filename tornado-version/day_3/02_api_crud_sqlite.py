@@ -158,9 +158,15 @@ class FormationSqliteDetailHandler(tornado.web.RequestHandler):
         self.write({"message": f"Formation ID {formation_id} supprimée"})
 
 
+class PortailSqliteHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d3_02.html")
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailSqliteHandler),
             (r"/formations-sqlite", CatalogueSqlitePageHandler),
             (r"/api/formations", FormationsSqliteApiHandler),
             (r"/api/formations/([0-9]+)", FormationSqliteDetailHandler),

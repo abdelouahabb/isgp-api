@@ -6,10 +6,12 @@ import sys
 
 import hashlib
 import hmac
+import json
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(DOSSIER_COURANT, "templates"))
 
 # 1. PROTECTION ANTI-SATURATION MÉMOIRE : Limite la taille maximale du Body à 1 Mo (413 Payload Too Large)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024
@@ -49,8 +51,22 @@ def recevoir_webhook_paiement():
     evenement = request.get_json(silent=True) or {}
     return jsonify({"statut": "Webhook authentifié et traité", "evenement": evenement}), 200
 
+
+@app.route("/api/webhooks/signer-demo", methods=["POST"])
+def signer_corps_demo():
+    corps_brut = request.get_data()
+    sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), corps_brut, hashlib.sha256).hexdigest()
+    return jsonify({"signature": sig}), 200
+
+
+@app.route("/", methods=["GET"])
+def index_webhooks():
+    return render_template("index_05_webhooks.html"), 200
+
+
 if __name__ == "__main__":
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         corps = json.dumps({"facture_id": "FAC-2026-09", "montant_dzd": 45000}).encode("utf-8")
         sig = "sha256=" + hmac.new(WEBHOOK_SECRET.encode("utf-8"), corps, hashlib.sha256).hexdigest()
         r_ok = client.post(

@@ -15,7 +15,12 @@ let STATE = {
   activeQuizDay: 8,
   expandedDays: new Set([-1]),
   sidebarHidden: false,
-  deferredPwaPrompt: null
+  deferredPwaPrompt: null,
+  courseSearchQuery: "",
+  completedLessons: new Set(),
+  zeroToHeroData: null,
+  activeZeroStep: 1,
+  showZeroTemplate: false
 };
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -179,12 +184,60 @@ function getActiveFramework() {
   return window.ACTIVE_FRAMEWORK || "flask";
 }
 
+function restoreReadingProgress() {
+  const fw = getActiveFramework();
+  try {
+    const rawRead = localStorage.getItem(`isgp_read_lessons_${fw}`);
+    if (rawRead) {
+      const arr = JSON.parse(rawRead);
+      if (Array.isArray(arr)) STATE.completedLessons = new Set(arr);
+    }
+    const rawLast = localStorage.getItem(`isgp_last_lesson_${fw}`);
+    if (rawLast) {
+      const parsed = JSON.parse(rawLast);
+      const dayExists = (COURSE_DATA.days || []).find((d) => d.day_number === parsed.day);
+      const lessonExists = dayExists && (dayExists.lessons || []).find((l) => l.id === parsed.lessonId);
+      if (lessonExists) {
+        STATE.activeDay = parsed.day;
+        STATE.activeLessonId = parsed.lessonId;
+        STATE.expandedDays = new Set([parsed.day]);
+      }
+    }
+  } catch (e) {}
+}
+
+function saveLastViewedLesson(dayNumber, lessonId) {
+  const fw = getActiveFramework();
+  try {
+    localStorage.setItem(`isgp_last_lesson_${fw}`, JSON.stringify({ day: dayNumber, lessonId }));
+  } catch (e) {}
+}
+
+function toggleLessonCompleted(lessonId) {
+  const fw = getActiveFramework();
+  if (STATE.completedLessons.has(lessonId)) {
+    STATE.completedLessons.delete(lessonId);
+  } else {
+    STATE.completedLessons.add(lessonId);
+  }
+  try {
+    localStorage.setItem(`isgp_read_lessons_${fw}`, JSON.stringify(Array.from(STATE.completedLessons)));
+  } catch (e) {}
+  renderDaysSidebar();
+  renderActiveLesson();
+}
+
+function printCurrentChapter() {
+  window.print();
+}
+
 async function loadCourseData() {
   try {
     const fw = encodeURIComponent(getActiveFramework());
     const res = await fetch(`/api/course-data?framework=${fw}`);
     const data = await res.json();
     COURSE_DATA = data;
+    restoreReadingProgress();
     renderDaysSidebar();
     renderActiveLesson();
     renderFilesTree();
@@ -192,6 +245,7 @@ async function loadCourseData() {
     renderGlossary();
     renderQuizSelector();
     renderQuiz(STATE.activeQuizDay);
+    loadZeroToHeroTrack();
   } catch (err) {
     console.error("Erreur lors du chargement des données :", err);
     showToast("Mode hors-ligne : données chargées depuis le cache local.");
@@ -237,6 +291,9 @@ function switchTab(tabName) {
   if (tabName === "realtime") {
     loadAdvancedRealtimeTab();
   }
+  if (tabName === "runner") {
+    loadZeroToHeroTrack();
+  }
   if (tabName === "architecture") {
     loadArchitectureTab();
   }
@@ -259,21 +316,79 @@ function toggleDayGroup(dayNumber) {
   renderDaysSidebar();
 }
 
+function lessonMatchesQuery(lesson, q) {
+  if (!q) return true;
+  const hay = [
+    lesson.id || "",
+    lesson.title || "",
+    lesson.file || "",
+    lesson.context || "",
+    lesson.analogy?.title || "",
+    lesson.analogy?.text || "",
+    ...(lesson.explanation || []),
+    ...((lesson.deep_sections || []).map((s) => `${s.heading || ""} ${s.body || ""}`)),
+    lesson.code || ""
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
+}
+
+function onCourseSearchInput(val) {
+  STATE.courseSearchQuery = String(val || "").trim();
+  renderDaysSidebar();
+}
+
+function clearCourseSearch() {
+  const inp = document.getElementById("course-search-input");
+  if (inp) inp.value = "";
+  STATE.courseSearchQuery = "";
+  renderDaysSidebar();
+}
+
 function renderDaysSidebar() {
   const container = document.getElementById("days-nav-container");
   if (!container) return;
 
-  container.innerHTML = COURSE_DATA.days
+  const q = (STATE.courseSearchQuery || "").toLowerCase();
+  const allLessons = (COURSE_DATA.days || []).flatMap((d) => d.lessons || []);
+  const totalCount = allLessons.length || 1;
+  const doneCount = allLessons.filter((l) => STATE.completedLessons.has(l.id)).length;
+  const pct = Math.round((doneCount / totalCount) * 100);
+
+  const progEl = document.getElementById("course-progress-summary");
+  if (progEl) {
+    progEl.innerHTML = `
+      <div class="course-progress-row">
+        <span>Progression : <strong>${doneCount} / ${allLessons.length}</strong> chapitres validés</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="course-progress-track">
+        <div class="course-progress-fill" style="width:${pct}%"></div>
+      </div>
+    `;
+  }
+
+  let matchCount = 0;
+  const groupsHtml = COURSE_DATA.days
     .map((day) => {
+      const matchingLessons = (day.lessons || []).filter((l) => lessonMatchesQuery(l, q));
+      if (q && matchingLessons.length === 0) return "";
+      matchCount += matchingLessons.length;
+
       const isDayActive = day.day_number === STATE.activeDay;
-      const isExpanded = STATE.expandedDays.has(day.day_number);
-      const lessonsHtml = day.lessons
+      const isExpanded = q ? true : STATE.expandedDays.has(day.day_number);
+      const lessonsHtml = matchingLessons
         .map((lesson) => {
           const isLessonActive = lesson.id === STATE.activeLessonId;
+          const isDone = STATE.completedLessons.has(lesson.id);
+          const checkIcon = isDone
+            ? '<span class="lesson-done-mark" title="Chapitre terminé">&#10003;</span>'
+            : "";
           return `
-            <button class="lesson-nav-btn ${isLessonActive ? "active" : ""}"
+            <button class="lesson-nav-btn ${isLessonActive ? "active" : ""} ${isDone ? "lesson-done" : ""}"
                     onclick="selectLesson(${day.day_number}, '${lesson.id}')">
-              <span>${formatInlineText(lesson.title)}</span>
+              <span>${checkIcon}${formatInlineText(lesson.title)}</span>
               <span class="muted-small">${escapeHtml(lesson.duration)}</span>
             </button>
           `;
@@ -294,7 +409,23 @@ function renderDaysSidebar() {
         </div>
       `;
     })
+    .filter(Boolean)
     .join("");
+
+  const metaEl = document.getElementById("course-search-meta");
+  if (metaEl) {
+    if (q) {
+      metaEl.style.display = "flex";
+      metaEl.innerHTML = `<span>${matchCount} chapitre(s) contenant « ${escapeHtml(STATE.courseSearchQuery)} »</span><button type="button" class="btn-xs" onclick="clearCourseSearch()">Effacer</button>`;
+    } else {
+      metaEl.style.display = "none";
+      metaEl.innerHTML = "";
+    }
+  }
+
+  container.innerHTML =
+    groupsHtml ||
+    `<div class="card" style="padding:12px; font-size:13.5px;">Aucun chapitre ne contient « ${escapeHtml(STATE.courseSearchQuery)} ».</div>`;
 }
 
 function selectLesson(dayNumber, lessonId) {
@@ -302,6 +433,7 @@ function selectLesson(dayNumber, lessonId) {
   STATE.activeLessonId = lessonId;
   STATE.expandedDays.clear();
   STATE.expandedDays.add(dayNumber);
+  saveLastViewedLesson(dayNumber, lessonId);
   renderDaysSidebar();
   renderActiveLesson();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -328,8 +460,11 @@ function renderActiveLesson() {
         <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
       </div>
       <div class="btn-group">
+        <button class="btn-secondary" onclick="switchTab('runner')">
+          Parcours Zero-to-Hero (Site + API)
+        </button>
         <button class="btn-secondary" onclick="switchTab('architecture')">
-          Ouvrir les Labos Interactifs OAuth2 &amp; Swagger
+          Labos OAuth2 &amp; Swagger
         </button>
         <button class="btn-primary" onclick="openDayQuiz(${quizTargetId})">
           Évaluation Chapitre 0
@@ -344,6 +479,9 @@ function renderActiveLesson() {
         <p><strong>Objectif :</strong> ${formatInlineText(dayObj.goal)}</p>
       </div>
       <div class="btn-group">
+        <button class="btn-secondary" onclick="switchTab('runner')">
+          Parcours Zero-to-Hero (Site + API)
+        </button>
         <a class="btn-secondary" href="/api/day-file/${dayObj.day_number}/${encodeURIComponent(fileBasename)}?download=1&framework=${encodeURIComponent(getActiveFramework())}" download>
           Télécharger ${escapeHtml(filePath)}
         </a>
@@ -659,13 +797,20 @@ function renderActiveLesson() {
     `
       : "";
 
+  const isLessonDone = STATE.completedLessons.has(lesson.id);
   detailContainer.innerHTML = `
     <article class="lesson-card">
       <div class="lesson-title-row">
         <h3>${formatInlineText(lesson.title)}</h3>
-        <div class="btn-group">
+        <div class="btn-group lesson-header-actions">
           <span class="category-tag">${lesson.is_literature ? "Monographie de Référence — Culture &amp; Jargon" : "Fichier : " + escapeHtml(filePath)}</span>
           <span class="category-tag">${lesson.is_literature ? "Lecture : " : "Durée : "}${escapeHtml(lesson.duration)}</span>
+          <button type="button" class="btn-xs ${isLessonDone ? "btn-done-active" : ""}" onclick="toggleLessonCompleted('${lesson.id}')">
+            ${isLessonDone ? "Chapitre validé &#10003;" : "Marquer comme validé"}
+          </button>
+          <button type="button" class="btn-xs no-print" onclick="printCurrentChapter()" title="Imprimer ou enregistrer ce chapitre en PDF">
+            Exporter PDF
+          </button>
         </div>
       </div>
 
@@ -968,6 +1113,132 @@ function renderFilesTree() {
         `;
       })
       .join("");
+}
+
+async function loadZeroToHeroTrack() {
+  const panel = document.getElementById("zero-to-hero-panel");
+  if (!panel) return;
+  if (!STATE.zeroToHeroData) {
+    try {
+      const fw = encodeURIComponent(getActiveFramework());
+      const res = await fetch(`/api/zero-to-hero?framework=${fw}`);
+      if (res.ok) {
+        STATE.zeroToHeroData = await res.json();
+      }
+    } catch (e) {}
+  }
+  renderZeroToHeroPanel();
+}
+
+function renderZeroToHeroPanel() {
+  const panel = document.getElementById("zero-to-hero-panel");
+  if (!panel) return;
+  const data = STATE.zeroToHeroData;
+  if (!data || !Array.isArray(data.steps) || data.steps.length === 0) {
+    panel.style.display = "none";
+    return;
+  }
+  panel.style.display = "block";
+  const fw = encodeURIComponent(getActiveFramework());
+  const current = data.steps.find((s) => s.step === STATE.activeZeroStep) || data.steps[0];
+
+  const stepLabels = [
+    "1. Hello World (Site + JSON)",
+    "2. Catalogue Web & Routes",
+    "3. CRUD & Validation RFC 7807",
+    "4. Persistance SQLite WAL",
+    "5. Sécurité, Cookies & 429",
+    "6. Hero Complet & Swagger UI"
+  ];
+
+  const stepsHtml = data.steps
+    .map((s, idx) => {
+      const active = s.step === current.step;
+      const shortName = stepLabels[idx] || `${s.step}. ${s.filename}`;
+      return `<button type="button" class="z2h-step-btn ${active ? "active" : ""}" onclick="selectZeroToHeroStep(${s.step})">${escapeHtml(shortName)}</button>`;
+    })
+    .join("");
+
+  const tplPreviewHtml =
+    STATE.showZeroTemplate && current.template_code
+      ? `
+      <div class="z2h-template-box">
+        <div class="label-row" style="margin-bottom:6px;">
+          <strong>Template Web associé : <code>${escapeHtml(current.template_path)}</code></strong>
+          <button type="button" class="btn-xs" onclick="copyText(STATE.zeroToHeroData.steps.find(s=>s.step===${current.step}).template_code)">Copier le HTML</button>
+        </div>
+        <pre class="code-block" style="max-height:260px; overflow:auto; margin:0;">${escapeHtml(current.template_code)}</pre>
+      </div>
+    `
+      : "";
+
+  panel.innerHTML = `
+    <div class="card z2h-card">
+      <div class="card-header">
+        <div>
+          <span class="step-badge">FIL ROUGE DU BOOTCAMP — DE ZÉRO À HÉROS (SITE WEB + API REST)</span>
+          <h3 style="margin-top:6px;">Construire progressivement la même application (<code>zero_to_hero/</code>) : du Hello World jusqu'au Portail Complet avec Swagger UI</h3>
+          <p class="muted-small" style="margin-top:4px;">
+            Chaque étape reprend le code de l'étape précédente et ajoute une brique industrielle, en exposant systématiquement <strong>l'API JSON</strong> et <strong>le Site Web HTML (<code>GET /</code>)</strong> qui la consomme.
+          </p>
+        </div>
+        <div class="btn-group">
+          <a class="btn-secondary btn-sm" href="/api/download/zero-to-hero?framework=${fw}" download>
+            Télécharger le Projet Zero-to-Hero (.zip)
+          </a>
+        </div>
+      </div>
+
+      <div class="z2h-stepper">${stepsHtml}</div>
+
+      <div class="z2h-active-bar">
+        <div>
+          <strong>Étape ${current.step} :</strong> <code>${escapeHtml(current.path)}</code>
+          ${current.template_name ? `<span class="muted-small"> + template Web <code>templates/${escapeHtml(current.template_name)}</code></span>` : ""}
+          <div class="muted-small" style="margin-top:2px;">${escapeHtml(current.title)}</div>
+        </div>
+        <div class="btn-group">
+          ${
+            current.template_code
+              ? `<button type="button" class="btn-secondary btn-sm" onclick="toggleZeroStepTemplatePreview()">${
+                  STATE.showZeroTemplate ? "Masquer le HTML" : "Voir le Template HTML (" + escapeHtml(current.template_name) + ")"
+                }</button>`
+              : ""
+          }
+          <button type="button" class="btn-primary btn-sm" onclick="loadZeroStepIntoStudio(${current.step}, true)">
+            Charger &amp; Démarrer l'Étape ${current.step}
+          </button>
+        </div>
+      </div>
+      ${tplPreviewHtml}
+    </div>
+  `;
+}
+
+function selectZeroToHeroStep(stepNum) {
+  STATE.activeZeroStep = stepNum;
+  renderZeroToHeroPanel();
+  loadZeroStepIntoStudio(stepNum, false);
+}
+
+function toggleZeroStepTemplatePreview() {
+  STATE.showZeroTemplate = !STATE.showZeroTemplate;
+  renderZeroToHeroPanel();
+}
+
+function loadZeroStepIntoStudio(stepNum, autoRun = false) {
+  const data = STATE.zeroToHeroData;
+  if (!data || !Array.isArray(data.steps)) return;
+  const found = data.steps.find((s) => s.step === stepNum);
+  if (!found) return;
+  const ed = document.getElementById("studio-python-editor");
+  if (ed) {
+    ed.value = found.code;
+    showToast(`${found.path} chargé dans l'Atelier Python.`);
+    if (autoRun) {
+      runStudioPython();
+    }
+  }
 }
 
 async function loadReferenceFileToStudio(filename) {
@@ -1412,7 +1683,7 @@ function renderGlossary() {
           <h3>${formatInlineText(item.term)}</h3>
           <span class="category-tag">${escapeHtml(item.category)}</span>
         </div>
-        <p style="margin:0; font-weight:600; color:#111827;">${formatInlineText(item.short)}</p>
+        <p class="glossary-short-lead">${formatInlineText(item.short)}</p>
         <div class="glossary-analogy">
           <strong>Analogie :</strong> ${formatInlineText(item.analogy)}
         </div>

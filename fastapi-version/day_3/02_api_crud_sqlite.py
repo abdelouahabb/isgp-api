@@ -147,8 +147,18 @@ async def supprimer_formation(id: int = Path(..., ge=1), db: sqlite3.Connection 
     return {"message": f"Formation ID {id} supprimée"}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_sqlite_racine(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_02_sqlite.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. AJOUT VIA FORMULAIRE HTML (POST /formations-sqlite -> Form FastAPI) ===")
     rep_form = client.post(
         "/formations-sqlite",

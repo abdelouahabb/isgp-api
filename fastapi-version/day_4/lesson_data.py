@@ -43,9 +43,10 @@ DAY_4_DATA = {
             ],
             "code": _read("01_secrets_et_api_key.py"),
             "line_explanations": [
-                {"lines": "15-16", "text": "`os.environ.get(...)` lit les secrets depuis la mémoire du système d'exploitation."},
-                {"lines": "20-28", "text": "Dépendance FastAPI `verifier_cle_api` extrayant `Header(default=None, alias='X-API-Key')` et vérifiant l'égalité en temps constant avec `hmac.compare_digest`."},
-                {"lines": "31-36", "text": "Route `@app.get('/api/admin/statistiques')` protégée déclarativement par `_cle: str = Depends(verifier_cle_api)`."}
+                {"lines": "21-22", "text": "`os.environ.get(...)` lit les secrets depuis la mémoire du système d'exploitation."},
+                {"lines": "26-34", "text": "Dépendance FastAPI `verifier_cle_api` extrayant `Header(default=None, alias='X-API-Key')` et vérifiant l'égalité en temps constant avec `hmac.compare_digest`."},
+                {"lines": "37-42", "text": "Route `@app.get('/api/admin/statistiques')` protégée déclarativement par `_cle: str = Depends(verifier_cle_api)`."},
+                {"lines": "45-51", "text": "Portail Web interactif sur `GET /` (`portail_01_apikey.html`) testant l'appel avec et sans `X-API-Key`."}
             ],
             "sandbox_preset": {
                 "label": "Tester GET /api/sandbox/admin-stats (X-API-Key)",
@@ -85,10 +86,11 @@ DAY_4_DATA = {
             ],
             "code": _read("02_bearer_tokens_signes.py"),
             "line_explanations": [
-                {"lines": "14-17", "text": "Initialisation de `FastAPI`, `URLSafeTimedSerializer(SECRET_KEY)` et `HTTPBearer()`."},
-                {"lines": "25-36", "text": "Route `@app.post('/api/auth/token')` validant `ConnexionPayload` et signant la charge utile avec `signer.dumps(...)`."},
-                {"lines": "40-52", "text": "Dépendance `extraire_utilisateur_token` vérifiant l'en-tête `Authorization: Bearer <token>`, l'expiration (`SignatureExpired`) et l'intégrité (`BadSignature`)."},
-                {"lines": "56-58", "text": "Route protégée `@app.get('/api/auth/profil')` recevant directement `donnees_utilisateur: dict = Depends(extraire_utilisateur_token)`."}
+                {"lines": "18-22", "text": "Initialisation de `FastAPI`, `Jinja2Templates`, `URLSafeTimedSerializer(SECRET_KEY)` et `HTTPBearer()`."},
+                {"lines": "31-42", "text": "Route `@app.post('/api/auth/token')` validant `ConnexionPayload` et signant la charge utile avec `signer.dumps(...)`."},
+                {"lines": "46-59", "text": "Dépendance `extraire_utilisateur_token` vérifiant l'en-tête `Authorization: Bearer <token>`, l'expiration (`SignatureExpired`) et l'intégrité (`BadSignature`)."},
+                {"lines": "63-65", "text": "Route protégée `@app.get('/api/auth/profil')` recevant directement `donnees_utilisateur: dict = Depends(extraire_utilisateur_token)`."},
+                {"lines": "68-74", "text": "Portail Web interactif sur `GET /` (`portail_02_bearer.html`) émettant et testant le Bearer Token."}
             ],
             "sandbox_preset": {
                 "label": "1. Émettre un Bearer Token : POST /api/sandbox/auth/token",
@@ -126,9 +128,10 @@ DAY_4_DATA = {
             ],
             "code": _read("06_authn_vs_authz_scopes.py"),
             "line_explanations": [
-                {"lines": "21-31", "text": "**Étape 1 (`AuthN`)** : Vérifie la présence, l'expiration et la signature du jeton. En cas d'échec, renvoie `401 Unauthorized`."},
-                {"lines": "40-59", "text": "**Étape 2 (`AuthZ`)** : Vérifie successivement le rôle (`RBAC`), le `scope` OAuth2 et la propriété de l'objet (`Anti-BOLA`, `403 Forbidden` sinon)."},
-                {"lines": "65-81", "text": "Route FastAPI `@app.get('/api/v1/dossiers/{dossier_id}')` appliquant le contrôle anti-BOLA avant de retourner le dossier."}
+                {"lines": "27-38", "text": "**Étape 1 (`AuthN`)** : Vérifie la présence, l'expiration et la signature du jeton. En cas d'échec, renvoie `401 Unauthorized`."},
+                {"lines": "47-68", "text": "**Étape 2 (`AuthZ`)** : Vérifie successivement le rôle (`RBAC`), le `scope` OAuth2 et la propriété de l'objet (`Anti-BOLA`, `403 Forbidden` sinon)."},
+                {"lines": "83-91", "text": "Route FastAPI `@app.get('/api/v1/dossiers/{dossier_id}')` appliquant le contrôle anti-BOLA avant de retourner le dossier."},
+                {"lines": "94-102", "text": "Portail Web interactif sur `GET /` (`portail_06_scopes.html`) comparant `401` AuthN, `403` BOLA et `200`."}
             ],
             "sandbox_preset": {
                 "label": "Tester AuthN (401) vs AuthZ (403 / 200) : GET /api/sandbox/authz-demo",
@@ -167,10 +170,11 @@ DAY_4_DATA = {
             ],
             "code": _read("04_refresh_token_et_rbac.py"),
             "line_explanations": [
-                {"lines": "15-16", "text": "Utilisation de deux sels cryptographiques distincts (`salt='access-token'` vs `'refresh-token'`) pour séparer Access et Refresh Tokens."},
-                {"lines": "30-55", "text": "Usine de dépendance `exiger_role(role_minimum)` retournant `dependance_rbac` qui lève `HTTPException(401)` ou `HTTPException(403)`."},
-                {"lines": "59-79", "text": "Routes `/api/auth/login` (émet le couple Access + Refresh) et `/api/auth/refresh` (renouvelle l'Access Token)."},
-                {"lines": "83-85", "text": "Route `@app.get('/api/admin/audit')` protégée par `utilisateur: dict = Depends(exiger_role('admin'))`."}
+                {"lines": "20-22", "text": "Utilisation de deux sels cryptographiques distincts (`salt='access-token'` vs `'refresh-token'`) pour séparer Access et Refresh Tokens."},
+                {"lines": "37-62", "text": "Usine de dépendance `exiger_role(role_minimum)` retournant `dependance_rbac` qui lève `HTTPException(401)` ou `HTTPException(403)`."},
+                {"lines": "66-88", "text": "Routes `/api/auth/login` (émet le couple Access + Refresh) et `/api/auth/refresh` (renouvelle l'Access Token)."},
+                {"lines": "92-94", "text": "Route `@app.get('/api/admin/audit')` protégée par `utilisateur: dict = Depends(exiger_role('admin'))`."},
+                {"lines": "97-103", "text": "Portail Web interactif sur `GET /` (`portail_04_rbac.html`) pilotant le cycle Login, Audit RBAC et Refresh."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_4/04_refresh_token_et_rbac.py` pour observer `Depends(exiger_role('admin'))` distinguer 401, 403 et 200 :",
@@ -202,9 +206,10 @@ DAY_4_DATA = {
             ],
             "code": _read("03_rate_limiting_429.py"),
             "line_explanations": [
-                {"lines": "13-15", "text": "Définit la politique : maximum `3` requêtes sur une fenêtre glissante de `20` secondes par adresse IP (`request.client.host`)."},
-                {"lines": "26-40", "text": "Si le quota est atteint (`>= 3`), retourne une `JSONResponse(status_code=429)` avec les en-têtes `Retry-After`, `X-RateLimit-Limit` et `X-RateLimit-Remaining: 0`."},
-                {"lines": "43-49", "text": "Enregistre l'horodatage courant et injecte `X-RateLimit-Limit` et `X-RateLimit-Remaining` sur l'objet `response: Response`."}
+                {"lines": "19-21", "text": "Définit la politique : maximum `3` requêtes sur une fenêtre glissante de `20` secondes par adresse IP (`request.client.host`)."},
+                {"lines": "33-48", "text": "Si le quota est atteint (`>= 3`), retourne une `JSONResponse(status_code=429)` avec les en-têtes `Retry-After`, `X-RateLimit-Limit` et `X-RateLimit-Remaining: 0`."},
+                {"lines": "50-56", "text": "Enregistre l'horodatage courant et injecte `X-RateLimit-Limit` et `X-RateLimit-Remaining` sur l'objet `response: Response`."},
+                {"lines": "59-65", "text": "Portail Web interactif sur `GET /` (`portail_03_ratelimit.html`) permettant de déclencher une rafale et d'observer `429 Retry-After`."}
             ],
             "sandbox_preset": {
                 "label": "Tester le Rate Limiter (Cliquez 4 fois !) : GET /api/sandbox/ratelimit-demo",
@@ -243,9 +248,10 @@ DAY_4_DATA = {
             ],
             "code": _read("05_cors_webhooks_headers.py"),
             "line_explanations": [
-                {"lines": "22-27", "text": "Ajout de `CORSMiddleware` avec liste blanche stricte `allow_origins=ORIGINES_AUTORISEES`."},
-                {"lines": "31-37", "text": "Middleware ASGI ajoutant systématiquement `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` et `Cache-Control: no-store`."},
-                {"lines": "41-61", "text": "Route Webhook lisant `corps_brut = await request.body()`, contrôlant la taille maximale (`413`) et vérifiant la signature `HMAC-SHA256` avec `hmac.compare_digest`."}
+                {"lines": "28-33", "text": "Ajout de `CORSMiddleware` avec liste blanche stricte `allow_origins=ORIGINES_AUTORISEES`."},
+                {"lines": "37-43", "text": "Middleware ASGI ajoutant systématiquement `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` et `Cache-Control: no-store`."},
+                {"lines": "47-67", "text": "Route Webhook lisant `corps_brut = await request.body()`, contrôlant la taille maximale (`413`) et vérifiant la signature `HMAC-SHA256` avec `hmac.compare_digest`."},
+                {"lines": "70-78", "text": "Portail Web interactif sur `GET /` (`portail_05_webhooks.html`) émettant un Webhook HMAC valide (`200`) ou falsifié (`401`)."}
             ],
             "python_runner": {
                 "prompt": "Exécutez `day_4/05_cors_webhooks_headers.py` pour tester le Webhook signé HMAC-SHA256 et `CORSMiddleware` :",
@@ -278,10 +284,11 @@ DAY_4_DATA = {
             ],
             "code": _read("07_cookies_et_sessions_securisees.py"),
             "line_explanations": [
-                {"lines": "23-25", "text": "Initialisation des signataires HMAC `signataire_session` et `signataire_jeton` avec sels distincts."},
-                {"lines": "34-65", "text": "Route `POST /api/auth/cookie-login` : émet `isgp_session` (signé HMAC) et `isgp_auth_token` (`httponly=True`, `samesite='strict'`) via `response.set_cookie(...)`."},
-                {"lines": "78-107", "text": "Route `GET /api/auth/cookie-inspect` : extrait les cookies via `Cookie(default=None)` et vérifie leurs signatures HMAC."},
-                {"lines": "137-142", "text": "Route `POST /api/auth/cookie-logout` : révoque les cookies via `response.delete_cookie(..., path='/')` (`Max-Age=0`)."}
+                {"lines": "25-27", "text": "Initialisation des signataires HMAC `signataire_session` et `signataire_jeton` avec sels distincts."},
+                {"lines": "36-67", "text": "Route `POST /api/auth/cookie-login` : émet `isgp_session` (signé HMAC) et `isgp_auth_token` (`httponly=True`, `samesite='strict'`) via `response.set_cookie(...)`."},
+                {"lines": "80-108", "text": "Route `GET /api/auth/cookie-inspect` : extrait les cookies via `Cookie(default=None)` et vérifie leurs signatures HMAC."},
+                {"lines": "137-142", "text": "Route `POST /api/auth/cookie-logout` : révoque les cookies via `response.delete_cookie(..., path='/')` (`Max-Age=0`)."},
+                {"lines": "145-151", "text": "Portail Web interactif sur `GET /` (`portail_07_cookies_home.html`) pilotant le cycle complet des cookies sécurisés."}
             ],
             "sandbox_preset": {
                 "label": "1. Émettre Cookies Sécurisés (HttpOnly + Session HMAC) : POST /api/sandbox/cookies/login",

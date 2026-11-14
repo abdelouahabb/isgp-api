@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre_page }}</title>
+  <style>
+    :root { --bleu: #0f2b46; --accent: #1d6fa5; --fond: #f4f7fa; --carte: #ffffff; --bord: #d8e1e8; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--fond); color: #1e293b; margin: 0; padding: 1.5rem; }
+    .conteneur { max-width: 980px; margin: 0 auto; }
+    .entete { background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem; }
+    .badge { display: inline-block; background: #e0f2fe; color: var(--bleu); font-weight: 700; font-size: 0.78rem; padding: 0.22rem 0.65rem; border-radius: 999px; text-transform: uppercase; }
+    h1 { color: var(--bleu); margin: 0.5rem 0; font-size: 1.5rem; }
+    .filtres { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+    input, select, button { padding: 0.58rem 0.75rem; border: 1px solid var(--bord); border-radius: 6px; font-size: 0.92rem; }
+    button { background: var(--bleu); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    .grille { display: grid; grid-template-columns: 1.5fr 1fr; gap: 1rem; }
+    .panneau { background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 1.25rem; }
+    .item { border-bottom: 1px solid #eef2f6; padding: 0.75rem 0; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+    .item:last-child { border-bottom: none; }
+    .btn-secondaire { background: var(--accent); padding: 0.4rem 0.75rem; font-size: 0.85rem; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 160px; }
+    a { color: var(--accent); font-weight: 600; text-decoration: none; }
+    @media (max-width: 780px) { .grille { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="conteneur">
+    <header class="entete">
+      <span class="badge">Etape 02 - Routage, Query, Path &amp; Pagination</span>
+      <h1>{{ titre_page }}</h1>
+      <p>Filtrez le catalogue via <code>GET /api/v1/formations</code> et inspectez chaque fiche via <code>GET /api/v1/formations/{id}</code>. <a href="/docs" target="_blank">Swagger UI (/docs)</a></p>
+      <div class="filtres">
+        <input type="text" id="f-recherche" placeholder="Rechercher un intitule...">
+        <select id="f-domaine">
+          <option value="">Tous les domaines</option>
+          <option value="Architecture SI">Architecture SI</option>
+          <option value="Cybersecurite">Cybersecurite</option>
+          <option value="Management Public">Management Public</option>
+          <option value="Data & IA">Data &amp; IA</option>
+        </select>
+        <select id="f-tri">
+          <option value="id">Trier par ID</option>
+          <option value="tarif_dzd">Trier par Tarif (DZD)</option>
+          <option value="duree_jours">Trier par Duree (jours)</option>
+        </select>
+        <button type="button" onclick="chargerCatalogue(1)">Filtrer (API REST)</button>
+      </div>
+    </header>
+    <div class="grille">
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.1rem;color:var(--bleu);">Resultats du Catalogue (<span id="compteur">0</span>)</h2>
+        <div id="liste-formations"></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.9rem;">
+          <button type="button" class="btn-secondaire" onclick="changerPage(-1)">Page precedente</button>
+          <span id="info-page" style="align-self:center;font-size:0.9rem;">Page 1</span>
+          <button type="button" class="btn-secondaire" onclick="changerPage(1)">Page suivante</button>
+        </div>
+      </section>
+      <aside class="panneau">
+        <h2 style="margin-top:0;font-size:1.1rem;color:var(--bleu);">Inspecteur JSON (Detail / Liste)</h2>
+        <pre id="inspecteur-json">Chargement initial...</pre>
+      </aside>
+    </div>
+  </div>
+  <script>
+    let pageCourante = 1;
+    let totalPages = 1;
+    async function chargerCatalogue(page) {
+      pageCourante = page;
+      const params = new URLSearchParams({ page: String(pageCourante), taille: "3", tri: document.getElementById("f-tri").value });
+      const domaine = document.getElementById("f-domaine").value;
+      const recherche = document.getElementById("f-recherche").value.trim();
+      if (domaine) params.set("domaine", domaine);
+      if (recherche) params.set("recherche", recherche);
+      const rep = await fetch("/api/v1/formations?" + params.toString());
+      const payload = await rep.json();
+      totalPages = payload.meta.total_pages || 1;
+      document.getElementById("compteur").textContent = payload.meta.total_elements;
+      document.getElementById("info-page").textContent = "Page " + payload.meta.page + " / " + totalPages;
+      document.getElementById("inspecteur-json").textContent = JSON.stringify(payload, null, 2);
+      const conteneur = document.getElementById("liste-formations");
+      conteneur.innerHTML = payload.data.map(f => `
+        <div class="item">
+          <div>
+            <strong>#${f.id} - ${f.code} : ${f.intitule}</strong><br>
+            <small>${f.domaine} | ${f.duree_jours} jours | ${f.tarif_dzd.toLocaleString("fr-FR")} DZD</small>
+          </div>
+          <button type="button" class="btn-secondaire" onclick="voirDetail(${f.id})">Detail</button>
+        </div>
+      `).join("") || "<p>Aucune formation ne correspond aux criteres.</p>";
+    }
+    async function voirDetail(id) {
+      const rep = await fetch("/api/v1/formations/" + id);
+      const data = await rep.json();
+      document.getElementById("inspecteur-json").textContent = "GET /api/v1/formations/" + id + " -> HTTP " + rep.status + "\n\n" + JSON.stringify(data, null, 2);
+    }
+    function changerPage(delta) {
+      const cible = pageCourante + delta;
+      if (cible >= 1 && cible <= totalPages) chargerCatalogue(cible);
+    }
+    chargerCatalogue(1);
+  </script>
+</body>
+</html>

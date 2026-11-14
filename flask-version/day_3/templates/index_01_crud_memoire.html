@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISGP — Jour 3.1 : CRUD Memoire &amp; Validation RFC 7807</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    input { padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+    button { background: #1e3a5f; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ISGP — Jour 3.1 : Creation POST &amp; Validation Stricte RFC 7807 (422)</h1>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <input id="titre" value="Securite OWASP API" placeholder="Titre (3..120 car.)" />
+        <input id="jours" type="number" value="4" style="width:80px;" />
+        <input id="salle" value="Salle A" style="width:120px;" />
+        <button onclick="creer(false)">POST /api/v1/formations (Valide 201)</button>
+        <button class="err" onclick="creer(true)">Tester Payload Invalide (422 RFC 7807)</button>
+      </div>
+      <h3>Derniere reponse HTTP :</h3>
+      <pre id="reponse">{}</pre>
+      <h3>Catalogue actuel (GET /api/v1/formations) :</h3>
+      <pre id="liste">{}</pre>
+    </section>
+  </main>
+  <script>
+    async function rafraichir() {
+      const r = await fetch("/api/v1/formations");
+      document.getElementById("liste").textContent = JSON.stringify(await r.json(), null, 2);
+    }
+    async function creer(invalide) {
+      const payload = invalide
+        ? { titre: "AB", duree_jours: 99 }
+        : {
+            titre: document.getElementById("titre").value,
+            duree_jours: Number(document.getElementById("jours").value),
+            salle: document.getElementById("salle").value
+          };
+      const r = await fetch("/api/v1/formations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      document.getElementById("reponse").textContent = `HTTP ${r.status}\n` + JSON.stringify(await r.json(), null, 2);
+      await rafraichir();
+    }
+    rafraichir();
+  </script>
+</body>
+</html>

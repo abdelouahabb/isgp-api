@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .topbar-isgp {
+      background: #1e3a5f; color: #fff; padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+    .topbar-isgp a {
+      color: #fff; text-decoration: none; background: rgba(255,255,255,0.16);
+      padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;
+    }
+    .topbar-isgp a:hover { background: rgba(255,255,255,0.28); }
+  </style>
+</head>
+<body>
+  <div class="topbar-isgp">
+    <div>
+      <strong>{{ header_title }}</strong>
+      &nbsp;|&nbsp; Obtenez un jeton admin via <code>POST /api/v1/auth/token</code> puis cliquez sur <strong>Authorize</strong>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a href="/">Portail Web ISGP (GET /)</a>
+      <a href="{{ openapi_url }}" target="_blank">Contrat {{ openapi_url }}</a>
+      <a href="/health" target="_blank">Sonde /health</a>
+    </div>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = () => {
+      if (window.SwaggerUIBundle) {
+        window.SwaggerUIBundle({
+          url: "{{ openapi_url }}",
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          persistAuthorization: true,
+          docExpansion: "list",
+          defaultModelsExpandDepth: 1
+        });
+      }
+    };
+  </script>
+</body>
+</html>

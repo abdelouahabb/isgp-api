@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 3.4 — Gestion Globale des Erreurs JSON (write_error Tornado)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 920px; margin: 22px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    button { background: #1e3a5f; color: #fff; border: none; border-radius: 6px; padding: 9px 14px; font-weight: 600; cursor: pointer; margin: 4px 6px 10px 0; }
+    button.warn { background: #b45309; }
+    button.err { background: #b91c1c; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 3.4 — Surcharge de write_error() &amp; default_handler_class (404, 405, 500 JSON)</h1></header>
+  <main>
+    <div class="card">
+      <p>Declenchez volontairement chaque categorie d'erreur pour verifier que Tornado repond toujours en JSON structure :</p>
+      <button type="button" onclick="tester('GET', '/api/v1/division?a=100&b=4')">1. Cas Nominal 200 (100 / 4)</button>
+      <button type="button" class="warn" onclick="tester('GET', '/api/route-inexistante')">2. Tester 404 Not Found</button>
+      <button type="button" class="warn" onclick="tester('DELETE', '/api/v1/division')">3. Tester 405 Method Not Allowed</button>
+      <button type="button" class="err" onclick="tester('GET', '/api/v1/division?a=100&b=0')">4. Tester 500 ZeroDivisionError</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function tester(method, url) {
+      const rep = await fetch(url, { method });
+      const data = await rep.json();
+      document.getElementById("sortie").textContent =
+        `${method} ${url} -> HTTP ${rep.status} | Content-Type: ${rep.headers.get("Content-Type")}\n` +
+        JSON.stringify(data, null, 2);
+    }
+    tester("GET", "/api/v1/division?a=100&b=4");
+  </script>
+</body>
+</html>

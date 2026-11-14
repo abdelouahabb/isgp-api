@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISGP Jour 3.3 - PUT vs PATCH & Idempotency-Key</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fa; color: #1e293b; margin: 0; padding: 1.5rem; }
+    .carte { max-width: 940px; margin: 0 auto; background: #fff; border: 1px solid #d8e1e8; border-radius: 10px; padding: 1.5rem; }
+    h1 { color: #0f2b46; margin-top: 0; font-size: 1.38rem; }
+    .ligne { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    input { padding: 0.48rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; }
+    button, a.btn { background: #0f2b46; color: #fff; border: none; border-radius: 6px; padding: 0.52rem 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 0.86rem; }
+    a.btn { background: #1d6fa5; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; min-height: 150px; }
+  </style>
+</head>
+<body>
+  <main class="carte">
+    <h1>Jour 3.3 — Idempotency-Key (POST), PUT Complet vs PATCH Partiel</h1>
+    <div class="ligne">
+      <input id="idem-key" value="cle-client-isgp-42" style="width:185px;">
+      <button type="button" onclick="postIdem()">POST avec Idempotency-Key</button>
+      <button type="button" onclick="putComplet()">PUT /api/v1/formations/1</button>
+      <button type="button" onclick="patchPartiel()">PATCH /api/v1/formations/1</button>
+      <a class="btn" href="/docs" target="_blank">Swagger UI (/docs)</a>
+    </div>
+    <pre id="sortie">Cliquez deux fois sur POST avec la meme Idempotency-Key : 201 puis 200 sans doublon !</pre>
+  </main>
+  <script>
+    async function postIdem() {
+      const cle = document.getElementById("idem-key").value;
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": cle }, body: JSON.stringify({ titre: "Transactions Idempotentes", duree_jours: 3, salle: "Salle B" }) });
+      document.getElementById("sortie").textContent = `POST (Idempotency-Key: ${cle}) -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function putComplet() {
+      const rep = await fetch("/api/v1/formations/1", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ titre: "Remplacement Integral PUT", duree_jours: 5, salle: "Salle A" }) });
+      document.getElementById("sortie").textContent = `PUT /api/v1/formations/1 -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+    async function patchPartiel() {
+      const rep = await fetch("/api/v1/formations/1", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salle: "Amphitheatre Alger" }) });
+      document.getElementById("sortie").textContent = `PATCH /api/v1/formations/1 -> HTTP ${rep.status}\n\n` + JSON.stringify(await rep.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

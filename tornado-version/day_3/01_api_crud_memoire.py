@@ -54,13 +54,13 @@ class FormationsCollectionHandler(tornado.web.RequestHandler):
         if erreurs:
             # Format d'erreur structuré selon le standard RFC 7807 (Problem Details)
             self.set_status(422)
-            self.set_header("Content-Type", "application/problem+json; charset=UTF-8")
             self.write({
                 "type": "https://isgp.dz/erreurs/validation-echouee",
                 "title": "Données d'entrée invalides",
                 "status": 422,
                 "champs_en_erreur": erreurs,
             })
+            self.set_header("Content-Type", "application/problem+json; charset=UTF-8")
             return
 
         nouvel_id = max([f["id"] for f in formations], default=0) + 1
@@ -75,8 +75,20 @@ class FormationsCollectionHandler(tornado.web.RequestHandler):
         self.write({"message": "Formation créée", "formation": nouvelle})
 
 
+class PortailCrudMemoireHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d3_01.html")
+
+
 def make_app():
-    return tornado.web.Application([(r"/api/v1/formations", FormationsCollectionHandler)])
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    return tornado.web.Application(
+        [
+            (r"/", PortailCrudMemoireHandler),
+            (r"/api/v1/formations", FormationsCollectionHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
+    )
 
 
 async def _demo():

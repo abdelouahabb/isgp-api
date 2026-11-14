@@ -110,6 +110,11 @@ def uploader_syllabus():
     }), 201
 
 
+@app.route("/", methods=["GET"])
+def index_formulaires():
+    return render_template("index_05_formulaires.html", formations=FORMATIONS), 200
+
+
 # =====================================================================
 # 3. DÉMONSTRATION AUTOMATISÉE (SOUMISSION DE FORMULAIRE + RENDU JINJA2)
 # =====================================================================
@@ -117,6 +122,7 @@ if __name__ == "__main__":
     import io
 
     with app.test_client() as client:
+        assert client.get("/").status_code == 200
         print("=== 1. TEST SOUMISSION D'UN FORMULAIRE HTML (request.form) ===")
         # data={...} (sans json=...) simule exactement un <form method="POST"> HTML (application/x-www-form-urlencoded)
         rep_form = client.post(

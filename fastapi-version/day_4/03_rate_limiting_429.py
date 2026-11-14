@@ -7,10 +7,13 @@ import sys
 import time
 import uvicorn
 from fastapi import FastAPI, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Rate Limiting & 429 Too Many Requests", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 # Configuration du Rate Limiter : max 3 requêtes par tranche de 20 secondes par IP
 LIMITE_REQUETES = 3
@@ -53,8 +56,18 @@ async def catalogue_avec_ratelimit(request: Request, response: Response):
     return {"message": "Requête acceptée", "quota_restant": restant}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_ratelimit(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_03_ratelimit.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     for i in range(1, 5):
         r = client.get("/api/catalogue-protege")
         print(f"Appel #{i} -> HTTP {r.status_code} | Remaining={r.headers.get('x-ratelimit-remaining')} | {r.json()}")

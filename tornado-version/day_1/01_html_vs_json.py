@@ -59,9 +59,15 @@ class MeteoJsonHandler(tornado.web.RequestHandler):
         self.write(DONNEES_METEO)
 
 
+class PortailFormatsHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_formats.html", meteo=DONNEES_METEO)
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailFormatsHandler),
             (r"/meteo/html", MeteoHtmlHandler),
             (r"/meteo/soap", MeteoSoapHandler),
             (r"/api/v1/meteo", MeteoJsonHandler),

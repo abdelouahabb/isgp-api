@@ -59,9 +59,19 @@ class DivisionHandler(JsonApiBaseHandler):
         self.write({"resultat": a / b})
 
 
+class PortailErreursHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d3_04.html")
+
+
 def make_app():
+    dossier = os.path.dirname(os.path.abspath(__file__))
     return tornado.web.Application(
-        [(r"/api/v1/division", DivisionHandler)],
+        [
+            (r"/", PortailErreursHandler),
+            (r"/api/v1/division", DivisionHandler),
+        ],
+        template_path=os.path.join(dossier, "templates"),
         default_handler_class=NotFoundJsonHandler,
     )
 

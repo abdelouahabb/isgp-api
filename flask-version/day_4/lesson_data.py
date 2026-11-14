@@ -40,9 +40,9 @@ DAY_4_DATA = {
             ],
             "code": _read("01_secrets_et_api_key.py"),
             "line_explanations": [
-                {"lines": "11-12", "text": "`os.environ.get(...)` lit les secrets depuis la mémoire du système d'exploitation."},
-                {"lines": "17", "text": "`request.headers.get('X-API-Key', '')` extrait la clé transmise dans l'en-tête HTTP."},
-                {"lines": "20-23", "text": "`hmac.compare_digest` vérifie l'égalité en temps constant et renvoie `401 Unauthorized` si la clé est absente ou erronée."}
+                {"lines": "13-14", "text": "`os.environ.get(...)` lit les secrets depuis la mémoire du système d'exploitation."},
+                {"lines": "19", "text": "`request.headers.get('X-API-Key', '')` extrait la clé transmise dans l'en-tête HTTP."},
+                {"lines": "22-25", "text": "`hmac.compare_digest` vérifie l'égalité en temps constant et renvoie `401 Unauthorized` si la clé est absente ou erronée."}
             ],
             "sandbox_preset": {
                 "label": "Tester GET /api/sandbox/admin-stats (X-API-Key)",
@@ -94,10 +94,10 @@ print("Clé API valide (temps constant) :", hmac.compare_digest(cle_client, secr
             ],
             "code": _read("02_bearer_tokens_signes.py"),
             "line_explanations": [
-                {"lines": "9-10", "text": "`URLSafeTimedSerializer(SECRET_KEY)` initialise le moteur de signature HMAC-SHA1/SHA256 avec le secret du serveur."},
-                {"lines": "19-20", "text": "`signer.dumps(charge_utile)` sérialise le dictionnaire en JSON, l'encode en Base64URL, ajoute l'horodatage et signe l'ensemble."},
-                {"lines": "30-34", "text": "Extrait le jeton de l'en-tête standard `Authorization: Bearer <token>`."},
-                {"lines": "36-41", "text": "`signer.loads(token, max_age=300)` distingue explicitement un jeton expiré (`SignatureExpired`) d'un jeton falsifié (`BadSignature`)."}
+                {"lines": "11-12", "text": "`URLSafeTimedSerializer(SECRET_KEY)` initialise le moteur de signature HMAC-SHA1/SHA256 avec le secret du serveur."},
+                {"lines": "21-22", "text": "`signer.dumps(charge_utile)` sérialise le dictionnaire en JSON, l'encode en Base64URL, ajoute l'horodatage et signe l'ensemble."},
+                {"lines": "32-36", "text": "Extrait le jeton de l'en-tête standard `Authorization: Bearer <token>`."},
+                {"lines": "38-43", "text": "`signer.loads(token, max_age=300)` distingue explicitement un jeton expiré (`SignatureExpired`) d'un jeton falsifié (`BadSignature`)."}
             ],
             "sandbox_preset": {
                 "label": "1. Émettre un Bearer Token : POST /api/sandbox/auth/token",
@@ -155,10 +155,10 @@ except BadSignature:
             ],
             "code": _read("06_authn_vs_authz_scopes.py"),
             "line_explanations": [
-                {"lines": "20-29", "text": "**Étape 1 (`AuthN`)** : Vérifie la présence, l'expiration et la signature du jeton. En cas d'échec, renvoie `401 Unauthorized`."},
-                {"lines": "38-43", "text": "**Étape 2A (`AuthZ — RBAC`)** : Vérifie si le rôle du jeton correspond au `role_requis` (`403 Forbidden` sinon)."},
-                {"lines": "45-50", "text": "**Étape 2B (`AuthZ — Scopes OAuth2`)** : Vérifie que la permission granulaire exigée (`scope_requis`) figure dans la liste `scopes` du jeton (`403` sinon)."},
-                {"lines": "52-57", "text": "**Étape 2C (`AuthZ — Anti-BOLA`)** : Vérifie que l'utilisateur connecté est bien le propriétaire légitime de l'enregistrement demandé (`403` sinon)."}
+                {"lines": "30-37", "text": "**Étape 1 (`AuthN`)** : Vérifie la présence, l'expiration et la signature du jeton. En cas d'échec, renvoie `401 Unauthorized`."},
+                {"lines": "47-51", "text": "**Étape 2A (`AuthZ — RBAC`)** : Vérifie si le rôle du jeton correspond au `role_requis` (`403 Forbidden` sinon)."},
+                {"lines": "54-58", "text": "**Étape 2B (`AuthZ — Scopes OAuth2`)** : Vérifie que la permission granulaire exigée (`scope_requis`) figure dans la liste `scopes` du jeton (`403` sinon)."},
+                {"lines": "61-65", "text": "**Étape 2C (`AuthZ — Anti-BOLA`)** : Vérifie que l'utilisateur connecté est bien le propriétaire légitime de l'enregistrement demandé (`403` sinon)."}
             ],
             "sandbox_preset": {
                 "label": "Tester AuthN (401) vs AuthZ (403 / 200) : GET /api/sandbox/authz-demo",
@@ -195,10 +195,10 @@ except BadSignature:
             ],
             "code": _read("04_refresh_token_et_rbac.py"),
             "line_explanations": [
-                {"lines": "13-14", "text": "Utilisation de deux sels cryptographiques distincts (`salt='access-token'` vs `'refresh-token'`) pour empêcher l'utilisation d'un Refresh Token comme Access Token."},
-                {"lines": "20-49", "text": "Décorateur `@exiger_role(role_minimum)` gérant successivement le `401` (absence, révocation, expiration, signature) puis le `403` (rôle insuffisant)."},
-                {"lines": "52-65", "text": "Route `/api/auth/login` émettant simultanément l'`access_token` (300s) et le `refresh_token` (7 jours)."},
-                {"lines": "68-77", "text": "Route `/api/auth/refresh` vérifiant le `refresh_token` et délivrant un nouvel `access_token`."}
+                {"lines": "15-16", "text": "Utilisation de deux sels cryptographiques distincts (`salt='access-token'` vs `'refresh-token'`) pour empêcher l'utilisation d'un Refresh Token comme Access Token."},
+                {"lines": "22-51", "text": "Décorateur `@exiger_role(role_minimum)` gérant successivement le `401` (absence, révocation, expiration, signature) puis le `403` (rôle insuffisant)."},
+                {"lines": "54-67", "text": "Route `/api/auth/login` émettant simultanément l'`access_token` (300s) et le `refresh_token` (7 jours)."},
+                {"lines": "70-79", "text": "Route `/api/auth/refresh` vérifiant le `refresh_token` et délivrant un nouvel `access_token`."}
             ],
             "python_runner": {
                 "prompt": "Simulez le contrôle d'accès par rôle (RBAC : 401 vs 403 vs 200) et le renouvellement par Refresh Token :",
@@ -250,10 +250,10 @@ print("Appel avec Directeur  ->", verifier_acces_route_admin(token_directeur))''
             ],
             "code": _read("03_rate_limiting_429.py"),
             "line_explanations": [
-                {"lines": "10-12", "text": "Définit la politique : maximum `3` requêtes sur une fenêtre glissante de `20` secondes par adresse IP."},
-                {"lines": "20", "text": "Liste en compréhension filtrant uniquement les horodatages datant de moins de 20 secondes."},
-                {"lines": "23-34", "text": "Si le quota est atteint (`>= 3`), calcule le temps d'attente exact et renvoie `429 Too Many Requests` avec `Retry-After`."},
-                {"lines": "37-44", "text": "Enregistre l'horodatage courant et renseigne `X-RateLimit-Limit` et `X-RateLimit-Remaining`."}
+                {"lines": "13-15", "text": "Définit la politique : maximum `3` requêtes sur une fenêtre glissante de `20` secondes par adresse IP."},
+                {"lines": "23", "text": "Liste en compréhension filtrant uniquement les horodatages datant de moins de 20 secondes."},
+                {"lines": "26-37", "text": "Si le quota est atteint (`>= 3`), calcule le temps d'attente exact et renvoie `429 Too Many Requests` avec `Retry-After`."},
+                {"lines": "40-47", "text": "Enregistre l'horodatage courant et renseigne `X-RateLimit-Limit` et `X-RateLimit-Remaining`."}
             ],
             "sandbox_preset": {
                 "label": "Tester le Rate Limiter (Cliquez 4 fois !) : GET /api/sandbox/ratelimit-demo",
@@ -307,9 +307,9 @@ for t in [1, 2, 3, 4, 22]:
             ],
             "code": _read("05_cors_webhooks_headers.py"),
             "line_explanations": [
-                {"lines": "14", "text": "`MAX_CONTENT_LENGTH` plafonne la taille du corps HTTP entrant à 1 Mo (protection anti-DoS mémoire)."},
-                {"lines": "20-30", "text": "Hook `@app.after_request` appliquant la liste blanche CORS et les en-têtes de sécurité (`X-Content-Type-Options: nosniff`, `Cache-Control: no-store`)."},
-                {"lines": "35-46", "text": "Vérifie la signature `HMAC-SHA256` calculée sur les octets bruts du corps (`request.get_data()`) avant de traiter l'événement Webhook."}
+                {"lines": "17", "text": "`MAX_CONTENT_LENGTH` plafonne la taille du corps HTTP entrant à 1 Mo (protection anti-DoS mémoire)."},
+                {"lines": "23-33", "text": "Hook `@app.after_request` appliquant la liste blanche CORS et les en-têtes de sécurité (`X-Content-Type-Options: nosniff`, `Cache-Control: no-store`)."},
+                {"lines": "36-49", "text": "Vérifie la signature `HMAC-SHA256` calculée sur les octets bruts du corps (`request.get_data()`) avant de traiter l'événement Webhook."}
             ],
             "python_runner": {
                 "prompt": "Simulez l'émission d'un Webhook signé par un partenaire bancaire et sa vérification par votre API :",
@@ -364,9 +364,9 @@ print("Webhook authentifié avec succès :", est_authentique)'''
             "code": _read("07_cookies_et_sessions_securisees.py"),
             "line_explanations": [
                 {"lines": "18-26", "text": "Configuration de `app.secret_key` et durcissement global des cookies de session (`SESSION_COOKIE_HTTPONLY=True`, `SAMESITE='Lax'`)."},
-                {"lines": "32-58", "text": "Route `POST /api/auth/cookie-login` : écrit dans `session` (signée HMAC) et émet le cookie `isgp_auth_token` avec `httponly=True` et `samesite='Strict'`."},
-                {"lines": "62-81", "text": "Route `GET /api/auth/cookie-inspect` : lit `request.cookies.get(...)`, vérifie la signature HMAC du jeton et lit `session`."},
-                {"lines": "97-103", "text": "Route `POST /api/auth/cookie-logout` : vide `session.clear()` et révoque les cookies via `reponse.delete_cookie(...)` (`Max-Age=0`)."}
+                {"lines": "32-64", "text": "Route `POST /api/auth/cookie-login` : écrit dans `session` (signée HMAC) et émet le cookie `isgp_auth_token` avec `httponly=True` et `samesite='Strict'`."},
+                {"lines": "68-88", "text": "Route `GET /api/auth/cookie-inspect` : lit `request.cookies.get(...)`, vérifie la signature HMAC du jeton et lit `session`."},
+                {"lines": "105-111", "text": "Route `POST /api/auth/cookie-logout` : vide `session.clear()` et révoque les cookies via `reponse.delete_cookie(...)` (`Max-Age=0`)."}
             ],
             "sandbox_preset": {
                 "label": "1. Émettre Cookies Sécurisés (HttpOnly + Session HMAC) : POST /api/sandbox/cookies/login",

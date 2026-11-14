@@ -9,10 +9,14 @@ import os
 import sys
 from typing import Optional
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 
+DOSSIER_COURANT = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="ISGP - Pagination Offset/Limit vs Cursor (FastAPI ASGI)", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(DOSSIER_COURANT, "templates"))
 
 CATALOGUE_FORMATIONS = [
     {"id": 1, "titre": "Architecture API REST & FastAPI", "domaine": "Backend", "duree_jours": 5, "tarif_dzd": 65000},
@@ -102,8 +106,18 @@ async def lister_avec_pagination_curseur(
     }
 
 
+@app.get("/", response_class=HTMLResponse)
+async def portail_pagination_prod(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="portail_02_pagination_prod.html",
+        context={},
+    )
+
+
 if __name__ == "__main__":
     client = TestClient(app)
+    assert client.get("/").status_code == 200
     print("=== 1. PAGINATION OFFSET/LIMIT + TRI DÉCROISSANT (?sort=-tarif_dzd&page=1&per_page=2) ===")
     r1 = client.get("/api/v1/catalogue/offset?sort=-tarif_dzd&page=1&per_page=2")
     print(r1.json())

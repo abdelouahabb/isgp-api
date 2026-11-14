@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jour 3.2 — Persistance Relationnelle SQLite &amp; CRUD Tornado</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #1e3a5f; color: #fff; padding: 18px 28px; }
+    main { max-width: 1000px; margin: 22px auto; padding: 0 20px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; }
+    input, button { padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 8px; font-size: 0.86rem; }
+    button { background: #1e3a5f; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.del { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { text-align: left; padding: 7px; border-bottom: 1px solid #e2e8f0; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Jour 3.2 — API CRUD SQLite Parametree (?) &amp; Vue Hybride Tornado</h1></header>
+  <main>
+    <div class="card">
+      <h2>Enregistrements SQLite (/api/formations)</h2>
+      <p style="font-size:0.86rem;"><a href="/formations-sqlite">Ouvrir egalement le formulaire HTML /formations-sqlite</a></p>
+      <table>
+        <thead><tr><th>ID</th><th>Titre</th><th>Duree</th><th>Salle</th><th>Actions</th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Ajouter / Modifier dans SQLite</h2>
+      <input id="titre" type="text" value="Administration SQLite ACID" style="width:92%;" />
+      <input id="jours" type="number" value="4" style="width:80px;" />
+      <input id="salle" type="text" value="Salle B" style="width:120px;" /><br />
+      <button type="button" onclick="ajouter()">POST /api/formations</button>
+      <pre id="sortie"></pre>
+    </div>
+  </main>
+  <script>
+    async function charger() {
+      const rep = await fetch("/api/formations");
+      const lignes = await rep.json();
+      const tb = document.getElementById("tb");
+      tb.innerHTML = "";
+      for (const f of lignes) {
+        tb.innerHTML += `<tr><td>#${f.id}</td><td>${f.titre}</td><td>${f.duree_jours}j</td><td>${f.salle}</td>
+          <td><button type="button" onclick="renommerSalle(${f.id})">PUT Salle</button>
+          <button type="button" class="del" onclick="suppr(${f.id})">DELETE</button></td></tr>`;
+      }
+    }
+    async function ajouter() {
+      const rep = await fetch("/api/formations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titre: document.getElementById("titre").value, duree_jours: Number(document.getElementById("jours").value), salle: document.getElementById("salle").value })
+      });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      charger();
+    }
+    async function renommerSalle(id) {
+      const rep = await fetch(`/api/formations/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salle: "Amphi Principal" }) });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      charger();
+    }
+    async function suppr(id) {
+      const rep = await fetch(`/api/formations/${id}`, { method: "DELETE" });
+      document.getElementById("sortie").textContent = `HTTP ${rep.status}\n` + JSON.stringify(await rep.json(), null, 2);
+      charger();
+    }
+    charger();
+  </script>
+</body>
+</html>

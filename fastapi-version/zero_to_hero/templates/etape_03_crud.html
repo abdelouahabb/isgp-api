@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre_page }}</title>
+  <style>
+    :root { --bleu: #0f2b46; --accent: #1d6fa5; --danger: #b91c1c; --fond: #f4f7fa; --carte: #ffffff; --bord: #d8e1e8; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--fond); color: #1e293b; margin: 0; padding: 1.5rem; }
+    .conteneur { max-width: 1040px; margin: 0 auto; }
+    .entete, .panneau { background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+    .badge { display: inline-block; background: #e0f2fe; color: var(--bleu); font-weight: 700; font-size: 0.78rem; padding: 0.22rem 0.65rem; border-radius: 999px; text-transform: uppercase; }
+    h1 { color: var(--bleu); margin: 0.45rem 0; font-size: 1.45rem; }
+    .alerte-rfc7807 { display: none; background: #fef2f2; border-left: 4px solid var(--danger); color: #7f1d1d; padding: 0.9rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+    .grille { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1rem; }
+    .champ { display: flex; flex-direction: column; margin-bottom: 0.65rem; }
+    label { font-size: 0.84rem; font-weight: 600; margin-bottom: 0.2rem; }
+    input, select, button { padding: 0.55rem 0.7rem; border: 1px solid var(--bord); border-radius: 6px; font-size: 0.9rem; }
+    button { background: var(--bleu); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    .btn-sec { background: var(--accent); }
+    .btn-del { background: var(--danger); }
+    .item { border-bottom: 1px solid #eef2f6; padding: 0.65rem 0; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.85rem; border-radius: 8px; overflow-x: auto; font-size: 0.8rem; max-height: 240px; }
+    @media (max-width: 800px) { .grille { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="conteneur">
+    <header class="entete">
+      <span class="badge">Etape 03 - CRUD Complet, Pydantic v2 &amp; RFC 7807</span>
+      <h1>{{ titre_page }}</h1>
+      <p>Testez <code>POST</code>, <code>PUT</code>, <code>PATCH (exclude_unset=True)</code>, <code>DELETE</code> et provoquez une erreur <code>422 application/problem+json</code>. <a href="/docs" target="_blank">Swagger UI (/docs)</a></p>
+    </header>
+    <div id="banniere-rfc7807" class="alerte-rfc7807"></div>
+    <div class="grille">
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.08rem;color:var(--bleu);">Formulaire CRUD Formation</h2>
+        <div class="champ"><label>Code (ex: ISGP-PYT-301)</label><input id="c-code" value="ISGP-PYT-301"></div>
+        <div class="champ"><label>Intitule (5 a 120 car.)</label><input id="c-intitule" value="Validation Pydantic v2 & Contrats API"></div>
+        <div class="champ"><label>Domaine</label>
+          <select id="c-domaine">
+            <option value="Architecture SI">Architecture SI</option>
+            <option value="Cybersecurite">Cybersecurite</option>
+            <option value="Management Public">Management Public</option>
+            <option value="Data & IA">Data &amp; IA</option>
+          </select>
+        </div>
+        <div class="champ"><label>Duree en jours (1 a 30)</label><input type="number" id="c-duree" value="4"></div>
+        <div class="champ"><label>Tarif DZD (&gt;= 10000)</label><input type="number" id="c-tarif" value="89000"></div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+          <button type="button" onclick="creerFormation()">POST Creer</button>
+          <button type="button" class="btn-sec" onclick="remplacerFormation(1)">PUT #1</button>
+          <button type="button" class="btn-sec" onclick="patcherTarif(1)">PATCH Tarif #1</button>
+          <button type="button" class="btn-del" onclick="provoquerErreur422()">Tester 422 RFC 7807</button>
+        </div>
+      </section>
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.08rem;color:var(--bleu);">Catalogue Actif</h2>
+        <div id="liste"></div>
+        <h3 style="font-size:0.95rem;color:var(--bleu);">Reponse Brute HTTP / JSON</h3>
+        <pre id="journal">Pret.</pre>
+      </section>
+    </div>
+  </div>
+  <script>
+    function afficherBanniere(problem) {
+      const el = document.getElementById("banniere-rfc7807");
+      if (!problem) { el.style.display = "none"; return; }
+      const details = (problem.errors || []).map(e => `${e.champ}: ${e.message}`).join(" | ");
+      el.innerHTML = `<strong>[${problem.status} - ${problem.title}]</strong> ${problem.detail}<br><small>Type: ${problem.type} | Instance: ${problem.instance} | Champs: ${details}</small>`;
+      el.style.display = "block";
+    }
+    function lireCorps() {
+      return {
+        code: document.getElementById("c-code").value,
+        intitule: document.getElementById("c-intitule").value,
+        domaine: document.getElementById("c-domaine").value,
+        duree_jours: Number(document.getElementById("c-duree").value),
+        tarif_dzd: Number(document.getElementById("c-tarif").value)
+      };
+    }
+    async function traiterReponse(rep) {
+      const ct = rep.headers.get("content-type") || "";
+      const data = rep.status === 204 ? { statut: "204 No Content" } : await rep.json();
+      document.getElementById("journal").textContent = `HTTP ${rep.status} (${ct})\n` + JSON.stringify(data, null, 2);
+      if (ct.includes("application/problem+json") || rep.status >= 400) afficherBanniere(data);
+      else afficherBanniere(null);
+      await rafraichir();
+    }
+    async function creerFormation() {
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lireCorps()) });
+      await traiterReponse(rep);
+    }
+    async function remplacerFormation(id) {
+      const rep = await fetch("/api/v1/formations/" + id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lireCorps()) });
+      await traiterReponse(rep);
+    }
+    async function patcherTarif(id) {
+      const tarif = Number(document.getElementById("c-tarif").value);
+      const rep = await fetch("/api/v1/formations/" + id, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tarif_dzd: tarif }) });
+      await traiterReponse(rep);
+    }
+    async function supprimerFormation(id) {
+      const rep = await fetch("/api/v1/formations/" + id, { method: "DELETE" });
+      await traiterReponse(rep);
+    }
+    async function provoquerErreur422() {
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "x", intitule: "ab", domaine: "Architecture SI", duree_jours: 99, tarif_dzd: -5, champ_interdit: true }) });
+      await traiterReponse(rep);
+    }
+    async function rafraichir() {
+      const rep = await fetch("/api/v1/formations?taille=20");
+      const payload = await rep.json();
+      document.getElementById("liste").innerHTML = payload.data.map(f => `
+        <div class="item">
+          <span><strong>#${f.id} ${f.code}</strong> - ${f.intitule} (${f.duree_jours}j, ${f.tarif_dzd} DZD)</span>
+          <button type="button" class="btn-del" onclick="supprimerFormation(${f.id})">DELETE</button>
+        </div>
+      `).join("");
+    }
+    rafraichir();
+  </script>
+</body>
+</html>

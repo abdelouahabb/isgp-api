@@ -102,9 +102,15 @@ class CookieLogoutHandler(tornado.web.RequestHandler):
         self.write({"statut": "Déconnecté — Cookies révoqués via self.clear_cookie()"})
 
 
+class PortailCookiesAccueilHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("portail_d4_07.html")
+
+
 def make_app():
     return tornado.web.Application(
         [
+            (r"/", PortailCookiesAccueilHandler),
             (r"/api/auth/cookie-login", CookieLoginHandler),
             (r"/api/auth/cookie-inspect", CookieInspectHandler),
             (r"/portail-cookies", PortailCookiesHtmlHandler),

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre_page }}</title>
+  <style>
+    :root { --bleu: #0f2b46; --accent: #1d6fa5; --ambre: #b45309; --danger: #b91c1c; --fond: #f4f7fa; --carte: #ffffff; --bord: #d8e1e8; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--fond); color: #1e293b; margin: 0; padding: 1.5rem; }
+    .conteneur { max-width: 1080px; margin: 0 auto; }
+    .entete, .panneau { background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; }
+    .badge { display: inline-block; background: #fef3c7; color: var(--ambre); font-weight: 700; font-size: 0.78rem; padding: 0.22rem 0.65rem; border-radius: 999px; text-transform: uppercase; }
+    h1 { color: var(--bleu); margin: 0.45rem 0; font-size: 1.45rem; }
+    .grille { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1rem; }
+    .champ { display: flex; flex-direction: column; margin-bottom: 0.55rem; }
+    label { font-size: 0.83rem; font-weight: 600; margin-bottom: 0.2rem; }
+    input, select, button { padding: 0.52rem 0.7rem; border: 1px solid var(--bord); border-radius: 6px; font-size: 0.88rem; }
+    button { background: var(--bleu); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    .btn-sec { background: var(--accent); }
+    .btn-warn { background: var(--ambre); }
+    .btn-del { background: var(--danger); }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.85rem; border-radius: 8px; overflow-x: auto; font-size: 0.79rem; max-height: 250px; }
+    @media (max-width: 820px) { .grille { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="conteneur">
+    <header class="entete">
+      <span class="badge">Etape 05 - AuthN/AuthZ, Cookies HttpOnly, Bearer HMAC, RBAC &amp; Rate-Limit 429</span>
+      <h1>{{ titre_page }}</h1>
+      <p>Comptes de demonstration : <code>admin / isgp-admin-2026</code> (role <code>admin</code>) et <code>lecteur / isgp-lecteur-2026</code> (role <code>lecteur</code>). <a href="/docs" target="_blank">Swagger UI (/docs)</a></p>
+      <p id="statut-auth" style="font-size:0.88rem;font-weight:600;color:var(--accent);">Mode courant : Anonyme (aucun jeton ni cookie)</p>
+    </header>
+    <div class="grille">
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.05rem;color:var(--bleu);">1. Authentification (Cookie HttpOnly ou Jeton Bearer)</h2>
+        <div class="champ"><label>Identifiant</label>
+          <select id="u-login" onchange="majMdp()">
+            <option value="admin">admin (role: admin)</option>
+            <option value="lecteur">lecteur (role: lecteur)</option>
+          </select>
+        </div>
+        <div class="champ"><label>Mot de passe</label><input id="u-mdp" value="isgp-admin-2026"></div>
+        <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-bottom:0.9rem;">
+          <button type="button" onclick="connexionCookie()">Session Cookie HttpOnly</button>
+          <button type="button" class="btn-sec" onclick="connexionBearer()">Obtenir Bearer Token</button>
+          <button type="button" class="btn-del" onclick="deconnexion()">Deconnexion</button>
+        </div>
+        <h2 style="font-size:1.05rem;color:var(--bleu);">2. Tests RBAC (401 vs 403 vs 201) &amp; Rate-Limit (429)</h2>
+        <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
+          <button type="button" onclick="consulterProfil()">GET /api/v1/auth/profil</button>
+          <button type="button" class="btn-sec" onclick="creerProtege()">POST Formation (Admin requis)</button>
+          <button type="button" class="btn-warn" onclick="rafaleRateLimit()">Rafale 8 requetes (Tester 429)</button>
+        </div>
+      </section>
+      <section class="panneau">
+        <h2 style="margin-top:0;font-size:1.05rem;color:var(--bleu);">Inspecteur Securite &amp; En-tetes HTTP</h2>
+        <pre id="console-sec">Selectionnez une action pour observer les codes 200, 201, 401 (WWW-Authenticate), 403 (RBAC) ou 429 (Retry-After).</pre>
+      </section>
+    </div>
+  </div>
+  <script>
+    let jetonBearer = null;
+    function majMdp() {
+      const login = document.getElementById("u-login").value;
+      document.getElementById("u-mdp").value = login === "admin" ? "isgp-admin-2026" : "isgp-lecteur-2026";
+    }
+    function entetesAuth(extra = {}) {
+      const h = { ...extra };
+      if (jetonBearer) h["Authorization"] = "Bearer " + jetonBearer;
+      return h;
+    }
+    function journaliser(titre, rep, data) {
+      const www = rep.headers.get("www-authenticate");
+      const retry = rep.headers.get("retry-after");
+      const rl = rep.headers.get("x-ratelimit-remaining");
+      let meta = `${titre} -> HTTP ${rep.status}`;
+      if (www) meta += ` | WWW-Authenticate: ${www}`;
+      if (retry) meta += ` | Retry-After: ${retry}s`;
+      if (rl !== null) meta += ` | X-RateLimit-Remaining: ${rl}`;
+      document.getElementById("console-sec").textContent = meta + "\n\n" + JSON.stringify(data, null, 2);
+    }
+    async function connexionCookie() {
+      jetonBearer = null;
+      const corps = { identifiant: document.getElementById("u-login").value, mot_de_passe: document.getElementById("u-mdp").value };
+      const rep = await fetch("/api/v1/auth/cookie-login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+      const data = await rep.json();
+      if (rep.ok) document.getElementById("statut-auth").textContent = `Cookie HttpOnly actif : ${data.utilisateur} (role=${data.role})`;
+      journaliser("POST /api/v1/auth/cookie-login", rep, data);
+    }
+    async function connexionBearer() {
+      const corps = { identifiant: document.getElementById("u-login").value, mot_de_passe: document.getElementById("u-mdp").value };
+      const rep = await fetch("/api/v1/auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+      const data = await rep.json();
+      if (rep.ok) {
+        jetonBearer = data.access_token;
+        document.getElementById("statut-auth").textContent = `Jeton Bearer HMAC en memoire : ${data.utilisateur} (role=${data.role})`;
+      }
+      journaliser("POST /api/v1/auth/token", rep, data);
+    }
+    async function deconnexion() {
+      jetonBearer = null;
+      const rep = await fetch("/api/v1/auth/cookie-logout", { method: "POST" });
+      document.getElementById("statut-auth").textContent = "Mode courant : Anonyme (deconnecte)";
+      journaliser("POST /api/v1/auth/cookie-logout", rep, await rep.json());
+    }
+    async function consulterProfil() {
+      const rep = await fetch("/api/v1/auth/profil", { headers: entetesAuth() });
+      journaliser("GET /api/v1/auth/profil", rep, await rep.json());
+    }
+    async function creerProtege() {
+      const codeRand = "ISGP-SEC-" + String(Math.floor(100 + Math.random() * 899));
+      const corps = { code: codeRand, intitule: "Audit RBAC & Jetons HMAC", domaine: "Cybersecurite", duree_jours: 3, tarif_dzd: 86000 };
+      const rep = await fetch("/api/v1/formations", { method: "POST", headers: entetesAuth({ "Content-Type": "application/json" }), body: JSON.stringify(corps) });
+      journaliser("POST /api/v1/formations", rep, await rep.json());
+    }
+    async function rafaleRateLimit() {
+      const statuts = [];
+      let dernierRep = null, dernierJson = null;
+      for (let i = 1; i <= 8; i++) {
+        dernierRep = await fetch("/api/v1/formations?taille=2");
+        dernierJson = await dernierRep.json();
+        statuts.push(`#${i}:${dernierRep.status}`);
+      }
+      journaliser("Rafale (" + statuts.join(", ") + ")", dernierRep, dernierJson);
+    }
+  </script>
+</body>
+</html>
