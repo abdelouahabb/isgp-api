@@ -21,7 +21,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=46">
+  <link rel="stylesheet" href="/static/styles.css?v=47">
   <script src="/static/mermaid.min.js"></script>
   <style>
     .landing-topbar {
@@ -257,6 +257,7 @@
         <em>(1) Architecture API, Contrats, Nord-Sud vs Est-Ouest, OAuth 2.0 / OIDC / RFC 8693 &amp; Swagger vs OpenAPI 3.1</em>,
         <em>(2) Persistance SQLite3, Curseurs &amp; APSW</em> et
         <em>(3) Temps Réel SSE/WebSockets, Streaming Multipart, Tâches 202 &amp; Cache ETag 304/412</em>,
+        complétés par <strong>2 référentiels transversaux interactifs (Synthèse &amp; Bonnes Pratiques d'Endpoints + Sécurité des APIs &amp; OWASP Top 10)</strong>,
         ainsi qu'un <strong>bac à sable HTTP/curl/Jinja2</strong>, un <strong>simulateur de cluster Nginx à 4 nœuds</strong>, <strong>69 fiches de référentiel</strong> et <strong>62 questions d'évaluation</strong>.
       </p>
     </section>
@@ -446,10 +447,16 @@
               <td><code>WebSocketHandler</code> C10K &amp; <code>self.flush()</code><br><code>@stream_request_body</code> + <code>spawn_callback</code></td>
             </tr>
             <tr>
-              <td><strong>Contrats OpenAPI 3.1, Swagger UI &amp; OAuth 2.0</strong></td>
+              <td><strong>9. Contrats OpenAPI 3.1, Swagger UI &amp; OAuth 2.0</strong></td>
               <td>Explicite via <code>APIFlask</code> / <code>flask-smorest</code><br>Décorateur JWT / <code>Authlib</code> WSGI</td>
               <td>Génération <em>Code-First</em> native Pydantic v2<br><code>Security(OAuth2AuthorizationCodeBearer)</code></td>
               <td>Approche <em>Contract-First</em> <code>openapi.yaml</code><br><code>AsyncHTTPClient</code> (JWKS &amp; RFC 8693 non-bloquant)</td>
+            </tr>
+            <tr>
+              <td><strong>10. Bonnes Pratiques &amp; Sécurité OWASP 2023</strong></td>
+              <td>Linter d'Endpoints + RFC 7807 Werkzeug<br>Décorateurs Anti-BOLA, <code>MAX_CONTENT_LENGTH</code> &amp; HMAC</td>
+              <td>Projection stricte <code>response_model</code> &amp; <code>extra="forbid"</code><br><code>Depends()</code> RBAC/BOLA, <code>Query(le=100)</code> &amp; CORS ASGI</td>
+              <td><code>BaseApiHandler.write_problem()</code> &amp; <code>ETag</code><br><code>prepare()</code> Zero-Trust, <code>max_body_size</code> &amp; <code>run_in_executor</code></td>
             </tr>
           </tbody>
         </table>

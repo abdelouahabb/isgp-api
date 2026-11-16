@@ -54,12 +54,19 @@ def rewrite_html_for_static_depth(html: str, rel_root: str) -> str:
         html,
     )
 
-    # Injection du drapeau GitHub Pages et du shim avant static/app.js (ou avant </head> si pas d'app.js)
+    # Injection du drapeau GitHub Pages et du shim avant best_practices_tab.js / app.js (ou avant </head> si absent)
     shim_tag = (
         f'<script>window.ISGP_GH_PAGES = true; window.ISGP_REL_ROOT = "{rel_root}";</script>\n'
-        f'  <script src="{prefix}/static/gh-pages-shim.js?v=46"></script>'
+        f'  <script src="{prefix}/static/gh-pages-shim.js?v=47"></script>'
     )
-    if "/static/app.js" in html:
+    if "/static/best_practices_tab.js" in html:
+        html = re.sub(
+            r'(<script src="[^"]*static/best_practices_tab\.js[^"]*"></script>)',
+            shim_tag + "\n  \\1",
+            html,
+            count=1,
+        )
+    elif "/static/app.js" in html:
         html = re.sub(
             r'(<script src="[^"]*static/app\.js[^"]*"></script>)',
             shim_tag + "\n  \\1",

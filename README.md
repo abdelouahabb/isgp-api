@@ -33,10 +33,12 @@ Chaque script s'exécute aussi bien en mode serveur interactif qu'en auto-test a
   - **0.3 — Contrats d'API, Documentation Vivante & Histoire de Swagger face à OpenAPI** : Contrat formel exécutable vs documentation humaine (*Documentation Drift*), *Contract-First* vs *Code-First*, Loi de Postel (`RFC 761`), cycle de dépréciation `RFC 8594` (`Deprecation` / `Sunset`), et histoire exacte de Tony Tam (`2010`) jusqu'à l'**OpenAPI Initiative (`2015`, Linux Foundation)**.
   - **0.4 — Géopolitique du Réseau : Flux Nord-Sud vs Est-Ouest, Zero-Trust & Délégation OAuth 2.0** : Topologie verticale Nord-Sud vs éventail latéral Est-Ouest (*Fan-Out*), fin du *Castle-and-Moats* vers **Zero-Trust (`NIST SP 800-207`)**, **OAuth 2.0 (`RFC 6749` + `PKCE RFC 7636`)** vs **OpenID Connect (`ID Token` vs `Access Token`)**, faille du *Confused Deputy* (Norm Hardy, 1988) et **mTLS + Token Exchange (`RFC 8693` claim `act`)**.
 - **Monographie & Code Source Progressif (Jours 0 à 5 — 30 Chapitres exécutables exposant API + Site Web HTML)** : Fondations Python, pile TCP/TLS/URI/HTTP, sérialisation JSON, templates Web & formulaires, CRUD SQLite ACID, sécurité multicouche (`X-API-Key`, `Bearer`, cookies `HttpOnly`, RBAC, `429`, CORS, Webhooks signés), résilience sortante, versioning `v1`/`v2`, pagination par curseur B-Tree `O(1)` et OpenAPI/Swagger UI.
-- **Trois Manuels Opérationnels Transversaux + Laboratoires Live** :
+- **Cinq Référentiels & Manuels Opérationnels Transversaux + Laboratoires Live** :
   1. **Architecture API, Nord-Sud / Est-Ouest, OAuth 2.0 / RFC 8693 & Swagger** (9 chapitres + 2 simulateurs).
-  2. **Persistance SQLite3 WAL, Curseurs PEP 249 & Prévention SQLi** (9 chapitres + serveur SQLite live).
-  3. **Temps Réel (SSE / WebSockets), Upload Multipart Magic Bytes, Jobs `202` & Cache `ETag` (`304` / `412`)** (9 chapitres + 4 laboratoires).
+  2. **Synthèse Générale & Bonnes Pratiques d'Endpoints** (Matrice complète des verbes/statuts HTTP, **20 patrons comparatifs Anti-Pattern vs Architecture Cible** par framework et **Auditeur / Linter d'Endpoint temps réel sur 100 points**).
+  3. **Sécurité des APIs & Défense en Profondeur** (Pipeline Zero-Trust à **7 boucliers**, référentiel complet **OWASP API Security Top 10 — Édition 2023**, règles cryptographiques PBKDF2/HMAC, **Simulateur d'intrusion Red/Blue Team** et **Checklist d'homologation pré-production en 24 contrôles**).
+  4. **Persistance SQLite3 WAL, Curseurs PEP 249 & Prévention SQLi** (9 chapitres + serveur SQLite live).
+  5. **Temps Réel (SSE / WebSockets), Upload Multipart Magic Bytes, Jobs `202` & Cache `ETag` (`304` / `412`)** (9 chapitres + 4 laboratoires).
 - **Cluster Nginx 4 Nœuds, Référentiel & Évaluation** : Simulateur Load Balancer (`round_robin`, `least_conn`, `ip_hash`, `$request_body_file`, `X-Accel-Redirect`), **69 fiches de référentiel** en prose éditoriale et **62 questions corrigées** par framework.
 
 ---
@@ -71,7 +73,7 @@ isgp-api/
 ├── app.py                   # Serveur unifié, Sandbox HTTP, Atelier Python Live, ZIP Zero-to-Hero & Simulateurs
 ├── build_gh_pages.py        # Compilateur statique autonome vers dist/ pour GitHub Pages
 ├── requirements.txt         # Dépendances Python (Flask, FastAPI, Uvicorn, Tornado, HTTPX)
-├── static/                  # Typographie éditoriale + impression PDF (styles.css), moteur JS (app.js), shim GitHub Pages, PWA (sw.js)
+├── static/                  # Feuilles de style (styles.css, new_tabs.css, slides.css), moteurs JS (app.js, best_practices_tab.js, security_tab.js), shim GitHub Pages & PWA (sw.js)
 ├── templates/               # Portail comparatif de la trilogie (landing.html) et vues partagées
 ├── flask-version/           # Volume I : Chap. 0 + Jours 0..5 (34 chap.), zero_to_hero/ (6 étapes), 69 fiches, 62 quiz
 ├── fastapi-version/         # Volume II : Chap. 0 + Jours 0..5 (34 chap.), zero_to_hero/ (6 étapes), 69 fiches, 62 quiz

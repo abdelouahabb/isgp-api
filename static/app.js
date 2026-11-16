@@ -9,6 +9,7 @@ let COURSE_DATA = {
 };
 
 let STATE = {
+  framework: window.ACTIVE_FRAMEWORK || "flask",
   activeTab: "course",
   activeDay: -1,
   activeLessonId: "c0-l1",
@@ -296,6 +297,12 @@ function switchTab(tabName) {
   }
   if (tabName === "architecture") {
     loadArchitectureTab();
+  }
+  if (tabName === "bestpractices" && typeof window.loadBestPracticesTab === "function") {
+    window.loadBestPracticesTab();
+  }
+  if (tabName === "security" && typeof window.loadSecurityTab === "function") {
+    window.loadSecurityTab();
   }
   const activeSec = document.getElementById(`tab-${tabName}`);
   if (activeSec) {

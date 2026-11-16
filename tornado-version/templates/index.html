@@ -21,7 +21,8 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=46" />
+  <link rel="stylesheet" href="/static/styles.css?v=47" />
+  <link rel="stylesheet" href="/static/new_tabs.css?v=47" />
   <script src="/static/mermaid.min.js"></script>
 </head>
 <body>
@@ -42,6 +43,12 @@
       </button>
       <button class="tab-btn" data-tab="architecture" onclick="switchTab('architecture')">
         Architecture, OAuth2 &amp; Swagger
+      </button>
+      <button class="tab-btn" data-tab="bestpractices" onclick="switchTab('bestpractices')">
+        Synthèse &amp; Bonnes Pratiques
+      </button>
+      <button class="tab-btn" data-tab="security" onclick="switchTab('security')">
+        Sécurité des APIs
       </button>
       <button class="tab-btn" data-tab="sandbox" onclick="switchTab('sandbox')">
         Client HTTP &amp; Inspecteur
@@ -4096,11 +4103,23 @@ class FormationCatalogueHandler(tornado.web.RequestHandler):
 
       <div id="quiz-container" class="quiz-container"></div>
     </section>
+
+    <!-- ONGLET : SYNTHÈSE GÉNÉRALE & BONNES PRATIQUES D'ENDPOINTS -->
+    <section id="tab-bestpractices" class="tab-section">
+      <div id="bestpractices-tab-root"></div>
+    </section>
+
+    <!-- ONGLET : SÉCURITÉ DES APIS & DÉFENSE EN PROFONDEUR -->
+    <section id="tab-security" class="tab-section">
+      <div id="security-tab-root"></div>
+    </section>
   </main>
 
   <!-- Notification système -->
   <div id="toast-notification" class="toast hidden"></div>
 
-  <script src="/static/app.js?v=46"></script>
+  <script src="/static/best_practices_tab.js?v=47"></script>
+  <script src="/static/security_tab.js?v=47"></script>
+  <script src="/static/app.js?v=47"></script>
 </body>
 </html>

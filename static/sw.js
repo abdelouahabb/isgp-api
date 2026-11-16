@@ -1,4 +1,4 @@
-const CACHE_NAME = "isgp-api-trilogy-v46";
+const CACHE_NAME = "isgp-api-trilogy-v47";
 const IS_GH_PAGES_SW = false;
 
 const CORE_RELATIVE_ASSETS = [
@@ -6,7 +6,10 @@ const CORE_RELATIVE_ASSETS = [
   "./manifest.json",
   "./static/icon.svg",
   "./static/styles.css",
+  "./static/new_tabs.css",
   "./static/slides.css",
+  "./static/best_practices_tab.js",
+  "./static/security_tab.js",
   "./static/app.js",
   "./static/slides.js",
   "./static/mermaid.min.js"
